@@ -19,6 +19,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import org.jetbrains.annotations.Nullable;
@@ -162,6 +163,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private final DependencyTreeAutoLayout.Config autoLayoutConfig = new DependencyTreeAutoLayout.Config();
+    @Getter
     private boolean autoLayoutEnabled;
     private boolean autoLayoutAutoFit = true;
     private @Nullable String highlightedGroupId;
@@ -196,10 +198,6 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             refreshResearchProgression();
         }
         return this;
-    }
-
-    public boolean isAutoLayoutEnabled() {
-        return autoLayoutEnabled;
     }
 
     /**
