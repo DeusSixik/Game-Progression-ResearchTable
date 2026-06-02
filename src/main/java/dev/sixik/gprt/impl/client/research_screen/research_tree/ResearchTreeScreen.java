@@ -1,5 +1,8 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Transform2D;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
@@ -11,13 +14,17 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.AdvancedGraphView;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.joml.Vector2f;
 
@@ -36,6 +43,15 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private static final float GROUP_NODE_HIGHLIGHT_PADDING = 4f;
     private static final float GROUP_NODE_HIGHLIGHT_WIDTH = 2f;
     private static final float GROUP_NODE_HIGHLIGHT_GLOW_WIDTH = 1f;
+    private static final long GROUP_HIGHLIGHT_BLINK_DURATION_MS = 4_000L;
+    private static final long REVEAL_CAMERA_DURATION_MS = 480L;
+    private static final long REVEAL_NODE_DELAY_MS = 180L;
+    private static final long REVEAL_NODE_DURATION_MS = 720L;
+    private static final long REVEAL_LINK_DELAY_MS = 430L;
+    private static final long REVEAL_LINK_DURATION_MS = 460L;
+    private static final long REVEAL_STEP_DURATION_MS = 1_080L;
+    private static final float REVEAL_NODE_START_SCALE = 3.0f;
+    private static final float REVEAL_NODE_START_Y = -52f;
 
     protected enum ResearchLinkRenderState {
         LOCKED(0),
@@ -57,7 +73,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private boolean autoLayoutEnabled;
     private boolean autoLayoutAutoFit = true;
     private @Nullable String highlightedGroupId;
+    private long highlightedGroupBlinkStartedAtMs;
     private int autoLayoutSuspendDepth;
+    private final IntArrayList queuedRevealNodeIds = new IntArrayList();
+    private final IntOpenHashSet queuedRevealNodeIdSet = new IntOpenHashSet();
+    private @Nullable RevealAnimation activeRevealAnimation;
 
     public ResearchTreeScreen() {
         this(new ResearchNodeManager(), new ResearchNodeLinkManager());
@@ -115,27 +135,37 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     public void applyAutoLayout() {
+        applyAutoLayout(null, false);
+    }
+
+    private void applyAutoLayout(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
         ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForLayout();
         ObjectArrayList<ResearchLink> visibleLinks = collectVisibleLinksForLayout();
 
         DependencyTreeAutoLayout.apply(visibleNodes, visibleLinks, autoLayoutConfig);
         syncAllNodeWidgetBounds();
+        prepareRevealAnimationState(visibleBefore, animateNewNodes);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
         onResearchProgressionUpdated();
 
-        if (autoLayoutAutoFit && getContentWidth() > 0 && getContentHeight() > 0) {
+        if (autoLayoutAutoFit && !isRevealSequenceActive() && getContentWidth() > 0 && getContentHeight() > 0) {
             fitToChildren(80f, 0.35f);
         }
     }
 
     public ResearchTreeScreen refreshResearchProgression() {
+        return refreshResearchProgression(null, false);
+    }
+
+    private ResearchTreeScreen refreshResearchProgression(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
         syncAllNodeWidgetBounds();
+        prepareRevealAnimationState(visibleBefore, animateNewNodes);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
         onResearchProgressionUpdated();
 
-        if (autoLayoutAutoFit && getContentWidth() > 0 && getContentHeight() > 0) {
+        if (autoLayoutAutoFit && !isRevealSequenceActive() && getContentWidth() > 0 && getContentHeight() > 0) {
             fitToChildren(80f, 0.35f);
         }
         return this;
@@ -147,8 +177,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return this;
         }
 
+        IntOpenHashSet visibleBefore = studied ? collectVisibleNodeIds() : null;
         node.setStudied(studied);
-        requestProgressionRefresh();
+        requestProgressionRefresh(visibleBefore, studied);
         return this;
     }
 
@@ -214,8 +245,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return getVisibleGroupBounds(groupId) != null;
     }
 
+    public boolean isRevealSequenceActive() {
+        return activeRevealAnimation != null || !queuedRevealNodeIds.isEmpty();
+    }
+
     public ResearchTreeScreen setHighlightedGroup(@Nullable String groupId) {
         highlightedGroupId = groupId;
+        highlightedGroupBlinkStartedAtMs = groupId == null ? 0L : System.currentTimeMillis();
         return this;
     }
 
@@ -225,6 +261,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     public ResearchTreeScreen clearHighlightedGroup() {
         highlightedGroupId = null;
+        highlightedGroupBlinkStartedAtMs = 0L;
         return this;
     }
 
@@ -320,7 +357,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     @Override
     protected @Nullable LinkRenderData buildLinkRenderData(ResearchLink link, ResearchNode from, ResearchNode to) {
-        if (!isNodeVisible(from) || !isNodeVisible(to)) {
+        if (!isNodeVisible(from) || !isNodeVisible(to) || isLinkHandledByRevealAnimation(link, to)) {
             return null;
         }
         return super.buildLinkRenderData(link, from, to);
@@ -328,8 +365,40 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
+        updateRevealAnimationState();
         super.drawBackgroundAdditional(guiContext);
+        drawActiveRevealLinks(guiContext);
         drawHighlightedGroupBounds(guiContext);
+    }
+
+    @Override
+    public void screenTick() {
+        updateRevealAnimationState();
+        super.screenTick();
+    }
+
+    @Override
+    protected void onMouseDown(UIEvent event) {
+        if (activeRevealAnimation != null) {
+            return;
+        }
+        super.onMouseDown(event);
+    }
+
+    @Override
+    protected void onDragSourceUpdate(UIEvent event) {
+        if (activeRevealAnimation != null) {
+            return;
+        }
+        super.onDragSourceUpdate(event);
+    }
+
+    @Override
+    protected void onMouseWheel(UIEvent event) {
+        if (activeRevealAnimation != null) {
+            return;
+        }
+        super.onMouseWheel(event);
     }
 
     private void requestAutoLayout() {
@@ -339,20 +408,366 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private void requestProgressionRefresh() {
+        requestProgressionRefresh(null, false);
+    }
+
+    private void requestProgressionRefresh(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
         if (isAutoLayoutSuspended()) {
             return;
         }
 
         if (autoLayoutEnabled) {
-            applyAutoLayout();
+            applyAutoLayout(visibleBefore, animateNewNodes);
         } else {
-            refreshResearchProgression();
+            refreshResearchProgression(visibleBefore, animateNewNodes);
         }
     }
 
     private void syncResearchNodeVisibility() {
         for (ResearchNode node : nodes) {
-            setNodeWidgetAttached(node.getId(), isNodeVisible(node));
+            setNodeWidgetAttached(node.getId(), isNodeVisible(node) && !isNodeWaitingForReveal(node.getId()));
+        }
+    }
+
+    private void prepareRevealAnimationState(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
+        if (!animateNewNodes) {
+            clearRevealAnimations();
+            return;
+        }
+
+        enqueueNewlyVisibleNodes(visibleBefore);
+        if (activeRevealAnimation == null) {
+            startNextRevealAnimation();
+        }
+    }
+
+    private void enqueueNewlyVisibleNodes(@Nullable IntOpenHashSet visibleBefore) {
+        if (visibleBefore == null) {
+            return;
+        }
+
+        ObjectArrayList<ResearchNode> newlyVisibleNodes = new ObjectArrayList<>();
+        for (ResearchNode node : nodes) {
+            if (!node.isStudied() && isNodeVisible(node) && !visibleBefore.contains(node.getId())) {
+                newlyVisibleNodes.add(node);
+            }
+        }
+
+        newlyVisibleNodes.sort(Comparator
+                .comparingDouble(ResearchNode::getX)
+                .thenComparingDouble(ResearchNode::getY)
+                .thenComparingInt(ResearchNode::getId));
+
+        Set<Integer> alreadyQueued = new HashSet<>();
+        for (int i = 0, size = queuedRevealNodeIds.size(); i < size; i++) {
+            alreadyQueued.add(queuedRevealNodeIds.getInt(i));
+        }
+        if (activeRevealAnimation != null) {
+            alreadyQueued.add(activeRevealAnimation.nodeId());
+        }
+
+        for (int i = 0, size = newlyVisibleNodes.size(); i < size; i++) {
+            ResearchNode node = newlyVisibleNodes.get(i);
+            if (alreadyQueued.add(node.getId())) {
+                queuedRevealNodeIds.add(node.getId());
+                queuedRevealNodeIdSet.add(node.getId());
+            }
+        }
+    }
+
+    private void clearRevealAnimations() {
+        if (activeRevealAnimation != null) {
+            resetNodeRevealTransform(activeRevealAnimation.nodeId());
+        }
+        activeRevealAnimation = null;
+        queuedRevealNodeIds.clear();
+        queuedRevealNodeIdSet.clear();
+    }
+
+    private void startNextRevealAnimation() {
+        if (queuedRevealNodeIds.isEmpty()) {
+            activeRevealAnimation = null;
+            return;
+        }
+
+        int nodeId = queuedRevealNodeIds.removeInt(0);
+        queuedRevealNodeIdSet.remove(nodeId);
+        ResearchNode node = getNodeById(nodeId);
+        if (node == null || !isNodeVisible(node)) {
+            startNextRevealAnimation();
+            return;
+        }
+
+        float targetOffsetX = computeCenteredOffsetX(node.centerX());
+        float targetOffsetY = computeCenteredOffsetY(node.centerY());
+        activeRevealAnimation = new RevealAnimation(
+                nodeId,
+                System.currentTimeMillis(),
+                getOffsetX(),
+                getOffsetY(),
+                targetOffsetX,
+                targetOffsetY
+        );
+
+        applyNodeRevealTransform(nodeId, 0f);
+        syncResearchNodeVisibility();
+        invalidateLinkGeometry();
+        onResearchProgressionUpdated();
+    }
+
+    private void updateRevealAnimationState() {
+        if (activeRevealAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        if (node == null || !isNodeVisible(node)) {
+            clearRevealAnimations();
+            syncResearchNodeVisibility();
+            invalidateLinkGeometry();
+            onResearchProgressionUpdated();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        float elapsed = now - activeRevealAnimation.startedAtMs();
+
+        float cameraProgress = clamp01(elapsed / (float) REVEAL_CAMERA_DURATION_MS);
+        float cameraEase = easeInOutCubic(cameraProgress);
+        setOffsetX(lerp(activeRevealAnimation.cameraStartOffsetX(), activeRevealAnimation.cameraTargetOffsetX(), cameraEase));
+        setOffsetY(lerp(activeRevealAnimation.cameraStartOffsetY(), activeRevealAnimation.cameraTargetOffsetY(), cameraEase));
+        syncCameraTransform();
+
+        float nodeProgress = clamp01((elapsed - REVEAL_NODE_DELAY_MS) / (float) REVEAL_NODE_DURATION_MS);
+        applyNodeRevealTransform(node.getId(), nodeProgress);
+
+        if (elapsed >= REVEAL_STEP_DURATION_MS) {
+            finishActiveRevealAnimation();
+        }
+    }
+
+    private void finishActiveRevealAnimation() {
+        if (activeRevealAnimation == null) {
+            return;
+        }
+
+        resetNodeRevealTransform(activeRevealAnimation.nodeId());
+        activeRevealAnimation = null;
+        syncResearchNodeVisibility();
+        invalidateLinkGeometry();
+        startNextRevealAnimation();
+        onResearchProgressionUpdated();
+    }
+
+    private void applyNodeRevealTransform(int nodeId, float progress) {
+        UIElement widget = getNodeWidget(nodeId);
+        if (widget == null) {
+            return;
+        }
+
+        float easedScale = easeOutBack(progress);
+        float easedDrop = easeOutBounce(progress);
+        float scale = lerp(REVEAL_NODE_START_SCALE, 1.0f, easedScale);
+        float translateY = lerp(REVEAL_NODE_START_Y, 0f, easedDrop);
+
+        widget.style(style -> style.transform2D(new Transform2D()
+                .pivot(0.5f, 0.5f)
+                .translate(0f, translateY)
+                .scale(scale)));
+    }
+
+    private void resetNodeRevealTransform(int nodeId) {
+        UIElement widget = getNodeWidget(nodeId);
+        if (widget == null) {
+            return;
+        }
+
+        widget.style(style -> style.transform2D(Transform2D.identity()));
+    }
+
+    private void drawActiveRevealLinks(GUIContext guiContext) {
+        if (activeRevealAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        if (node == null || !isNodeVisible(node)) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        float lineProgress = clamp01((now - activeRevealAnimation.startedAtMs() - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
+        if (lineProgress <= 0f) {
+            return;
+        }
+
+        EnhancedPoseStack pose = guiContext.pose;
+        pose.pushPose();
+        pose.translate(getContentX(), getContentY(), 0f);
+        pose.scale(getScale(), getScale(), 1f);
+        pose.translate(-getOffsetX(), -getOffsetY(), 0f);
+
+        ResearchLink[] parentLinks = getLinksToNode(node.getId());
+        for (ResearchLink parentLink : parentLinks) {
+            ResearchNode parent = getNodeById(parentLink.getNodeFrom());
+            if (parent == null || !isNodeVisible(parent)) {
+                continue;
+            }
+            drawRevealLinkProgress(guiContext, parentLink, parent, node, lineProgress);
+        }
+
+        pose.popPose();
+    }
+
+    private void drawRevealLinkProgress(GUIContext guiContext,
+                                        ResearchLink link,
+                                        ResearchNode from,
+                                        ResearchNode to,
+                                        float progress
+    ) {
+        float startX = from.getX() + from.getWidth();
+        float startY = from.centerY();
+        float endX = to.getX();
+        float endY = to.centerY();
+
+        int startColor = getLinkStartColor(link);
+        int endColor = getLinkEndColor(link);
+        float width = getLinkWidth(link);
+        float halfWidth = width * 0.5f;
+
+        if (Math.abs(startY - endY) < 1.0f) {
+            float currentEndX = lerp(startX, endX, progress);
+            DrawerHelper.drawLines(
+                    guiContext.graphics,
+                    List.of(new Vector2f(startX, startY), new Vector2f(currentEndX, startY)),
+                    startColor,
+                    interpolateColor(startColor, endColor, progress),
+                    width
+            );
+            return;
+        }
+
+        float middleX = startX + (endX - startX) * 0.5f;
+        float segment1EndX = middleX + halfWidth;
+        float segment2StartX = middleX;
+        float segment2EndX = middleX;
+        float segment3StartX = middleX - halfWidth;
+
+        float segment1Length = Math.abs(segment1EndX - startX);
+        float segment2Length = Math.abs(endY - startY);
+        float segment3Length = Math.abs(endX - segment3StartX);
+        float totalLength = Math.max(0.0001f, segment1Length + segment2Length + segment3Length);
+        float remaining = totalLength * progress;
+
+        if (remaining > 0f) {
+            float consumed = Math.min(segment1Length, remaining);
+            float segmentProgress = segment1Length <= 0.0001f ? 1f : consumed / segment1Length;
+            float currentX = lerp(startX, segment1EndX, segmentProgress);
+            DrawerHelper.drawLines(
+                    guiContext.graphics,
+                    List.of(new Vector2f(startX, startY), new Vector2f(currentX, startY)),
+                    startColor,
+                    startColor,
+                    width
+            );
+            remaining -= consumed;
+        }
+
+        if (remaining > 0f) {
+            float consumed = Math.min(segment2Length, remaining);
+            float segmentProgress = segment2Length <= 0.0001f ? 1f : consumed / segment2Length;
+            float currentY = lerp(startY, endY, segmentProgress);
+            DrawerHelper.drawLines(
+                    guiContext.graphics,
+                    List.of(new Vector2f(segment2StartX, startY), new Vector2f(segment2EndX, currentY)),
+                    startColor,
+                    interpolateColor(startColor, endColor, segmentProgress),
+                    width
+            );
+            remaining -= consumed;
+        }
+
+        if (remaining > 0f) {
+            float consumed = Math.min(segment3Length, remaining);
+            float segmentProgress = segment3Length <= 0.0001f ? 1f : consumed / segment3Length;
+            float currentX = lerp(segment3StartX, endX, segmentProgress);
+            DrawerHelper.drawLines(
+                    guiContext.graphics,
+                    List.of(new Vector2f(segment3StartX, endY), new Vector2f(currentX, endY)),
+                    endColor,
+                    endColor,
+                    width
+            );
+        }
+    }
+
+    private boolean isNodeWaitingForReveal(int nodeId) {
+        return queuedRevealNodeIdSet.contains(nodeId);
+    }
+
+    private boolean isLinkHandledByRevealAnimation(ResearchLink link, ResearchNode to) {
+        if (queuedRevealNodeIdSet.contains(to.getId())) {
+            return true;
+        }
+        return activeRevealAnimation != null && activeRevealAnimation.nodeId() == to.getId();
+    }
+
+    private IntOpenHashSet collectVisibleNodeIds() {
+        IntOpenHashSet visibleNodeIds = new IntOpenHashSet(nodes.size());
+        for (ResearchNode node : nodes) {
+            if (isNodeVisible(node)) {
+                visibleNodeIds.add(node.getId());
+            }
+        }
+        return visibleNodeIds;
+    }
+
+    private float computeCenteredOffsetX(float worldX) {
+        float halfVisibleWidth = getContentWidth() / (2f * getScale());
+        return worldX - halfVisibleWidth;
+    }
+
+    private float computeCenteredOffsetY(float worldY) {
+        float halfVisibleHeight = getContentHeight() / (2f * getScale());
+        return worldY - halfVisibleHeight;
+    }
+
+    private float clamp01(float value) {
+        return Math.max(0f, Math.min(1f, value));
+    }
+
+    private float lerp(float start, float end, float progress) {
+        return start + (end - start) * progress;
+    }
+
+    private float easeInOutCubic(float t) {
+        return t < 0.5f
+                ? 4f * t * t * t
+                : 1f - (float) Math.pow(-2f * t + 2f, 3f) * 0.5f;
+    }
+
+    private float easeOutBack(float t) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1f;
+        float p = t - 1f;
+        return 1f + c3 * p * p * p + c1 * p * p;
+    }
+
+    private float easeOutBounce(float t) {
+        float n1 = 7.5625f;
+        float d1 = 2.75f;
+
+        if (t < 1f / d1) {
+            return n1 * t * t;
+        } else if (t < 2f / d1) {
+            float p = t - 1.5f / d1;
+            return n1 * p * p + 0.75f;
+        } else if (t < 2.5f / d1) {
+            float p = t - 2.25f / d1;
+            return n1 * p * p + 0.9375f;
+        } else {
+            float p = t - 2.625f / d1;
+            return n1 * p * p + 0.984375f;
         }
     }
 
@@ -361,12 +776,18 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
+        long now = System.currentTimeMillis();
+        if (highlightedGroupBlinkStartedAtMs <= 0L
+                || now - highlightedGroupBlinkStartedAtMs >= GROUP_HIGHLIGHT_BLINK_DURATION_MS) {
+            return;
+        }
+
         GroupBounds bounds = getVisibleGroupBounds(highlightedGroupId);
         if (bounds == null) {
             return;
         }
 
-        float pulse = 0.45f + 0.55f * (0.5f + 0.5f * (float) Math.sin(System.currentTimeMillis() * 0.012d));
+        float pulse = 0.45f + 0.55f * (0.5f + 0.5f * (float) Math.sin(now * 0.012d));
         int baseColor = mixColors(bounds.group().getPrimaryColor(), bounds.group().getSecondaryColor(), 0.45f);
         int highlightColor = withAlpha(baseColor, Math.max(90, Math.round(255f * pulse)));
         int glowColor = withAlpha(baseColor, Math.max(42, Math.round(120f * pulse)));
@@ -507,6 +928,10 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     protected int withAlpha(int color, int alpha) {
         int clampedAlpha = Math.max(0, Math.min(255, alpha));
         return (clampedAlpha << 24) | (color & 0x00FFFFFF);
+    }
+
+    protected int interpolateColor(int startColor, int endColor, float progress) {
+        return mixColors(startColor, endColor, clamp01(progress));
     }
 
     private ObjectArrayList<ResearchNode> collectVisibleNodesForLayout() {
@@ -676,5 +1101,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                     maxY + DEFAULT_GROUP_BOUNDS_PADDING_Y
             );
         }
+    }
+
+    private record RevealAnimation(int nodeId,
+                                   long startedAtMs,
+                                   float cameraStartOffsetX,
+                                   float cameraStartOffsetY,
+                                   float cameraTargetOffsetX,
+                                   float cameraTargetOffsetY) {
     }
 }
