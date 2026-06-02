@@ -12,8 +12,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Declarative builder for assembling a research tree without manually creating
- * every node id and link.
+ * Declarative builder for assembling a {@link ResearchTreeScreen} without manually creating every
+ * runtime node id and dependency link.
+ * <p>
+ * The builder stores groups and logical node definitions first, then materializes them into a screen
+ * in one batched pass. This keeps research tree declarations compact and preserves insertion order for
+ * predictable layout/group behavior later.
+ * </p>
+ *
+ * <p><b>Quick navigation:</b></p>
+ * <ul>
+ *     <li>{@link #create()} - create a new builder;</li>
+ *     <li>{@link #group(String, String, int)} / {@link #group(String, String, int, int)} - register groups;</li>
+ *     <li>{@link #node(String)} - start configuring one logical node;</li>
+ *     <li>{@link #applyTo(ResearchTreeScreen)} - materialize nodes and links into the target screen;</li>
+ *     <li>{@link BuildResult} - map builder keys back to runtime ids and node instances;</li>
+ *     <li>{@link NodeBuilder} - fluent API for one node definition.</li>
+ * </ul>
  */
 public final class ResearchTreeBuild {
 
@@ -24,6 +39,9 @@ public final class ResearchTreeBuild {
         groupsById.put(ResearchGroup.DEFAULT.getId(), ResearchGroup.DEFAULT);
     }
 
+    /**
+     * Creates a fresh builder with the default fallback group already registered.
+     */
     public static ResearchTreeBuild create() {
         return new ResearchTreeBuild();
     }
@@ -43,6 +61,13 @@ public final class ResearchTreeBuild {
         return new NodeBuilder(definition);
     }
 
+    /**
+     * Materializes the declarative tree into the target screen.
+     * <p>
+     * Nodes are created first, then links are resolved in a second pass. The whole operation runs
+     * inside an auto-layout batch to avoid repeated rebuilds while the tree is being populated.
+     * </p>
+     */
     public BuildResult applyTo(ResearchTreeScreen screen) {
         int nextNodeId = findNextNodeId(screen);
         Object2IntOpenHashMap<String> nodeIdsByKey = new Object2IntOpenHashMap<>(nodeDefinitionsByKey.size());
@@ -102,6 +127,9 @@ public final class ResearchTreeBuild {
         return maxNodeId + 1;
     }
 
+    /**
+     * Result of {@link #applyTo(ResearchTreeScreen)} that maps string keys back to runtime ids/nodes.
+     */
     public static final class BuildResult {
         private final Object2IntOpenHashMap<String> nodeIdsByKey;
         private final Int2ObjectOpenHashMap<ResearchNode> nodesById;
@@ -111,6 +139,9 @@ public final class ResearchTreeBuild {
             this.nodesById = nodesById;
         }
 
+        /**
+         * Resolves the generated runtime node id by builder key.
+         */
         public int nodeId(String key) {
             int nodeId = nodeIdsByKey.getInt(key);
             if (nodeId < 0) {
@@ -150,6 +181,9 @@ public final class ResearchTreeBuild {
             this.definition = definition;
         }
 
+        /**
+         * Fluent configuration object for one logical research node definition.
+         */
         public NodeBuilder title(String title) {
             definition.title = title;
             return this;

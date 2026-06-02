@@ -17,11 +17,36 @@ import java.util.List;
  * <p>
  * The utility is designed for DAG/tree-like graphs, but it also keeps a safe
  * fallback for accidental cycles so the screen remains usable.
+ * </p>
+ *
+ * <p><b>Quick navigation:</b></p>
+ * <ul>
+ *     <li>{@link Config} - origin and spacing settings;</li>
+ *     <li>{@link #apply(List, List, Config)} - public entry point;</li>
+ *     <li>{@link #analyzeGraph(List, List)} - derive layers, parent/child maps and ranks;</li>
+ *     <li>{@link #initializeLayerOrder(Int2ObjectOpenHashMap, Int2ObjectOpenHashMap, Int2ObjectOpenHashMap, Int2FloatOpenHashMap, int)}
+ *     - first ordering pass inside layers;</li>
+ *     <li>{@link #refineLayerOrder(Int2ObjectOpenHashMap, Int2ObjectOpenHashMap, Int2ObjectOpenHashMap, Int2FloatOpenHashMap, int)}
+ *     - iterative ordering refinement;</li>
+ *     <li>{@link #applyLeftToRight(GraphData, Config)} - write initial positions;</li>
+ *     <li>{@link #relaxNodeVerticalPlacement(GraphData, Config)} - smooth vertical placement by connectivity.</li>
+ * </ul>
+ *
+ * <p><b>Algorithm summary:</b></p>
+ * <ul>
+ *     <li>Assign nodes to horizontal layers from dependency depth.</li>
+ *     <li>Sort nodes inside each layer using the average ranks of connected parents and children.</li>
+ *     <li>Place layers from left to right with configurable gaps.</li>
+ *     <li>Run a few relaxation passes so nodes line up better with their connected neighbors.</li>
+ * </ul>
  */
 public final class DependencyTreeAutoLayout {
     private DependencyTreeAutoLayout() {
     }
 
+    /**
+     * Mutable layout settings reused across layout passes.
+     */
     public static final class Config {
         private float originX = 0f;
         private float originY = 0f;
@@ -61,6 +86,9 @@ public final class DependencyTreeAutoLayout {
         }
     }
 
+    /**
+     * Analyzes the dependency graph and writes left-to-right positions back into the node list.
+     */
     public static <NODE extends Node, LINK extends NodeLink> void apply(List<NODE> nodes, List<LINK> links, Config config) {
         if (nodes.isEmpty()) {
             return;

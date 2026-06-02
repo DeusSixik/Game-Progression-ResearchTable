@@ -33,6 +33,93 @@ import java.util.Set;
 
 import org.joml.Vector2f;
 
+/**
+ * Specialized research-tree screen built on top of {@link AdvancedGraphView}.
+ * <p>
+ * This class is the high-level "gameplay layer" of the graph:
+ * it knows what a researched node is, when a node is visible, how unlock progression works,
+ * how links should change color depending on state, how optional auto-layout is applied,
+ * how group focus/highlight behaves, and how reveal animations play when new research becomes available.
+ * </p>
+ *
+ * <p><b>Quick navigation through the class:</b></p>
+ * <ul>
+ *     <li><b>Setup / configuration:</b>
+ *     {@link #ResearchTreeScreen()},
+ *     {@link #ResearchTreeScreen(NodeManager, NodeLinkManager)},
+ *     {@link #setAutoLayoutEnabled(boolean)},
+ *     {@link #setAutoLayoutAutoFit(boolean)},
+ *     {@link #autoLayoutConfig()}</li>
+ *     <li><b>Batch layout control:</b>
+ *     {@link #beginAutoLayoutBatch()},
+ *     {@link #endAutoLayoutBatch()},
+ *     {@link #isAutoLayoutSuspended()},
+ *     {@link #applyAutoLayout()}</li>
+ *     <li><b>Research progression API:</b>
+ *     {@link #refreshResearchProgression()},
+ *     {@link #setNodeStudied(int, boolean)},
+ *     {@link #isNodeStudied(int)},
+ *     {@link #setNodeVisibilityMode(int, ResearchNode.VisibilityMode)},
+ *     {@link #isNodeUnlockedForStudy(int)},
+ *     {@link #isNodeVisible(int)}</li>
+ *     <li><b>Camera / group focus:</b>
+ *     {@link #centerCameraOnGroup(String)},
+ *     {@link #focusGroup(String, boolean)},
+ *     {@link #zoomToGroup(String)},
+ *     {@link #setHighlightedGroup(String)},
+ *     {@link #clearHighlightedGroup()},
+ *     {@link #getVisibleGroupMarkers()}</li>
+ *     <li><b>Custom link rendering:</b>
+ *     {@link #getLinkStartColor(ResearchLink)},
+ *     {@link #getLinkEndColor(ResearchLink)},
+ *     {@link #getLinkRenderPriority(ResearchLink, ResearchNode, ResearchNode)},
+ *     {@link #buildLinkRenderData(ResearchLink, ResearchNode, ResearchNode)},
+ *     {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}</li>
+ *     <li><b>Reveal animation flow:</b>
+ *     {@link #prepareRevealAnimationState(IntOpenHashSet, boolean)},
+ *     {@link #startNextRevealAnimation()},
+ *     {@link #updateRevealAnimationState()},
+ *     {@link #finishActiveRevealAnimation()},
+ *     {@link #drawActiveRevealLinks(GUIContext)},
+ *     {@link #drawRevealLinkProgress(GUIContext, ResearchLink, ResearchNode, ResearchNode, float)}</li>
+ *     <li><b>Visibility / unlock logic:</b>
+ *     {@link #syncResearchNodeVisibility()},
+ *     {@link #collectVisibleNodeIds()},
+ *     {@link #isNodeVisible(ResearchNode)},
+ *     {@link #isNodeUnlockedForStudy(ResearchNode)},
+ *     {@link #hasAnyStudiedParent(ResearchLink[])},
+ *     {@link #areAllParentsStudied(ResearchLink[])}</li>
+ *     <li><b>Group ordering / bounds helpers:</b>
+ *     {@link #compactAutoLayoutGroups()},
+ *     {@link #collectStableGroupOrder()},
+ *     {@link #collectVisibleGroupBounds()},
+ *     {@link #getVisibleGroupBounds(String)}</li>
+ * </ul>
+ *
+ * <p><b>Main responsibilities:</b></p>
+ * <ul>
+ *     <li>Keep node widgets attached only when they should really be visible in progression.</li>
+ *     <li>Apply stable layout rules, so the tree does not constantly jump around after unlocks.</li>
+ *     <li>Render links with state-aware colors and priorities:
+ *     studied links are drawn above available ones, and available ones above locked ones.</li>
+ *     <li>Separate incoming links from different groups into parallel lanes, so cross-group routes are
+ *     easier to read and do not sit directly on top of each other.</li>
+ *     <li>Handle cinematic reveal sequences for newly unlocked nodes:
+ *     camera move, node drop/scale, delayed link connection and temporary input lock.</li>
+ * </ul>
+ *
+ * <p><b>Useful maintenance notes for future you:</b></p>
+ * <ul>
+ *     <li>If unlock logic starts behaving strangely, inspect the visibility methods first; they are the
+ *     source of truth for both node attachment and reveal queue generation.</li>
+ *     <li>If lines look wrong, check {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}
+ *     before touching render code elsewhere, because both cached rendering and reveal rendering rely on it.</li>
+ *     <li>If group order drifts or branches start mixing visually, inspect
+ *     {@link #compactAutoLayoutGroups()} and {@link #collectStableGroupOrder()}.</li>
+ *     <li>If the camera behaves unexpectedly during unlocks, the reveal lifecycle methods are the correct
+ *     place to debug rather than the generic camera helpers in the parent class.</li>
+ * </ul>
+ */
 public class ResearchTreeScreen extends AdvancedGraphView<
         ResearchNode,
         ObjectArrayList<ResearchNode>,
@@ -94,6 +181,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         super(nodeManager, linkManager);
     }
 
+    /**
+     * Enables or disables automatic dependency-based layout for this screen.
+     * <p>
+     * When enabled, node positions are rebuilt from the dependency graph and then progression visuals
+     * are refreshed. When disabled, existing node coordinates stay as-is and only progression state is updated.
+     * </p>
+     */
     public ResearchTreeScreen setAutoLayoutEnabled(boolean autoLayoutEnabled) {
         this.autoLayoutEnabled = autoLayoutEnabled;
         if (autoLayoutEnabled && !isAutoLayoutSuspended()) {
@@ -108,6 +202,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return autoLayoutEnabled;
     }
 
+    /**
+     * Controls whether rebuilds also try to fit the camera to visible content.
+     */
     public ResearchTreeScreen setAutoLayoutAutoFit(boolean autoLayoutAutoFit) {
         this.autoLayoutAutoFit = autoLayoutAutoFit;
         return this;
@@ -117,10 +214,16 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return autoLayoutConfig;
     }
 
+    /**
+     * Begins a batch where auto-layout/progression refresh is deferred until the matching end call.
+     */
     public void beginAutoLayoutBatch() {
         autoLayoutSuspendDepth++;
     }
 
+    /**
+     * Ends one level of batch suppression and runs the deferred rebuild when the outermost batch ends.
+     */
     public void endAutoLayoutBatch() {
         if (autoLayoutSuspendDepth > 0) {
             autoLayoutSuspendDepth--;
@@ -139,6 +242,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return autoLayoutSuspendDepth > 0;
     }
 
+    /**
+     * Recomputes node positions from dependencies using the current auto-layout config.
+     */
     public void applyAutoLayout() {
         applyAutoLayout(null, false);
     }
@@ -157,6 +263,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
     }
 
+    /**
+     * Re-evaluates visibility, widget attachment and cached link geometry without changing studied state.
+     */
     public ResearchTreeScreen refreshResearchProgression() {
         return refreshResearchProgression(null, false);
     }
@@ -174,6 +283,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return this;
     }
 
+    /**
+     * Changes whether a node is studied and refreshes progression.
+     * <p>
+     * When a node becomes studied, newly visible nodes can be queued for reveal animation.
+     * </p>
+     */
     public ResearchTreeScreen setNodeStudied(int nodeId, boolean studied) {
         ResearchNode node = getNodeById(nodeId);
         if (node == null || node.isStudied() == studied) {
@@ -191,6 +306,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return node != null && node.isStudied();
     }
 
+    /**
+     * Changes the visibility rule of a node and immediately refreshes progression visuals.
+     */
     public ResearchTreeScreen setNodeVisibilityMode(int nodeId, ResearchNode.VisibilityMode visibilityMode) {
         ResearchNode node = getNodeById(nodeId);
         if (node == null) {
@@ -212,6 +330,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return node != null && isNodeVisible(node);
     }
 
+    /**
+     * Centers the camera on the visible bounds of the given research group.
+     */
     public boolean centerCameraOnGroup(String groupId) {
         GroupBounds bounds = getVisibleGroupBounds(groupId);
         if (bounds == null) {
@@ -222,6 +343,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return true;
     }
 
+    /**
+     * Highlights a group and either centers or zooms the camera onto it.
+     */
     public boolean focusGroup(String groupId, boolean zoomToGroup) {
         setHighlightedGroup(groupId);
         if (zoomToGroup) {
@@ -234,6 +358,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return zoomToGroup(groupId, DEFAULT_GROUP_FOCUS_MIN_SCALE);
     }
 
+    /**
+     * Fits the camera around one visible group while respecting a minimum zoom bound.
+     */
     public boolean zoomToGroup(String groupId, float minScaleBound) {
         GroupBounds bounds = getVisibleGroupBounds(groupId);
         if (bounds == null) {
@@ -248,10 +375,19 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return getVisibleGroupBounds(groupId) != null;
     }
 
+    /**
+     * Returns {@code true} while reveal animations are active or queued.
+     * <p>
+     * This is the main flag used to lock input during cinematic unlocks.
+     * </p>
+     */
     public boolean isRevealSequenceActive() {
         return activeRevealAnimation != null || !queuedRevealNodeIds.isEmpty();
     }
 
+    /**
+     * Starts the temporary blinking highlight for one group.
+     */
     public ResearchTreeScreen setHighlightedGroup(@Nullable String groupId) {
         highlightedGroupId = groupId;
         highlightedGroupBlinkStartedAtMs = groupId == null ? 0L : System.currentTimeMillis();
@@ -268,6 +404,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return this;
     }
 
+    /**
+     * Returns visible group bounds in a UI-friendly form for overlays and navigation lists.
+     */
     public Collection<GroupMarkerLayout> getVisibleGroupMarkers() {
         ObjectArrayList<GroupBounds> bounds = collectVisibleGroupBounds();
         ObjectArrayList<GroupMarkerLayout> markers = new ObjectArrayList<>(bounds.size());
@@ -358,6 +497,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return resolveLinkRenderState(link, from, to).renderPriority();
     }
 
+    /**
+     * Builds cached render geometry for one research link.
+     * <p>
+     * Hidden links and links currently owned by the reveal animation are skipped, while all others
+     * are routed through {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}.
+     * </p>
+     */
     @Override
     protected @Nullable LinkRenderData buildLinkRenderData(ResearchLink link, ResearchNode from, ResearchNode to) {
         if (!isNodeVisible(from) || !isNodeVisible(to) || isLinkHandledByRevealAnimation(link, to)) {
@@ -383,6 +529,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return renderData;
     }
 
+    /**
+     * Updates reveal state and then draws the normal graph plus reveal/highlight overlays.
+     */
     @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
         updateRevealAnimationState();
@@ -391,6 +540,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         drawHighlightedGroupBounds(guiContext);
     }
 
+    /**
+     * Advances reveal animation state once per tick.
+     */
     @Override
     public void screenTick() {
         updateRevealAnimationState();
@@ -917,6 +1069,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return mixColors(startColor, endColor, clamp01(progress));
     }
 
+    /**
+     * Builds the full multi-segment route of one dependency link.
+     * <p>
+     * Both cached rendering and reveal-animation rendering use this method, so future shape changes
+     * should usually be implemented here first.
+     * </p>
+     */
     private LinkRoute buildLinkRoute(ResearchLink link, ResearchNode from, ResearchNode to) {
         float startX = from.getX() + from.getWidth();
         float startY = from.centerY();
@@ -1054,6 +1213,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return Math.max(minLaneX, Math.min(maxLaneX, maxLaneX - groupIndex * laneSpacing));
     }
 
+    /**
+     * Collects visible incoming parent groups of a target node and orders them for lane assignment.
+     */
     private IncomingGroupLayout getIncomingGroupLayout(ResearchNode target) {
         Map<String, GroupIncomingStats> statsByGroupId = new LinkedHashMap<>();
         ResearchLink[] parentLinks = getLinksToNode(target.getId());
@@ -1083,6 +1245,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return new IncomingGroupLayout(groupIds);
     }
 
+    /**
+     * Clusters same-group nodes inside each layout layer after the generic dependency layout pass.
+     */
     private void compactAutoLayoutGroups() {
         if (nodes.isEmpty()) {
             return;
@@ -1163,6 +1328,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
     }
 
+    /**
+     * Captures a stable group order from first appearance so early branches do not swap unpredictably.
+     */
     private Map<String, Integer> collectStableGroupOrder() {
         Map<String, Integer> groupOrder = new LinkedHashMap<>();
         int nextIndex = 0;
@@ -1259,6 +1427,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return true;
     }
 
+    /**
+     * Hook for subclasses to refresh their own widgets or auxiliary UI after progression changes.
+     */
     protected void onResearchProgressionUpdated() {
     }
 

@@ -25,6 +25,57 @@ import org.joml.Vector2f;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Base graph widget used by the research UI and by debug/demo screens.
+ * <p>
+ * The class extends LDLib {@link GraphView}, but adds the pieces that are needed for a real
+ * node editor / research tree instead of a simple visual prototype:
+ * </p>
+ * <ul>
+ *     <li>typed storage for nodes and links through {@link NodeManager} and {@link NodeLinkManager};</li>
+ *     <li>mapping between logical nodes and their on-screen {@link UIElement} widgets;</li>
+ *     <li>camera helpers for centering and moving around the graph world;</li>
+ *     <li>cached link geometry, so bend calculations are not repeated every frame;</li>
+ *     <li>line batching by style, so many segments can be rendered with fewer state changes.</li>
+ * </ul>
+ *
+ * <p><b>Quick navigation through the class:</b></p>
+ * <ul>
+ *     <li>{@link #constructorParams()} - default size, background and graph interaction config;</li>
+ *     <li>{@link #focusCameraOnMouse(float, float)}, {@link #moveCameraToWorld(float, float)},
+ *     {@link #centerCameraOn(float, float)}, {@link #syncCameraTransform()} - camera helpers;</li>
+ *     <li>{@link #addNode(Node)}, {@link #addLink(NodeLink)}, {@link #removeNode(Node)},
+ *     {@link #removeLink(NodeLink)} - graph data mutation entry points;</li>
+ *     <li>{@link #syncNodeWidgetBounds(Node)}, {@link #syncAllNodeWidgetBounds()},
+ *     {@link #setNodeWidgetAttached(int, boolean)} - widget lifecycle and positioning;</li>
+ *     <li>{@link #buildLinkRenderData(NodeLink, Node, Node)} - one place where a logical link is
+ *     converted into cached drawable segments;</li>
+ *     <li>{@link #refreshLinkGeometry(NodeLink)}, {@link #invalidateNodeLinkGeometry(int)},
+ *     {@link #invalidateLinkGeometry()} - cache invalidation and rebuild triggers;</li>
+ *     <li>{@link #drawNodesLinks(GUIContext)}, {@link #drawCachedLineBatches(GUIContext)},
+ *     {@link #drawLineBatch(GUIContext, LineBatch)} - actual cached link rendering path.</li>
+ * </ul>
+ *
+ * <p><b>How to work with this class safely:</b></p>
+ * <ul>
+ *     <li>Subclass it when you need custom node widgets or custom link routing.</li>
+ *     <li>Override {@link #createNodeWidget(Node)} to define how one logical node looks on screen.</li>
+ *     <li>Override {@link #buildLinkRenderData(NodeLink, Node, Node)} when the default 3-segment
+ *     routing is not enough and you need custom bends, gradients, priorities or batching behavior.</li>
+ *     <li>After changing node positions, node size, visibility rules or link style inputs, call one
+ *     of the invalidate methods so cached geometry stays in sync with the data model.</li>
+ *     <li>The class is optimized around "rebuild on change, draw from cache every frame", so most
+ *     heavy work should happen during edits, not inside the render loop.</li>
+ * </ul>
+ *
+ * <p><b>Important mental model:</b></p>
+ * <ul>
+ *     <li>The graph has two layers: logical data ({@code nodes}/{@code links}) and visual widgets.</li>
+ *     <li>Widgets are positioned in graph world coordinates, then the camera transform is applied.</li>
+ *     <li>Links are not recalculated during draw; they are prebuilt into small polylines and grouped
+ *     into style batches for rendering efficiency.</li>
+ * </ul>
+ */
 public class AdvancedGraphView<
         NODE extends Node,
         NODE_LIST extends List<NODE>,
@@ -68,6 +119,13 @@ public class AdvancedGraphView<
         addEventListener(UIEvents.LAYOUT_CHANGED, this::onLayoutChanged);
     }
 
+    /**
+     * Configures the default appearance and interaction rules of the graph view.
+     * <p>
+     * Subclasses can override this to change the background, zoom range or pan/zoom behavior
+     * without touching the rest of the graph implementation.
+     * </p>
+     */
     protected void constructorParams() {
         layout(layout -> layout.widthPercent(100).heightPercent(100));
         style(style -> style.backgroundTexture(new ColorRectTexture(0xFF11161C)));
@@ -81,17 +139,26 @@ public class AdvancedGraphView<
         );
     }
 
+    /**
+     * Centers the camera on the current mouse position in graph world space.
+     */
     public void focusCameraOnMouse(float mouseX, float mouseY) {
         Vector2f mouseInGraphWorld = contentRoot.getLocalMouse(mouseX, mouseY);
         centerCameraOn(mouseInGraphWorld.x, mouseInGraphWorld.y);
     }
 
+    /**
+     * Moves the camera to an absolute world offset without recentering logic.
+     */
     public void moveCameraToWorld(float worldX, float worldY) {
         setOffsetX(worldX);
         setOffsetY(worldY);
         syncCameraTransform();
     }
 
+    /**
+     * Centers the camera on the given node if that node exists.
+     */
     public void centerCameraOn(int nodeId) {
         NODE node = nodeManager.getNodeById(nodes, nodeId);
         if (node != null) {
@@ -99,6 +166,9 @@ public class AdvancedGraphView<
         }
     }
 
+    /**
+     * Centers the visible area around the given world position.
+     */
     public void centerCameraOn(float worldX, float worldY) {
         float halfVisibleWidth = getContentWidth() / (2f * getScale());
         float halfVisibleHeight = getContentHeight() / (2f * getScale());
@@ -108,6 +178,9 @@ public class AdvancedGraphView<
         syncCameraTransform();
     }
 
+    /**
+     * Rebuilds the content transform from the current camera offsets and zoom.
+     */
     public void syncCameraTransform() {
         contentRoot.transform(transform -> transform
                 .translate(-(getOffsetX() * getScale()), -(getOffsetY() * getScale()))
@@ -121,6 +194,9 @@ public class AdvancedGraphView<
         drawNodesLinks(guiContext);
     }
 
+    /**
+     * Draws cached link geometry in graph-world space using the current camera transform.
+     */
     protected void drawNodesLinks(GUIContext guiContext) {
         rebuildAllCachedLinkGeometryIfNeeded();
 
@@ -194,6 +270,9 @@ public class AdvancedGraphView<
     ///        MANAGERS INVOKES            ///
     //////////////////////////////////////////
 
+    /**
+     * Adds a logical node, creates its widget and invalidates connected link geometry.
+     */
     public void addNode(NODE node) {
         addToNodeList(node);
 
@@ -207,6 +286,9 @@ public class AdvancedGraphView<
         invalidateNodeLinkGeometry(node.getId());
     }
 
+    /**
+     * Adds a logical link and immediately builds its cached render data.
+     */
     public void addLink(LINK link) {
         addToLinkList(link);
         refreshLinkGeometry(link);
@@ -217,6 +299,9 @@ public class AdvancedGraphView<
         return node != null && removeNode(node);
     }
 
+    /**
+     * Removes a node, all links connected to it and its attached widget.
+     */
     public boolean removeNode(NODE node) {
         if (node == null) {
             return false;
@@ -245,6 +330,9 @@ public class AdvancedGraphView<
         return link != null && removeLink(link);
     }
 
+    /**
+     * Removes a logical link and its cached render geometry.
+     */
     public boolean removeLink(LINK link) {
         if (link == null) {
             return false;
@@ -299,6 +387,9 @@ public class AdvancedGraphView<
         linkManager.onLinkAdded(links, link);
     }
 
+    /**
+     * Synchronizes one widget's bounds from the logical node model.
+     */
     protected void syncNodeWidgetBounds(NODE node) {
         UIElement widget = nodeWidgetsById.get(node.getId());
         if (widget == null) {
@@ -313,6 +404,9 @@ public class AdvancedGraphView<
         );
     }
 
+    /**
+     * Synchronizes every currently known node widget with its logical node bounds.
+     */
     public void syncAllNodeWidgetBounds() {
         for (NODE node : nodes) {
             syncNodeWidgetBounds(node);
@@ -328,6 +422,9 @@ public class AdvancedGraphView<
         return attachedNodeWidgetIds.contains(nodeId);
     }
 
+    /**
+     * Attaches or detaches an existing node widget without destroying the widget instance.
+     */
     protected void setNodeWidgetAttached(int nodeId, boolean attached) {
         UIElement widget = nodeWidgetsById.get(nodeId);
         if (widget == null) {
@@ -349,6 +446,13 @@ public class AdvancedGraphView<
     }
 
     @Nullable
+    /**
+     * Creates the visual widget for one logical node.
+     * <p>
+     * The default implementation delegates to the node manager, but subclasses may override it
+     * when they want complete control over node visuals and click behavior.
+     * </p>
+     */
     protected UIElement createNodeWidget(NODE node) {
         return nodeManager.createWidget(node);
     }
@@ -401,12 +505,10 @@ public class AdvancedGraphView<
     }
 
     /**
-     * Builds the cached geometry for one link only.
-     * Logic mirrors the improved demo renderer:
+     * Converts one logical link into cached drawable geometry.
      * <p>
-     * - one straight polyline if source and target are on the same Y;
-     * <br>
-     * - otherwise 3 segments with clean overlap compensation on corners.
+     * The base implementation builds either one straight line or a simple 3-segment route.
+     * Subclasses override this when they need custom routing, gradients, priorities or lane logic.
      * </p>
      */
     protected @Nullable LinkRenderData buildLinkRenderData(LINK link, NODE from, NODE to) {
@@ -451,6 +553,9 @@ public class AdvancedGraphView<
         renderData.addPolyline(startColor, endColor, width, x1, y1, x2, y2);
     }
 
+    /**
+     * Rebuilds one link cache entry and updates its batch membership.
+     */
     protected void refreshLinkGeometry(LINK link) {
         rebuildAllCachedLinkGeometryIfNeeded();
         removeCachedLinkGeometry(link);
