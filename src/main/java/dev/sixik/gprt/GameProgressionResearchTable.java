@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 import dev.sixik.gprt.impl.client.research_screen.ResearchTreeScreenCreator;
+import dev.sixik.gprt.registry.GPTRSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
@@ -19,6 +20,7 @@ public class GameProgressionResearchTable {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public GameProgressionResearchTable(IEventBus modEventBus, ModContainer modContainer) {
+        GPTRSounds.register(modEventBus);
 
         NeoForge.EVENT_BUS.addListener(ItemTossEvent.class, (itemTossEvent -> {
 

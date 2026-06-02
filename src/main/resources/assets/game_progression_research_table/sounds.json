@@ -1,0 +1,12 @@
+{
+  "suck_in": {
+    "sounds": [
+      "game_progression_research_table:suck_in"
+    ]
+  },
+  "spit_out": {
+    "sounds": [
+      "game_progression_research_table:spit_out"
+    ]
+  }
+}

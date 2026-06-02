@@ -6,6 +6,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
+import dev.sixik.gprt.registry.GPTRSounds;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.layout.DependencyTreeAutoLayout;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
@@ -18,6 +19,8 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
@@ -506,9 +509,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 getOffsetX(),
                 getOffsetY(),
                 targetOffsetX,
-                targetOffsetY
+                targetOffsetY,
+                false,
+                false,
+                false
         );
 
+        playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 0.85f);
         applyNodeRevealTransform(nodeId, 0f);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
@@ -540,6 +547,16 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
         float nodeProgress = clamp01((elapsed - REVEAL_NODE_DELAY_MS) / (float) REVEAL_NODE_DURATION_MS);
         applyNodeRevealTransform(node.getId(), nodeProgress);
+
+        if (!activeRevealAnimation.nodeDropSoundPlayed() && elapsed >= REVEAL_NODE_DELAY_MS) {
+            playRevealSound(GPTRSounds.SPIT_OUT.get(), 1.0f, 1.05f);
+            activeRevealAnimation = activeRevealAnimation.withNodeDropSoundPlayed();
+        }
+
+        if (!activeRevealAnimation.linkConnectSoundPlayed() && elapsed >= REVEAL_LINK_DELAY_MS) {
+            playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 1.18f);
+            activeRevealAnimation = activeRevealAnimation.withLinkConnectSoundPlayed();
+        }
 
         if (elapsed >= REVEAL_STEP_DURATION_MS) {
             finishActiveRevealAnimation();
@@ -769,6 +786,14 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             float p = t - 2.625f / d1;
             return n1 * p * p + 0.984375f;
         }
+    }
+
+    private void playRevealSound(net.minecraft.sounds.SoundEvent soundEvent, float volume, float pitch) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.getSoundManager() == null) {
+            return;
+        }
+        minecraft.getSoundManager().play(SimpleSoundInstance.forUI(soundEvent, pitch, volume));
     }
 
     private void drawHighlightedGroupBounds(GUIContext guiContext) {
@@ -1108,6 +1133,36 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                                    float cameraStartOffsetX,
                                    float cameraStartOffsetY,
                                    float cameraTargetOffsetX,
-                                   float cameraTargetOffsetY) {
+                                   float cameraTargetOffsetY,
+                                   boolean nodeEnterSoundPlayed,
+                                   boolean nodeDropSoundPlayed,
+                                   boolean linkConnectSoundPlayed) {
+        private RevealAnimation withNodeDropSoundPlayed() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    true,
+                    linkConnectSoundPlayed
+            );
+        }
+
+        private RevealAnimation withLinkConnectSoundPlayed() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    nodeDropSoundPlayed,
+                    true
+            );
+        }
     }
 }
