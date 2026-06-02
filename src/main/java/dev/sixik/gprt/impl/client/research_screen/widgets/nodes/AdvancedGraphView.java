@@ -14,6 +14,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -41,12 +42,13 @@ public class AdvancedGraphView<
     protected final NodeLinkManager<LINK, LINK_LIST> linkManager;
 
     protected final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
+    protected final IntOpenHashSet attachedNodeWidgetIds = new IntOpenHashSet();
 
     // Per-link geometry cache. Each link stores prebuilt polylines, so draw-time does not recalculate bends.
     protected final Object2ObjectOpenHashMap<LINK, LinkRenderData> linkRenderDataByLink = new Object2ObjectOpenHashMap<>();
 
     // Batches split cached polylines by render style, so one style uses one buffer acquisition + one batch method.
-    private final Object2ObjectOpenHashMap<LineStyleKey, LineBatch> lineBatchesByStyle = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<RenderBatchKey, LineBatch> lineBatchesByStyle = new Object2ObjectOpenHashMap<>();
 
     // Fallback flag for cases when caller changes a lot of data and wants full cache rebuild.
     protected boolean rebuildAllLinkGeometryDirty = true;
@@ -143,7 +145,13 @@ public class AdvancedGraphView<
      * </p>
      */
     protected void drawCachedLineBatches(GUIContext guiContext) {
-        for (LineBatch batch : lineBatchesByStyle.values()) {
+        ObjectArrayList<LineBatch> orderedBatches = new ObjectArrayList<>(lineBatchesByStyle.values());
+        orderedBatches.sort((left, right) -> Integer.compare(
+                left.renderPriority,
+                right.renderPriority
+        ));
+
+        for (LineBatch batch : orderedBatches) {
             drawLineBatch(guiContext, batch);
         }
     }
@@ -193,6 +201,7 @@ public class AdvancedGraphView<
         if (nodeWidget != null) {
             nodeWidgetsById.put(node.getId(), nodeWidget);
             addContentChild(nodeWidget);
+            attachedNodeWidgetIds.add(node.getId());
         }
 
         invalidateNodeLinkGeometry(node.getId());
@@ -226,6 +235,7 @@ public class AdvancedGraphView<
         if (widget != null) {
             removeContentChild(widget);
         }
+        attachedNodeWidgetIds.remove(node.getId());
 
         return true;
     }
@@ -310,6 +320,35 @@ public class AdvancedGraphView<
     }
 
     @Nullable
+    protected UIElement getNodeWidget(int nodeId) {
+        return nodeWidgetsById.get(nodeId);
+    }
+
+    protected boolean isNodeWidgetAttached(int nodeId) {
+        return attachedNodeWidgetIds.contains(nodeId);
+    }
+
+    protected void setNodeWidgetAttached(int nodeId, boolean attached) {
+        UIElement widget = nodeWidgetsById.get(nodeId);
+        if (widget == null) {
+            return;
+        }
+
+        boolean currentlyAttached = attachedNodeWidgetIds.contains(nodeId);
+        if (attached == currentlyAttached) {
+            return;
+        }
+
+        if (attached) {
+            addContentChild(widget);
+            attachedNodeWidgetIds.add(nodeId);
+        } else {
+            removeContentChild(widget);
+            attachedNodeWidgetIds.remove(nodeId);
+        }
+    }
+
+    @Nullable
     protected UIElement createNodeWidget(NODE node) {
         return nodeManager.createWidget(node);
     }
@@ -355,6 +394,13 @@ public class AdvancedGraphView<
     }
 
     /**
+     * Higher priority links are drawn later and therefore visually stay on top.
+     */
+    protected int getLinkRenderPriority(LINK link, NODE from, NODE to) {
+        return 0;
+    }
+
+    /**
      * Builds the cached geometry for one link only.
      * Logic mirrors the improved demo renderer:
      * <p>
@@ -363,7 +409,7 @@ public class AdvancedGraphView<
      * - otherwise 3 segments with clean overlap compensation on corners.
      * </p>
      */
-    protected LinkRenderData buildLinkRenderData(LINK link, NODE from, NODE to) {
+    protected @Nullable LinkRenderData buildLinkRenderData(LINK link, NODE from, NODE to) {
         float startX = from.x + from.width;
         float startY = from.centerY();
         float endX = to.x;
@@ -373,8 +419,9 @@ public class AdvancedGraphView<
         int endColor = getLinkEndColor(link);
         float width = getLinkWidth(link);
         float halfWidth = width * 0.5f;
+        int renderPriority = getLinkRenderPriority(link, from, to);
 
-        var renderData = new LinkRenderData(link);
+        var renderData = new LinkRenderData(link, renderPriority);
         if (Math.abs(startY - endY) < 1.0f) {
             renderData.addPolyline(startColor, endColor, width, startX, startY, endX, endY);
             return renderData;
@@ -399,6 +446,9 @@ public class AdvancedGraphView<
         }
 
         LinkRenderData renderData = buildLinkRenderData(link, from, to);
+        if (renderData == null) {
+            return;
+        }
         linkRenderDataByLink.put(link, renderData);
         addCachedLinkToBatches(renderData);
     }
@@ -434,6 +484,9 @@ public class AdvancedGraphView<
             }
 
             LinkRenderData renderData = buildLinkRenderData(link, from, to);
+            if (renderData == null) {
+                continue;
+            }
             linkRenderDataByLink.put(link, renderData);
             addCachedLinkToBatches(renderData);
         }
@@ -444,7 +497,7 @@ public class AdvancedGraphView<
     private void addCachedLinkToBatches(LinkRenderData renderData) {
         for (int i = 0, size = renderData.polylines.size(); i < size; i++) {
             PolylineData polyline = renderData.polylines.get(i);
-            LineBatch batch = lineBatchesByStyle.computeIfAbsent(polyline.style, LineBatch::new);
+            LineBatch batch = lineBatchesByStyle.computeIfAbsent(polyline.batchKey, LineBatch::new);
             batch.polylines.add(polyline);
         }
     }
@@ -452,14 +505,14 @@ public class AdvancedGraphView<
     private void removeCachedLinkFromBatches(LinkRenderData renderData) {
         for (int i = 0, size = renderData.polylines.size(); i < size; i++) {
             PolylineData polyline = renderData.polylines.get(i);
-            LineBatch batch = lineBatchesByStyle.get(polyline.style);
+            LineBatch batch = lineBatchesByStyle.get(polyline.batchKey);
             if (batch == null) {
                 continue;
             }
 
             batch.polylines.remove(polyline);
             if (batch.polylines.isEmpty()) {
-                lineBatchesByStyle.remove(polyline.style);
+                lineBatchesByStyle.remove(polyline.batchKey);
             }
         }
     }
@@ -488,24 +541,32 @@ public class AdvancedGraphView<
     protected static final class LinkRenderData {
         @Getter
         private final NodeLink owner;
+        private final int renderPriority;
         private final ObjectArrayList<PolylineData> polylines = new ObjectArrayList<>(3);
 
-        private LinkRenderData(NodeLink owner) {
+        private LinkRenderData(NodeLink owner, int renderPriority) {
             this.owner = owner;
+            this.renderPriority = renderPriority;
         }
 
         private void addPolyline(int startColor, int endColor, float width, float x1, float y1, float x2, float y2) {
-            polylines.add(new PolylineData(new LineStyleKey(startColor, endColor, Float.floatToIntBits(width)), x1, y1, x2, y2));
+            polylines.add(new PolylineData(
+                    new RenderBatchKey(new LineStyleKey(startColor, endColor, Float.floatToIntBits(width)), renderPriority),
+                    x1,
+                    y1,
+                    x2,
+                    y2
+            ));
         }
 
     }
 
     protected static final class PolylineData {
-        private final LineStyleKey style;
+        private final RenderBatchKey batchKey;
         private final ObjectArrayList<Vector2f> points = new ObjectArrayList<>(2);
 
-        private PolylineData(LineStyleKey style, float x1, float y1, float x2, float y2) {
-            this.style = style;
+        private PolylineData(RenderBatchKey batchKey, float x1, float y1, float x2, float y2) {
+            this.batchKey = batchKey;
             this.points.add(new Vector2f(x1, y1));
             this.points.add(new Vector2f(x2, y2));
         }
@@ -517,12 +578,17 @@ public class AdvancedGraphView<
         }
     }
 
+    protected record RenderBatchKey(LineStyleKey style, int renderPriority) {
+    }
+
     protected static final class LineBatch {
         private final LineStyleKey style;
+        private final int renderPriority;
         private final ObjectArrayList<PolylineData> polylines = new ObjectArrayList<>();
 
-        private LineBatch(LineStyleKey style) {
-            this.style = style;
+        private LineBatch(RenderBatchKey batchKey) {
+            this.style = batchKey.style();
+            this.renderPriority = batchKey.renderPriority();
         }
     }
 }

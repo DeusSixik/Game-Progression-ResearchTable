@@ -4,10 +4,12 @@ import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScreen;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeBuild;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,12 +27,14 @@ import org.jetbrains.annotations.Nullable;
  * What this demo shows in practice:
  * - auto-layout stays optional and can be turned on only for screens that need it;
  * - by default the dependency graph is laid out from left to right;
+ * - click on an available node marks it as studied and reveals deeper research;
  * - begin/end batch prevents repeated rebuilds while many nodes and links are inserted;
  * - node widgets still use absolute world coordinates, but those coordinates are now written by the layout utility.
  */
 public class ResearchTreeScreenDebug extends ResearchTreeScreen {
-
-    private int currentIndex;
+    private static final String ROOT_KEY = "primitive_tools";
+    private final Int2ObjectOpenHashMap<Button> nodeButtonsById = new Int2ObjectOpenHashMap<>();
+    private int rootNodeId = -1;
 
     public static UIElement createView() {
         return new Main();
@@ -63,14 +67,15 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
 
             cameraButtons.addChildren(
                     new Button().setText("Fit").setOnClick(event -> graph.fitToChildren(80f, 0.35f)),
-                    new Button().setText("Center Root").setOnClick(event -> graph.centerCameraOn(0)),
-                    new Button().setText("Origin").setOnClick(event -> graph.moveCameraToWorld(0f, 0f))
+                    new Button().setText("Center Root").setOnClick(event -> graph.centerRoot()),
+                    new Button().setText("Reset Demo").setOnClick(event -> graph.resetDemoProgress())
             );
 
             panel.addChildren(
-                    new Label().setText(Component.literal("ResearchTree auto-layout demo")),
+                    new Label().setText(Component.literal("ResearchTree progression demo")),
                     new Label().setText(Component.literal("Default preset: dependency tree flows from left to right.")),
-                    new Label().setText(Component.literal("LMB drag / wheel zoom / node click centers camera")),
+                    new Label().setText(Component.literal("Click an available node to mark it studied and reveal children.")),
+                    new Label().setText(Component.literal("Node fill keeps branch color; cross-branch links become gradients.")),
                     cameraButtons
             );
 
@@ -84,10 +89,13 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
                 .horizontalGap(130f)
                 .verticalGap(42f);
 
-        setAutoLayoutAutoFit(true);
+        // Keep the current zoom when a node is studied and the tree rebuilds.
+        // Initial framing is still handled by the base GraphView one-time fit pass.
+        setAutoLayoutAutoFit(false);
         beginAutoLayoutBatch();
         try {
             seedExampleTree();
+            resetDemoProgress();
         } finally {
             endAutoLayoutBatch();
         }
@@ -95,51 +103,105 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
     }
 
     private void seedExampleTree() {
-        int root = createNode(0, 0);
+        ResearchTreeBuild build = ResearchTreeBuild.create();
 
-        int metallurgy = createNodeWithLink(root, 0, 0);
-        int farming = createNodeWithLink(root, 0, 0);
-        int logistics = createNodeWithLink(root, 0, 0);
+        ResearchGroup rootGroup = build.group("root", "Root", 0xFFD0D5DD);
+        ResearchGroup metallurgyGroup = build.group("metallurgy", "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
+        ResearchGroup farmingGroup = build.group("farming", "Farming", 0xFF54B36B, 0xFF87D99C);
+        ResearchGroup logisticsGroup = build.group("logistics", "Logistics", 0xFF4C90E8, 0xFF81B7FF);
 
-        int alloying = createNodeWithLink(metallurgy, 0, 0);
-        int steel = createNodeWithLink(metallurgy, 0, 0);
-        int irrigation = createNodeWithLink(farming, 0, 0);
-        int breeding = createNodeWithLink(farming, 0, 0);
-        int carts = createNodeWithLink(logistics, 0, 0);
-        int storage = createNodeWithLink(logistics, 0, 0);
+        build.node(ROOT_KEY)
+                .title("Primitive Tools")
+                .group(rootGroup)
+                .visibility(ResearchNode.VisibilityMode.ALWAYS_VISIBLE);
 
-        int steam = createNodeWithLink(alloying, 0, 0);
-        int chemistry = createNodeWithLink(alloying, 0, 0);
-        int machines = createNodeWithLink(steel, 0, 0);
-        int greenhouses = createNodeWithLink(irrigation, 0, 0);
-        int foodProcessing = createNodeWithLink(breeding, 0, 0);
-        int rail = createNodeWithLink(carts, 0, 0);
-        int warehouse = createNodeWithLink(storage, 0, 0);
+        build.node("metallurgy")
+                .title("Metallurgy")
+                .group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn(ROOT_KEY);
 
-        addLink(new ResearchLink(chemistry, machines));
-        addLink(new ResearchLink(steam, machines));
-        addLink(new ResearchLink(greenhouses, foodProcessing));
-        addLink(new ResearchLink(machines, rail));
-        addLink(new ResearchLink(machines, warehouse));
-        addLink(new ResearchLink(foodProcessing, warehouse));
+        build.node("farming")
+                .title("Farming")
+                .group(farmingGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn(ROOT_KEY);
+
+        build.node("logistics")
+                .title("Logistics")
+                .group(logisticsGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn(ROOT_KEY);
+
+        build.node("alloying").title("Alloying").group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("metallurgy");
+        build.node("steel").title("Steel").group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("metallurgy");
+        build.node("irrigation").title("Irrigation").group(farmingGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("farming");
+        build.node("breeding").title("Breeding").group(farmingGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("farming");
+        build.node("carts").title("Carts").group(logisticsGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("logistics");
+        build.node("storage").title("Storage").group(logisticsGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("logistics");
+
+        build.node("steam").title("Steam").group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("alloying");
+        build.node("chemistry").title("Chemistry").group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("alloying");
+        build.node("machines").title("Machines").group(metallurgyGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
+                .dependsOn("steel", "chemistry", "steam");
+        build.node("greenhouses").title("Greenhouses").group(farmingGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("irrigation");
+        build.node("food_processing").title("Food Processing").group(farmingGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
+                .dependsOn("breeding", "greenhouses");
+        build.node("rail").title("Rail").group(logisticsGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
+                .dependsOn("carts", "machines");
+        build.node("warehouse").title("Warehouse").group(logisticsGroup)
+                .visibility(ResearchNode.VisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .dependsOn("storage", "machines", "food_processing");
+
+        ResearchTreeBuild.BuildResult buildResult = build.applyTo(this);
+        rootNodeId = buildResult.nodeId(ROOT_KEY);
     }
 
-    public int createNode(float x, float y) {
-        addNode(new ResearchNode(currentIndex, x, y, 120, 34));
-        return currentIndex++;
-    }
+    private void resetDemoProgress() {
+        for (ResearchNode node : nodes) {
+            node.setStudied(false);
+        }
 
-    public int createNodeWithLink(int root, float x, float y) {
-        int current = createNode(x, y);
-        addLink(new ResearchLink(root, current));
-        return current;
+        ResearchNode root = getNodeById(rootNodeId);
+        if (root != null) {
+            root.setStudied(false);
+        }
+
+        refreshResearchProgression();
     }
 
     @Override
     protected @Nullable UIElement createNodeWidget(ResearchNode node) {
         Button nodeButton = new Button();
-        nodeButton.setText("Node " + node.getId());
-        nodeButton.setOnClick(event -> centerCameraOn(node.getId()));
+        nodeButtonsById.put(node.getId(), nodeButton);
+        applyNodeButtonState(nodeButton, node);
+        nodeButton.setOnClick(event -> {
+            if (!node.isStudied() && isNodeUnlockedForStudy(node.getId())) {
+                setNodeStudied(node.getId(), true);
+            }
+            centerCameraOn(node.getId());
+        });
         nodeButton.layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(node.getX())
@@ -148,5 +210,36 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
                 .height(node.getHeight())
         );
         return nodeButton;
+    }
+
+    @Override
+    protected void onResearchProgressionUpdated() {
+        for (ResearchNode node : nodes) {
+            Button nodeButton = nodeButtonsById.get(node.getId());
+            if (nodeButton != null) {
+                applyNodeButtonState(nodeButton, node);
+            }
+        }
+    }
+
+    private void centerRoot() {
+        if (rootNodeId >= 0) {
+            centerCameraOn(rootNodeId);
+        }
+    }
+
+    private void applyNodeButtonState(Button nodeButton, ResearchNode node) {
+        boolean studied = node.isStudied();
+        boolean unlocked = isNodeUnlockedForStudy(node.getId());
+
+        String stateText = studied ? "DONE" : (unlocked ? "OPEN" : "LOCK");
+        String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
+        nodeButton.setText(stateText + " | " + title);
+
+        ResearchLinkRenderState renderState = studied
+                ? ResearchLinkRenderState.STUDIED
+                : (unlocked ? ResearchLinkRenderState.AVAILABLE : ResearchLinkRenderState.LOCKED);
+        int backgroundColor = applyLinkRenderStateColor(node.getGroupColor(), renderState);
+        nodeButton.style(style -> style.backgroundTexture(new ColorRectTexture(backgroundColor)));
     }
 }
