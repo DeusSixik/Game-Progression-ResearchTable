@@ -289,6 +289,26 @@ public class AdvancedGraphView<
         linkManager.onLinkAdded(links, link);
     }
 
+    protected void syncNodeWidgetBounds(NODE node) {
+        UIElement widget = nodeWidgetsById.get(node.getId());
+        if (widget == null) {
+            return;
+        }
+
+        widget.layout(layout -> layout
+                .left(node.getX())
+                .top(node.getY())
+                .width(node.getWidth())
+                .height(node.getHeight())
+        );
+    }
+
+    public void syncAllNodeWidgetBounds() {
+        for (NODE node : nodes) {
+            syncNodeWidgetBounds(node);
+        }
+    }
+
     @Nullable
     protected UIElement createNodeWidget(NODE node) {
         return nodeManager.createWidget(node);

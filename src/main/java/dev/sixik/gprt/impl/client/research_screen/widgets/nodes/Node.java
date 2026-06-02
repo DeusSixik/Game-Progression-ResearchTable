@@ -36,6 +36,18 @@ public class Node {
         return height;
     }
 
+    public void setPosition(float x, float y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public void setBounds(float x, float y, float width, float height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+
     public float centerX() {
         return x + width / 2f;
     }
