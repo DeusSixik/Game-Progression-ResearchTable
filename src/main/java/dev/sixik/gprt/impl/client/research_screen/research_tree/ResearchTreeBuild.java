@@ -1,7 +1,9 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
+import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -81,8 +83,7 @@ public final class ResearchTreeBuild {
                 nodeIdsByKey.put(definition.key, nodeId);
 
                 ResearchNode node = new ResearchNode(nodeId, definition.x, definition.y, definition.width, definition.height)
-                        .setTitle(definition.title != null ? definition.title : definition.key)
-                        .setDescription(definition.description)
+                        .setDefinition(definition.toResearchDefinition())
                         .setVisibilityMode(definition.visibilityMode)
                         .setStudied(definition.studied)
                         .setGroup(resolveGroup(definition.groupId));
@@ -164,6 +165,8 @@ public final class ResearchTreeBuild {
         private String description;
         private String groupId;
         private boolean studied;
+        private ResearchStudyType studyType = ResearchStudyType.INSTANT;
+        private long studyDurationMs;
         private float x;
         private float y;
         private float width = 132f;
@@ -173,6 +176,16 @@ public final class ResearchTreeBuild {
 
         private NodeDefinition(String key) {
             this.key = key;
+        }
+
+        private ResearchDefinition toResearchDefinition() {
+            return new ResearchDefinition(
+                    key,
+                    title,
+                    description,
+                    studyType,
+                    studyDurationMs
+            );
         }
     }
 
@@ -193,6 +206,31 @@ public final class ResearchTreeBuild {
 
         public NodeBuilder description(String description) {
             definition.description = description;
+            return this;
+        }
+
+        public NodeBuilder definition(ResearchDefinition researchDefinition) {
+            if (researchDefinition == null) {
+                return this;
+            }
+
+            definition.title = researchDefinition.getTitle();
+            definition.description = researchDefinition.getDescription();
+            definition.studyType = researchDefinition.getStudyType();
+            definition.studyDurationMs = researchDefinition.getStudyDurationMs();
+            return this;
+        }
+
+        public NodeBuilder studyType(ResearchStudyType studyType) {
+            if (studyType != null) {
+                definition.studyType = studyType;
+            }
+            return this;
+        }
+
+        public NodeBuilder timedStudy(long durationMs) {
+            definition.studyType = ResearchStudyType.TIMED;
+            definition.studyDurationMs = Math.max(0L, durationMs);
             return this;
         }
 
