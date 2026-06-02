@@ -33,6 +33,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ResearchTreeScreenDebug extends ResearchTreeScreen {
     private static final String ROOT_KEY = "primitive_tools";
+    private static final String ROOT_GROUP_ID = "root";
+    private static final String METALLURGY_GROUP_ID = "metallurgy";
+    private static final String FARMING_GROUP_ID = "farming";
+    private static final String LOGISTICS_GROUP_ID = "logistics";
     private final Int2ObjectOpenHashMap<Button> nodeButtonsById = new Int2ObjectOpenHashMap<>();
     private int rootNodeId = -1;
 
@@ -65,18 +69,31 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
             UIElement cameraButtons = new UIElement()
                     .layout(layout -> layout.widthPercent(100).gapAll(4));
 
+            UIElement groupButtons = new UIElement()
+                    .layout(layout -> layout.widthPercent(100).gapAll(4));
+
             cameraButtons.addChildren(
                     new Button().setText("Fit").setOnClick(event -> graph.fitToChildren(80f, 0.35f)),
                     new Button().setText("Center Root").setOnClick(event -> graph.centerRoot()),
                     new Button().setText("Reset Demo").setOnClick(event -> graph.resetDemoProgress())
             );
 
+            groupButtons.addChildren(
+                    new Button().setText("Root").setOnClick(event -> graph.focusGroup(ROOT_GROUP_ID)),
+                    new Button().setText("Metallurgy").setOnClick(event -> graph.focusGroup(METALLURGY_GROUP_ID)),
+                    new Button().setText("Farming").setOnClick(event -> graph.focusGroup(FARMING_GROUP_ID)),
+                    new Button().setText("Logistics").setOnClick(event -> graph.focusGroup(LOGISTICS_GROUP_ID)),
+                    new Button().setText("Clear Mark").setOnClick(event -> graph.clearGroupFocus())
+            );
+
             panel.addChildren(
                     new Label().setText(Component.literal("ResearchTree progression demo")),
                     new Label().setText(Component.literal("Default preset: dependency tree flows from left to right.")),
                     new Label().setText(Component.literal("Click an available node to mark it studied and reveal children.")),
+                    new Label().setText(Component.literal("Choose a branch once to center it, click it again to zoom into it.")),
                     new Label().setText(Component.literal("Node fill keeps branch color; cross-branch links become gradients.")),
-                    cameraButtons
+                    cameraButtons,
+                    groupButtons
             );
 
             return panel;
@@ -105,10 +122,10 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
     private void seedExampleTree() {
         ResearchTreeBuild build = ResearchTreeBuild.create();
 
-        ResearchGroup rootGroup = build.group("root", "Root", 0xFFD0D5DD);
-        ResearchGroup metallurgyGroup = build.group("metallurgy", "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
-        ResearchGroup farmingGroup = build.group("farming", "Farming", 0xFF54B36B, 0xFF87D99C);
-        ResearchGroup logisticsGroup = build.group("logistics", "Logistics", 0xFF4C90E8, 0xFF81B7FF);
+        ResearchGroup rootGroup = build.group(ROOT_GROUP_ID, "Root", 0xFFD0D5DD);
+        ResearchGroup metallurgyGroup = build.group(METALLURGY_GROUP_ID, "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
+        ResearchGroup farmingGroup = build.group(FARMING_GROUP_ID, "Farming", 0xFF54B36B, 0xFF87D99C);
+        ResearchGroup logisticsGroup = build.group(LOGISTICS_GROUP_ID, "Logistics", 0xFF4C90E8, 0xFF81B7FF);
 
         build.node(ROOT_KEY)
                 .title("Primitive Tools")
@@ -226,6 +243,15 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
         if (rootNodeId >= 0) {
             centerCameraOn(rootNodeId);
         }
+    }
+
+    private void focusGroup(String groupId) {
+        boolean zoomToGroup = groupId.equals(getHighlightedGroupId());
+        focusGroup(groupId, zoomToGroup);
+    }
+
+    private void clearGroupFocus() {
+        clearHighlightedGroup();
     }
 
     private void applyNodeButtonState(Button nodeButton, ResearchNode node) {
