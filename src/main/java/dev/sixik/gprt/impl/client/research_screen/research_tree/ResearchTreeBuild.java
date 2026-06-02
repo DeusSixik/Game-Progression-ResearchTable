@@ -82,6 +82,7 @@ public final class ResearchTreeBuild {
 
                 ResearchNode node = new ResearchNode(nodeId, definition.x, definition.y, definition.width, definition.height)
                         .setTitle(definition.title != null ? definition.title : definition.key)
+                        .setDescription(definition.description)
                         .setVisibilityMode(definition.visibilityMode)
                         .setStudied(definition.studied)
                         .setGroup(resolveGroup(definition.groupId));
@@ -160,6 +161,7 @@ public final class ResearchTreeBuild {
     private static final class NodeDefinition {
         private final String key;
         private String title;
+        private String description;
         private String groupId;
         private boolean studied;
         private float x;
@@ -186,6 +188,11 @@ public final class ResearchTreeBuild {
          */
         public NodeBuilder title(String title) {
             definition.title = title;
+            return this;
+        }
+
+        public NodeBuilder description(String description) {
+            definition.description = description;
             return this;
         }
 

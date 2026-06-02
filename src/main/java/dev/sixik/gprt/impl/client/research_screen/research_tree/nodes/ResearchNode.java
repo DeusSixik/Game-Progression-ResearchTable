@@ -13,6 +13,7 @@ public class ResearchNode extends Node {
 
     private boolean studied;
     private String title;
+    private String description;
     private VisibilityMode visibilityMode = VisibilityMode.ALWAYS_VISIBLE;
     private int groupColor = 0xFF87D4FF;
     private ResearchGroup group = ResearchGroup.DEFAULT;
@@ -36,6 +37,15 @@ public class ResearchNode extends Node {
 
     public ResearchNode setTitle(String title) {
         this.title = title;
+        return this;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public ResearchNode setDescription(String description) {
+        this.description = description;
         return this;
     }
 
