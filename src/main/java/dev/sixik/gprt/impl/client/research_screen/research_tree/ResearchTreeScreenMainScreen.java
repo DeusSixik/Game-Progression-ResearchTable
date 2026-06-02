@@ -2,10 +2,13 @@ package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Transform2D;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchDisplayValue;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoEntry;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanel;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoSection;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchProgressController;
@@ -14,6 +17,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.Researc
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.SimpleClientResearchProgressManager;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,28 +37,14 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
-    private static final float DETAILS_PANEL_WIDTH = 300f;
-    private static final float DETAILS_PANEL_HIDDEN_X = -(DETAILS_PANEL_WIDTH + 18f);
-    private static final float DETAILS_PANEL_OPEN_X = 0f;
     private static final float DETAILS_PANEL_LERP_SPEED = 0.22f;
-    private static final float DETAILS_PROGRESS_BAR_WIDTH = DETAILS_PANEL_WIDTH - 16f;
-    private static final float DETAILS_PROGRESS_BAR_HEIGHT = 8f;
 
     private final Int2ObjectOpenHashMap<Button> nodeButtonsById = new Int2ObjectOpenHashMap<>();
     private final SimpleClientResearchProgressManager researchProgressManager = new SimpleClientResearchProgressManager();
     private final ResearchProgressController researchProgressController = new ResearchProgressController(researchProgressManager);
 
     private @Nullable UIElement overlayPanel;
-    private @Nullable UIElement detailsPanel;
-    private @Nullable Label detailsTitleLabel;
-    private @Nullable Label detailsGroupLabel;
-    private @Nullable Label detailsModeLabel;
-    private @Nullable Label detailsStateLabel;
-    private @Nullable Label detailsDescriptionLabel;
-    private @Nullable Label detailsTimedProgressLabel;
-    private @Nullable UIElement detailsTimedProgressBar;
-    private @Nullable UIElement detailsTimedProgressFill;
-    private @Nullable Button researchButton;
+    private @Nullable ResearchInfoPanel detailsPanel;
 
     private @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
     private int selectedNodeId = -1;
@@ -125,6 +115,47 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     protected final void clearFocusedGroup() {
         clearHighlightedGroup();
+    }
+
+    /**
+     * Auto-generated prerequisites section toggle.
+     * <p>
+     * Override in concrete screens when you want to fully own how conditions are presented.
+     * </p>
+     */
+    protected boolean isAutoConditionsSectionEnabled() {
+        return true;
+    }
+
+    /**
+     * Auto-generated unlocks section toggle.
+     * <p>
+     * Override when the screen should not list direct child researches in the info panel.
+     * </p>
+     */
+    protected boolean isAutoUnlocksSectionEnabled() {
+        return true;
+    }
+
+    /**
+     * Controls whether hidden child researches should appear in the auto-generated unlock list.
+     * <p>
+     * Default is {@code false}, so branches that are still hidden by progression stay hidden in the panel too.
+     * </p>
+     */
+    protected boolean includeHiddenUnlocksInInfoPanel() {
+        return false;
+    }
+
+    protected final boolean focusResearchByKey(String researchKey) {
+        ResearchNode node = getNodeByResearchKey(researchKey);
+        if (node == null) {
+            return false;
+        }
+        openDetailsPanel(node.getId());
+        centerCameraOn(node.getId());
+        onNodeSelected(node);
+        return true;
     }
 
     protected final void resetProgressState() {
@@ -335,27 +366,8 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         }
     }
 
-    private void bindDetailsPanel(UIElement panel,
-                                  Label titleLabel,
-                                  Label groupLabel,
-                                  Label modeLabel,
-                                  Label stateLabel,
-                                  Label descriptionLabel,
-                                  Label timedProgressLabel,
-                                  UIElement timedProgressBar,
-                                  UIElement timedProgressFill,
-                                  Button researchButton
-    ) {
+    private void bindDetailsPanel(ResearchInfoPanel panel) {
         this.detailsPanel = panel;
-        this.detailsTitleLabel = titleLabel;
-        this.detailsGroupLabel = groupLabel;
-        this.detailsModeLabel = modeLabel;
-        this.detailsStateLabel = stateLabel;
-        this.detailsDescriptionLabel = descriptionLabel;
-        this.detailsTimedProgressLabel = timedProgressLabel;
-        this.detailsTimedProgressBar = timedProgressBar;
-        this.detailsTimedProgressFill = timedProgressFill;
-        this.researchButton = researchButton;
         refreshDetailsPanel();
         updateDetailsPanelAnimation();
     }
@@ -366,49 +378,18 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private void refreshDetailsPanel() {
-        if (detailsTitleLabel == null
-                || detailsGroupLabel == null
-                || detailsModeLabel == null
-                || detailsStateLabel == null
-                || detailsDescriptionLabel == null) {
+        if (detailsPanel == null) {
             return;
         }
 
         ResearchNode node = selectedNodeId >= 0 ? getNodeById(selectedNodeId) : null;
         if (node == null) {
-            detailsTitleLabel.setText("Research");
-            detailsGroupLabel.setText("Group: -");
-            detailsModeLabel.setText("Mode: -");
-            detailsStateLabel.setText("Status: -");
-            detailsDescriptionLabel.setText("Click a research node to open its info panel.");
-            if (researchButton != null) {
-                researchButton.setDisplay(false);
-            }
-            hideTimedProgressSection();
+            detailsPanel.applyContent(buildEmptyInfoContent());
             return;
         }
 
         ResearchState state = researchProgressController.getState(node);
-        String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
-        String group = node.getGroup() != null ? node.getGroup().getTitle() : "Unknown";
-        String description = node.getDescription();
-        if (description == null || description.isBlank()) {
-            description = "No description has been assigned to this research yet.";
-        }
-
-        detailsTitleLabel.setText(title);
-        detailsGroupLabel.setText("Group: " + group);
-        detailsModeLabel.setText("Mode: " + formatStudyType(node));
-        detailsStateLabel.setText("Status: " + formatStateText(state, node));
-        detailsDescriptionLabel.setText(description);
-
-        refreshTimedProgressSection(node, state);
-        updateResearchButton(node, state);
-
-        if (detailsPanel != null) {
-            int panelColor = applyLinkRenderStateColor(node.getGroupColor(), toRenderState(state));
-            detailsPanel.style(style -> style.backgroundTexture(new ColorRectTexture(0xD0000000 | (panelColor & 0x00FFFFFF))));
-        }
+        detailsPanel.applyContent(buildInfoContent(node, state));
     }
 
     private void refreshTablePlaceholderOverlay() {
@@ -425,66 +406,6 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         tablePlaceholderOverlay.updateFor(node, researchProgressController.getState(node));
     }
 
-    private void refreshTimedProgressSection(ResearchNode node, ResearchState state) {
-        if (detailsTimedProgressLabel == null || detailsTimedProgressBar == null || detailsTimedProgressFill == null) {
-            return;
-        }
-
-        if (node.getStudyType() != ResearchStudyType.TIMED) {
-            hideTimedProgressSection();
-            return;
-        }
-
-        detailsTimedProgressLabel.setDisplay(true);
-        detailsTimedProgressBar.setDisplay(true);
-        ClientResearchProgress progress = researchProgressController.getProgress(node);
-
-        if (state == ResearchState.STUDIED || state == ResearchState.LOCKED) {
-            hideTimedProgressSection();
-            return;
-        }
-
-        if (progress == null || state != ResearchState.IN_PROGRESS) {
-            detailsTimedProgressLabel.setText("Duration: " + formatDuration(node.getStudyDurationMs()));
-            updateTimedProgressFill(0f, 0x664C90E8);
-            return;
-        }
-
-        long nowMs = System.currentTimeMillis();
-        long remainingMs = progress.getRemainingMs(nowMs);
-        float progress01 = progress.getProgress01(nowMs);
-        detailsTimedProgressLabel.setText(
-                "Progress: " + Math.round(progress01 * 100f) + "% | left " + formatDuration(remainingMs)
-        );
-        updateTimedProgressFill(progress01, 0xFF67B7FF);
-    }
-
-    private void hideTimedProgressSection() {
-        if (detailsTimedProgressLabel != null) {
-            detailsTimedProgressLabel.setDisplay(false);
-        }
-        if (detailsTimedProgressBar != null) {
-            detailsTimedProgressBar.setDisplay(false);
-        }
-        updateTimedProgressFill(0f, 0x664C90E8);
-    }
-
-    private void updateTimedProgressFill(float progress01, int fillColor) {
-        if (detailsTimedProgressFill == null) {
-            return;
-        }
-
-        float clamped = Math.max(0f, Math.min(1f, progress01));
-        detailsTimedProgressFill.layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(0)
-                .top(0)
-                .width(DETAILS_PROGRESS_BAR_WIDTH * clamped)
-                .height(DETAILS_PROGRESS_BAR_HEIGHT)
-        );
-        detailsTimedProgressFill.style(style -> style.backgroundTexture(new ColorRectTexture(fillColor)));
-    }
-
     private void updateDetailsPanelAnimation() {
         if (detailsPanel == null) {
             return;
@@ -495,8 +416,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             detailsPanelProgress = detailsPanelTargetProgress;
         }
 
-        float translateX = interpolate(detailsPanelProgress, DETAILS_PANEL_HIDDEN_X, DETAILS_PANEL_OPEN_X);
-        detailsPanel.style(style -> style.transform2D(new Transform2D().translate(translateX, 0f)));
+        detailsPanel.setSlideProgress(detailsPanelProgress);
 
         if (detailsPanelTargetProgress <= 0f && detailsPanelProgress <= 0f) {
             detailsPanel.setDisplay(false);
@@ -504,10 +424,6 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 overlayPanel.setDisplay(true);
             }
         }
-    }
-
-    private float interpolate(float progress, float start, float end) {
-        return start + (end - start) * progress;
     }
 
     private void applyNodeButtonState(Button nodeButton, ResearchNode node) {
@@ -527,39 +443,83 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         nodeButton.style(style -> style.backgroundTexture(new ColorRectTexture(backgroundColor)));
     }
 
-    private void updateResearchButton(ResearchNode node, ResearchState state) {
-        if (researchButton == null) {
-            return;
+    private ResearchState resolveNodeState(ResearchNode node) {
+        return researchProgressController.getState(node);
+    }
+
+    /**
+     * Default panel content builder.
+     * <p>
+     * Subclasses can override this method to inject rewards, conditions or project-specific
+     * text generation later without rewriting the panel widget itself.
+     * </p>
+     */
+    protected ResearchInfoContent buildInfoContent(ResearchNode node, ResearchState state) {
+        String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
+        String group = node.getGroup() != null ? node.getGroup().getTitle() : "Unknown";
+        String description = node.getDescription();
+        if (description == null || description.isBlank()) {
+            description = "No description has been assigned to this research yet.";
+        }
+
+        ResearchInfoContent.Builder builder = ResearchInfoContent.builder()
+                .title(title)
+                .titleCentered()
+                .titleLarge(true)
+                .groupText("Group: " + group)
+                .modeText("Mode: " + formatStudyType(node))
+                .stateText("Status: " + formatStateText(state, node))
+                .description(description)
+                .panelColor(0xD0000000 | (applyLinkRenderStateColor(node.getGroupColor(), toRenderState(state)) & 0x00FFFFFF));
+        appendMetadataSection(builder, node);
+        if (isAutoConditionsSectionEnabled()) {
+            appendParentConditions(builder, node);
+        }
+        if (isAutoUnlocksSectionEnabled()) {
+            appendUnlockedRewards(builder, node);
+        }
+
+        if (node.getStudyType() == ResearchStudyType.TIMED && state != ResearchState.STUDIED && state != ResearchState.LOCKED) {
+            ClientResearchProgress progress = researchProgressController.getProgress(node);
+            if (progress == null || state != ResearchState.IN_PROGRESS) {
+                builder.timedProgress("Duration: " + formatDuration(node.getStudyDurationMs()), 0f, 0x664C90E8);
+            } else {
+                long nowMs = System.currentTimeMillis();
+                long remainingMs = progress.getRemainingMs(nowMs);
+                float progress01 = progress.getProgress01(nowMs);
+                builder.timedProgress(
+                        "Progress: " + Math.round(progress01 * 100f) + "% | left " + formatDuration(remainingMs),
+                        progress01,
+                        0xFF67B7FF
+                );
+            }
+        } else {
+            builder.hideTimedProgress();
         }
 
         if (state == ResearchState.STUDIED || state == ResearchState.LOCKED) {
-            researchButton.setDisplay(false);
-            return;
+            builder.hideResearchButton();
+        } else if (state == ResearchState.IN_PROGRESS) {
+            builder.researchButton(getInProgressButtonText(node), true);
+        } else {
+            builder.researchButton(getAvailableButtonText(node), true);
         }
 
-        researchButton.setDisplay(true);
-        if (state == ResearchState.IN_PROGRESS) {
-            switch (node.getStudyType()) {
-                case TIMED -> {
-                    ClientResearchProgress progress = researchProgressController.getProgress(node);
-                    long remainingMs = progress == null ? 0L : progress.getRemainingMs(System.currentTimeMillis());
-                    researchButton.setText("Timed: " + formatDuration(remainingMs));
-                }
-                case TABLE -> researchButton.setText("Resume Table Research");
-                case INSTANT -> researchButton.setText("In Progress");
-            }
-            return;
-        }
-
-        researchButton.setText(switch (node.getStudyType()) {
-            case INSTANT -> "Research";
-            case TIMED -> "Start Timed Research";
-            case TABLE -> "Open Table Research";
-        });
+        return builder.build();
     }
 
-    private ResearchState resolveNodeState(ResearchNode node) {
-        return researchProgressController.getState(node);
+    protected ResearchInfoContent buildEmptyInfoContent() {
+        return ResearchInfoContent.builder()
+                .title("Research")
+                .titleCentered()
+                .titleLarge(true)
+                .groupText("Group: -")
+                .modeText("Mode: -")
+                .stateText("Status: -")
+                .description("Click a research node to open its info panel.")
+                .hideTimedProgress()
+                .hideResearchButton()
+                .build();
     }
 
     private String formatStateText(ResearchState state, ResearchNode node) {
@@ -583,6 +543,34 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         };
     }
 
+    private String formatVisibilityMode(ResearchNode node) {
+        return switch (node.getVisibilityMode()) {
+            case ALWAYS_VISIBLE -> "Always visible";
+            case REQUIRE_ANY_PARENT_STUDIED -> "Require any parent studied";
+            case REQUIRE_ALL_PARENTS_STUDIED -> "Require all parents studied";
+        };
+    }
+
+    private String getInProgressButtonText(ResearchNode node) {
+        return switch (node.getStudyType()) {
+            case TIMED -> {
+                ClientResearchProgress progress = researchProgressController.getProgress(node);
+                long remainingMs = progress == null ? 0L : progress.getRemainingMs(System.currentTimeMillis());
+                yield "Timed: " + formatDuration(remainingMs);
+            }
+            case TABLE -> "Resume Table Research";
+            case INSTANT -> "In Progress";
+        };
+    }
+
+    private String getAvailableButtonText(ResearchNode node) {
+        return switch (node.getStudyType()) {
+            case INSTANT -> "Research";
+            case TIMED -> "Start Timed Research";
+            case TABLE -> "Open Table Research";
+        };
+    }
+
     private String formatDuration(long durationMs) {
         long totalSeconds = Math.max(0L, (durationMs + 999L) / 1000L);
         long minutes = totalSeconds / 60L;
@@ -591,6 +579,114 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             return minutes + "m " + seconds + "s";
         }
         return seconds + "s";
+    }
+
+    private void appendParentConditions(ResearchInfoContent.Builder builder, ResearchNode node) {
+        ResearchLink[] parentLinks = getLinksToNode(node.getId());
+        builder.section("Conditions", section -> {
+            if (parentLinks.length == 0) {
+                section.conditionText("No prerequisites", true);
+                return;
+            }
+
+            appendConditionModeSummary(section, node, parentLinks);
+
+            for (ResearchLink parentLink : parentLinks) {
+                ResearchNode parent = getNodeById(parentLink.getNodeFrom());
+                if (parent == null) {
+                    continue;
+                }
+                String parentTitle = parent.getTitle() != null ? parent.getTitle() : ("Node " + parent.getId());
+                section.condition(entry -> {
+                    entry.text("Study " + parentTitle)
+                            .completed(parent.isStudied())
+                            .tooltip(Component.literal("Required research: " + parentTitle))
+                            .jumpToResearch(parent.getResearchKey())
+                            .jumpButtonText("Go to");
+                    if (parent.getTitle() != null) {
+                        entry.icon(new ColorRectTexture(parent.getGroupColor()));
+                    }
+                });
+            }
+        });
+    }
+
+    private void appendConditionModeSummary(ResearchInfoSection.Builder section, ResearchNode node, ResearchLink[] parentLinks) {
+        if (parentLinks.length <= 1) {
+            return;
+        }
+
+        switch (node.getVisibilityMode()) {
+            case REQUIRE_ANY_PARENT_STUDIED -> section.condition(entry -> entry
+                    .text("Study any one of the researches below")
+                    .completed(hasAnyStudiedParent(parentLinks))
+                    .tooltip(Component.literal("This research unlocks when at least one parent research is studied.")));
+            case REQUIRE_ALL_PARENTS_STUDIED -> section.condition(entry -> entry
+                    .text("Study all researches below")
+                    .completed(hasAllStudiedParents(parentLinks))
+                    .tooltip(Component.literal("This research unlocks only after every parent research below is studied.")));
+            case ALWAYS_VISIBLE -> section.condition(entry -> entry
+                    .text("Parents are linked for navigation only")
+                    .completed(true)
+                    .tooltip(Component.literal("This node stays visible even if none of the linked parent researches are studied.")));
+        }
+    }
+
+    private boolean hasAnyStudiedParent(ResearchLink[] parentLinks) {
+        for (ResearchLink parentLink : parentLinks) {
+            ResearchNode parent = getNodeById(parentLink.getNodeFrom());
+            if (parent != null && parent.isStudied()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasAllStudiedParents(ResearchLink[] parentLinks) {
+        for (ResearchLink parentLink : parentLinks) {
+            ResearchNode parent = getNodeById(parentLink.getNodeFrom());
+            if (parent == null || !parent.isStudied()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void appendUnlockedRewards(ResearchInfoContent.Builder builder, ResearchNode node) {
+        ResearchLink[] childLinks = getLinksFromNode(node.getId());
+        builder.section("Unlocks", section -> {
+            boolean addedAny = false;
+
+            for (ResearchLink childLink : childLinks) {
+                ResearchNode child = getNodeById(childLink.getNodeTo());
+                if (child == null) {
+                    continue;
+                }
+                if (!includeHiddenUnlocksInInfoPanel() && !isNodeVisible(child.getId())) {
+                    continue;
+                }
+                String childTitle = child.getTitle() != null ? child.getTitle() : ("Node " + child.getId());
+                section.rewardResearch(childTitle, child.getResearchKey());
+                addedAny = true;
+            }
+
+            if (!addedAny) {
+                if (childLinks.length == 0) {
+                    section.rewardText("No direct follow-up research");
+                } else if (!includeHiddenUnlocksInInfoPanel()) {
+                    section.rewardText("Follow-up research is still hidden");
+                } else {
+                    section.rewardText("No visible follow-up research");
+                }
+            }
+        });
+    }
+
+    private void appendMetadataSection(ResearchInfoContent.Builder builder, ResearchNode node) {
+        builder.section("Info", section -> {
+            section.infoLine("Key", node.getResearchKey() != null ? node.getResearchKey() : ("node_" + node.getId()));
+            section.infoLine("Visibility", formatVisibilityMode(node));
+        });
     }
 
     private ResearchLinkRenderState toRenderState(ResearchState state) {
@@ -602,94 +698,19 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private UIElement createDetailsPanel() {
-        UIElement panel = new UIElement()
-                .layout(layout -> layout
-                        .positionType(TaffyPosition.ABSOLUTE)
-                        .left(8)
-                        .top(118)
-                        .width(DETAILS_PANEL_WIDTH)
-                        .paddingAll(8)
-                        .gapAll(5)
-                )
-                .style(style -> style
-                        .backgroundTexture(new ColorRectTexture(0xE6192432))
-                        .transform2D(new Transform2D().translate(DETAILS_PANEL_HIDDEN_X, 0f)));
-
-        Label titleLabel = new Label();
-        titleLabel.setText("Research");
-        Label groupLabel = new Label();
-        groupLabel.setText("Group: -");
-        Label modeLabel = new Label();
-        modeLabel.setText("Mode: -");
-        Label stateLabel = new Label();
-        stateLabel.setText("Status: -");
-
-        Label descriptionLabel = new Label();
-        descriptionLabel.setText("Click a research node to open its info panel.");
-        descriptionLabel.layout(layout -> layout.widthPercent(100));
-        descriptionLabel.textStyle(style -> style
-                .textWrap(TextWrap.WRAP)
-                .adaptiveHeight(true));
-
-        Label timedProgressLabel = new Label();
-        timedProgressLabel.setText("Progress: -");
-        UIElement timedProgressBar = new UIElement()
-                .layout(layout -> layout.width(DETAILS_PROGRESS_BAR_WIDTH).height(DETAILS_PROGRESS_BAR_HEIGHT))
-                .style(style -> style.backgroundTexture(new ColorRectTexture(0x55232D39)));
-        UIElement timedProgressFill = new UIElement()
-                .layout(layout -> layout
-                        .positionType(TaffyPosition.ABSOLUTE)
-                        .left(0)
-                        .top(0)
-                        .width(0)
-                        .height(DETAILS_PROGRESS_BAR_HEIGHT)
-                )
-                .style(style -> style.backgroundTexture(new ColorRectTexture(0xFF67B7FF)));
-        timedProgressBar.addChildren(timedProgressFill);
-
-        Button closeButton = new Button().setText("X").setOnClick(event -> closeDetailsPanel());
-        closeButton.layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(264)
-                .top(6)
-                .width(24)
-                .height(18)
-        );
-
-        Button research = new Button().setText("Research")
-                .setOnClick(event -> {
+        ResearchInfoPanel panel = new ResearchInfoPanel(
+                this::closeDetailsPanel,
+                () -> {
                     if (selectedNodeId != -1) {
                         ResearchNode node = getNodeById(selectedNodeId);
                         if (node != null) {
                             tryStartResearch(node);
                         }
                     }
-                });
-
-        panel.addChildren(
-                titleLabel,
-                groupLabel,
-                modeLabel,
-                stateLabel,
-                descriptionLabel,
-                timedProgressLabel,
-                timedProgressBar,
-                research,
-                closeButton
+                },
+                this::focusResearchByKey
         );
-
-        bindDetailsPanel(
-                panel,
-                titleLabel,
-                groupLabel,
-                modeLabel,
-                stateLabel,
-                descriptionLabel,
-                timedProgressLabel,
-                timedProgressBar,
-                timedProgressFill,
-                research
-        );
+        bindDetailsPanel(panel);
         return panel;
     }
 

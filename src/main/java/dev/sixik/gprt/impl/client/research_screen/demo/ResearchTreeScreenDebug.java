@@ -8,9 +8,16 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeBuild;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScreenMainScreen;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchDisplayValue;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.Blocks;
 
 /**
  * Demo implementation of {@link ResearchTreeScreenMainScreen}.
@@ -198,6 +205,56 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
 
         ResearchTreeBuild.BuildResult buildResult = build.applyTo(this);
         setRootNodeId(buildResult.nodeId(ROOT_KEY));
+    }
+
+    @Override
+    protected ResearchInfoContent buildInfoContent(ResearchNode node, ResearchState state) {
+        ResearchInfoContent.Builder builder = super.buildInfoContent(node, state).toBuilder();
+
+        builder.section("Debug Notes", section -> section
+                .infoLine("Branch", node.getGroup() != null ? node.getGroup().getId() : "unknown")
+        );
+
+        if ("steam".equals(node.getResearchKey())) {
+            builder.section("Example Rewards", section -> {
+                section.rewardItem(new ItemStack(Items.COPPER_INGOT, 3), "Prototype bronze fittings");
+                section.rewardItem(Blocks.BLAST_FURNACE, "Heavy furnace branch support");
+                section.rewardIngredient("Any fuel source", Ingredient.of(Items.COAL, Items.CHARCOAL));
+                section.rewardItemId("minecraft:diamond");
+            });
+        }
+
+        if ("warehouse".equals(node.getResearchKey())) {
+            builder.section("Example Table Flow", section -> {
+                section.conditionText("Example table step UI will appear after pressing research", true);
+                section.condition(entry -> entry
+                        .item(new ItemStack(Items.CHEST))
+                        .text("Requires Storage")
+                        .completed(isNodeStudiedByKey("storage"))
+                        .tooltip("This row uses icon + text + tooltip + research jump.")
+                        .jumpToResearch("storage")
+                        .jumpButtonText("Open"));
+            });
+        }
+
+        if (state == ResearchState.IN_PROGRESS && node.getStudyType() == ResearchStudyType.TIMED) {
+            builder.section("Live State", section -> section
+                    .entry(entry -> entry
+                            .text("Timed progress is mirrored in this panel")
+                            .tooltip("This note is only added while timed research is active."))
+            );
+        }
+
+        return builder.build();
+    }
+
+    private boolean isNodeStudiedByKey(String researchKey) {
+        for (ResearchNode node : nodes) {
+            if (researchKey.equals(node.getResearchKey())) {
+                return node.isStudied();
+            }
+        }
+        return false;
     }
 
     private static ResearchDefinition instantDefinition(String key, String title, String description) {
