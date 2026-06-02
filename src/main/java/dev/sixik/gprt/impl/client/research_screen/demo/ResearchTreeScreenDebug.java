@@ -214,6 +214,9 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
         nodeButtonsById.put(node.getId(), nodeButton);
         applyNodeButtonState(nodeButton, node);
         nodeButton.setOnClick(event -> {
+            if (isRevealSequenceActive()) {
+                return;
+            }
             if (!node.isStudied() && isNodeUnlockedForStudy(node.getId())) {
                 setNodeStudied(node.getId(), true);
             }

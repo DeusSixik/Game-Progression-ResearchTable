@@ -421,18 +421,34 @@ public class AdvancedGraphView<
         float halfWidth = width * 0.5f;
         int renderPriority = getLinkRenderPriority(link, from, to);
 
-        var renderData = new LinkRenderData(link, renderPriority);
+        var renderData = createLinkRenderData(link, renderPriority);
         if (Math.abs(startY - endY) < 1.0f) {
-            renderData.addPolyline(startColor, endColor, width, startX, startY, endX, endY);
+            addLinkPolyline(renderData, startColor, endColor, width, startX, startY, endX, endY);
             return renderData;
         }
 
         float middleX = startX + (endX - startX) * 0.5f;
 
-        renderData.addPolyline(startColor, startColor, width, startX, startY, middleX + halfWidth, startY);
-        renderData.addPolyline(startColor, endColor, width, middleX, startY, middleX, endY);
-        renderData.addPolyline(endColor, endColor, width, middleX - halfWidth, endY, endX, endY);
+        addLinkPolyline(renderData, startColor, startColor, width, startX, startY, middleX + halfWidth, startY);
+        addLinkPolyline(renderData, startColor, endColor, width, middleX, startY, middleX, endY);
+        addLinkPolyline(renderData, endColor, endColor, width, middleX - halfWidth, endY, endX, endY);
         return renderData;
+    }
+
+    protected LinkRenderData createLinkRenderData(NodeLink owner, int renderPriority) {
+        return new LinkRenderData(owner, renderPriority);
+    }
+
+    protected void addLinkPolyline(LinkRenderData renderData,
+                                   int startColor,
+                                   int endColor,
+                                   float width,
+                                   float x1,
+                                   float y1,
+                                   float x2,
+                                   float y2
+    ) {
+        renderData.addPolyline(startColor, endColor, width, x1, y1, x2, y2);
     }
 
     protected void refreshLinkGeometry(LINK link) {
@@ -538,18 +554,18 @@ public class AdvancedGraphView<
         }
     }
 
-    protected static final class LinkRenderData {
+    protected static class LinkRenderData {
         @Getter
         private final NodeLink owner;
         private final int renderPriority;
         private final ObjectArrayList<PolylineData> polylines = new ObjectArrayList<>(3);
 
-        private LinkRenderData(NodeLink owner, int renderPriority) {
+        protected LinkRenderData(NodeLink owner, int renderPriority) {
             this.owner = owner;
             this.renderPriority = renderPriority;
         }
 
-        private void addPolyline(int startColor, int endColor, float width, float x1, float y1, float x2, float y2) {
+        protected void addPolyline(int startColor, int endColor, float width, float x1, float y1, float x2, float y2) {
             polylines.add(new PolylineData(
                     new RenderBatchKey(new LineStyleKey(startColor, endColor, Float.floatToIntBits(width)), renderPriority),
                     x1,

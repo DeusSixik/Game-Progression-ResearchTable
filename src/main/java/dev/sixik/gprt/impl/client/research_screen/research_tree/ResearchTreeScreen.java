@@ -25,8 +25,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.joml.Vector2f;
@@ -142,10 +144,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private void applyAutoLayout(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
-        ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForLayout();
-        ObjectArrayList<ResearchLink> visibleLinks = collectVisibleLinksForLayout();
-
-        DependencyTreeAutoLayout.apply(visibleNodes, visibleLinks, autoLayoutConfig);
+        DependencyTreeAutoLayout.apply(nodes, links, autoLayoutConfig);
+        compactAutoLayoutGroups();
         syncAllNodeWidgetBounds();
         prepareRevealAnimationState(visibleBefore, animateNewNodes);
         syncResearchNodeVisibility();
@@ -363,7 +363,24 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         if (!isNodeVisible(from) || !isNodeVisible(to) || isLinkHandledByRevealAnimation(link, to)) {
             return null;
         }
-        return super.buildLinkRenderData(link, from, to);
+
+        int renderPriority = getLinkRenderPriority(link, from, to);
+        LinkRenderData renderData = createLinkRenderData(link, renderPriority);
+        LinkRoute route = buildLinkRoute(link, from, to);
+        for (int i = 0, size = route.segments().size(); i < size; i++) {
+            LinkRouteSegment segment = route.segments().get(i);
+            addLinkPolyline(
+                    renderData,
+                    segment.startColor(),
+                    segment.endColor(),
+                    segment.width(),
+                    segment.x1(),
+                    segment.y1(),
+                    segment.x2(),
+                    segment.y2()
+            );
+        }
+        return renderData;
     }
 
     @Override
@@ -419,11 +436,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
-        if (autoLayoutEnabled) {
-            applyAutoLayout(visibleBefore, animateNewNodes);
-        } else {
-            refreshResearchProgression(visibleBefore, animateNewNodes);
-        }
+        refreshResearchProgression(visibleBefore, animateNewNodes);
     }
 
     private void syncResearchNodeVisibility() {
@@ -642,79 +655,24 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                                         ResearchNode to,
                                         float progress
     ) {
-        float startX = from.getX() + from.getWidth();
-        float startY = from.centerY();
-        float endX = to.getX();
-        float endY = to.centerY();
+        LinkRoute route = buildLinkRoute(link, from, to);
+        float remaining = route.totalLength() * progress;
+        for (int i = 0, size = route.segments().size(); i < size && remaining > 0f; i++) {
+            LinkRouteSegment segment = route.segments().get(i);
+            float segmentLength = segment.length();
+            float consumed = Math.min(segmentLength, remaining);
+            float segmentProgress = segmentLength <= 0.0001f ? 1f : consumed / segmentLength;
+            float currentX = lerp(segment.x1(), segment.x2(), segmentProgress);
+            float currentY = lerp(segment.y1(), segment.y2(), segmentProgress);
 
-        int startColor = getLinkStartColor(link);
-        int endColor = getLinkEndColor(link);
-        float width = getLinkWidth(link);
-        float halfWidth = width * 0.5f;
-
-        if (Math.abs(startY - endY) < 1.0f) {
-            float currentEndX = lerp(startX, endX, progress);
             DrawerHelper.drawLines(
                     guiContext.graphics,
-                    List.of(new Vector2f(startX, startY), new Vector2f(currentEndX, startY)),
-                    startColor,
-                    interpolateColor(startColor, endColor, progress),
-                    width
-            );
-            return;
-        }
-
-        float middleX = startX + (endX - startX) * 0.5f;
-        float segment1EndX = middleX + halfWidth;
-        float segment2StartX = middleX;
-        float segment2EndX = middleX;
-        float segment3StartX = middleX - halfWidth;
-
-        float segment1Length = Math.abs(segment1EndX - startX);
-        float segment2Length = Math.abs(endY - startY);
-        float segment3Length = Math.abs(endX - segment3StartX);
-        float totalLength = Math.max(0.0001f, segment1Length + segment2Length + segment3Length);
-        float remaining = totalLength * progress;
-
-        if (remaining > 0f) {
-            float consumed = Math.min(segment1Length, remaining);
-            float segmentProgress = segment1Length <= 0.0001f ? 1f : consumed / segment1Length;
-            float currentX = lerp(startX, segment1EndX, segmentProgress);
-            DrawerHelper.drawLines(
-                    guiContext.graphics,
-                    List.of(new Vector2f(startX, startY), new Vector2f(currentX, startY)),
-                    startColor,
-                    startColor,
-                    width
+                    List.of(new Vector2f(segment.x1(), segment.y1()), new Vector2f(currentX, currentY)),
+                    segment.startColor(),
+                    interpolateColor(segment.startColor(), segment.endColor(), segmentProgress),
+                    segment.width()
             );
             remaining -= consumed;
-        }
-
-        if (remaining > 0f) {
-            float consumed = Math.min(segment2Length, remaining);
-            float segmentProgress = segment2Length <= 0.0001f ? 1f : consumed / segment2Length;
-            float currentY = lerp(startY, endY, segmentProgress);
-            DrawerHelper.drawLines(
-                    guiContext.graphics,
-                    List.of(new Vector2f(segment2StartX, startY), new Vector2f(segment2EndX, currentY)),
-                    startColor,
-                    interpolateColor(startColor, endColor, segmentProgress),
-                    width
-            );
-            remaining -= consumed;
-        }
-
-        if (remaining > 0f) {
-            float consumed = Math.min(segment3Length, remaining);
-            float segmentProgress = segment3Length <= 0.0001f ? 1f : consumed / segment3Length;
-            float currentX = lerp(segment3StartX, endX, segmentProgress);
-            DrawerHelper.drawLines(
-                    guiContext.graphics,
-                    List.of(new Vector2f(segment3StartX, endY), new Vector2f(currentX, endY)),
-                    endColor,
-                    endColor,
-                    width
-            );
         }
     }
 
@@ -959,26 +917,263 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return mixColors(startColor, endColor, clamp01(progress));
     }
 
-    private ObjectArrayList<ResearchNode> collectVisibleNodesForLayout() {
-        ObjectArrayList<ResearchNode> visibleNodes = new ObjectArrayList<>();
-        for (ResearchNode node : nodes) {
-            if (isNodeVisible(node)) {
-                visibleNodes.add(node);
-            }
+    private LinkRoute buildLinkRoute(ResearchLink link, ResearchNode from, ResearchNode to) {
+        float startX = from.getX() + from.getWidth();
+        float startY = from.centerY();
+        float endX = to.getX();
+        float endY = resolveIncomingLinkAttachY(link, from, to);
+
+        int startColor = getLinkStartColor(link);
+        int endColor = getLinkEndColor(link);
+        float width = getLinkWidth(link);
+        float halfWidth = width * 0.5f;
+
+        ObjectArrayList<LinkRouteSegment> segments = new ObjectArrayList<>(5);
+        if (Math.abs(startY - endY) < 1.0f) {
+            addRouteSegment(segments, startColor, endColor, width, startX, startY, endX, endY);
+            return new LinkRoute(segments);
         }
-        return visibleNodes;
+
+        IncomingGroupLayout layout = getIncomingGroupLayout(to);
+        if (layout.groupIds().size() <= 1) {
+            float middleX = startX + (endX - startX) * 0.5f;
+            addRouteSegment(segments, startColor, startColor, width, startX, startY, middleX + halfWidth, startY);
+            addRouteSegment(segments, startColor, endColor, width, middleX, startY, middleX, endY);
+            addRouteSegment(segments, endColor, endColor, width, middleX - halfWidth, endY, endX, endY);
+            return new LinkRoute(segments);
+        }
+
+        float startLaneX = resolveIncomingLinkStartLaneX(link, from, to, startX, endX, layout);
+        float endLaneX = resolveIncomingLinkEndLaneX(link, from, to, startX, endX, layout);
+        float laneY = resolveIncomingLinkLaneY(link, from, to, layout);
+
+        if (endLaneX - startLaneX <= Math.max(10f, width * 2f)) {
+            float middleX = (startLaneX + endLaneX) * 0.5f;
+            startLaneX = middleX;
+            endLaneX = middleX;
+        }
+
+        addRouteSegment(segments, startColor, startColor, width, startX, startY, startLaneX + halfWidth, startY);
+        addRouteSegment(segments, startColor, startColor, width, startLaneX, startY, startLaneX, laneY);
+        addRouteSegment(segments, startColor, endColor, width, startLaneX, laneY, endLaneX, laneY);
+        addRouteSegment(segments, endColor, endColor, width, endLaneX, laneY, endLaneX, endY);
+        addRouteSegment(segments, endColor, endColor, width, endLaneX - halfWidth, endY, endX, endY);
+        return new LinkRoute(segments);
     }
 
-    private ObjectArrayList<ResearchLink> collectVisibleLinksForLayout() {
-        ObjectArrayList<ResearchLink> visibleLinks = new ObjectArrayList<>();
-        for (ResearchLink link : links) {
-            ResearchNode from = getNodeById(link.getNodeFrom());
-            ResearchNode to = getNodeById(link.getNodeTo());
-            if (from != null && to != null && isNodeVisible(from) && isNodeVisible(to)) {
-                visibleLinks.add(link);
+    private void addRouteSegment(ObjectArrayList<LinkRouteSegment> segments,
+                                 int startColor,
+                                 int endColor,
+                                 float width,
+                                 float x1,
+                                 float y1,
+                                 float x2,
+                                 float y2
+    ) {
+        if (Math.abs(x1 - x2) < 0.0001f && Math.abs(y1 - y2) < 0.0001f) {
+            return;
+        }
+        segments.add(new LinkRouteSegment(x1, y1, x2, y2, startColor, endColor, width));
+    }
+
+    private float resolveIncomingLinkAttachY(ResearchLink link, ResearchNode from, ResearchNode to) {
+        IncomingGroupLayout layout = getIncomingGroupLayout(to);
+        if (layout.groupIds().size() <= 1) {
+            return to.centerY();
+        }
+
+        int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
+        if (groupIndex < 0) {
+            return to.centerY();
+        }
+
+        float topInset = Math.min(12f, Math.max(5f, to.getHeight() * 0.22f));
+        float top = to.getY() + topInset;
+        float bottom = to.getY() + to.getHeight() - topInset;
+        if (layout.groupIds().size() == 2) {
+            float offset = Math.min(10f, Math.max(5f, to.getHeight() * 0.18f));
+            return groupIndex == 0 ? to.centerY() - offset : to.centerY() + offset;
+        }
+
+        float step = (bottom - top) / Math.max(1, layout.groupIds().size() - 1);
+        return top + step * groupIndex;
+    }
+
+    private float resolveIncomingLinkLaneY(ResearchLink link, ResearchNode from, ResearchNode to, IncomingGroupLayout layout) {
+        int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
+        if (groupIndex < 0) {
+            return to.centerY();
+        }
+
+        float laneSpacing = Math.max(18f, getLinkWidth(link) * 6f);
+        float centerOffset = groupIndex - (layout.groupIds().size() - 1) * 0.5f;
+        return to.centerY() + centerOffset * laneSpacing;
+    }
+
+    private float resolveIncomingLinkStartLaneX(ResearchLink link,
+                                                ResearchNode from,
+                                                ResearchNode to,
+                                                float startX,
+                                                float endX,
+                                                IncomingGroupLayout layout
+    ) {
+        float defaultMiddleX = startX + (endX - startX) * 0.5f;
+        int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
+        if (groupIndex < 0) {
+            return defaultMiddleX;
+        }
+
+        float laneSpacing = Math.max(16f, getLinkWidth(link) * 6f);
+        float minLaneX = startX + 18f;
+        float maxLaneX = endX - 28f - laneSpacing * Math.max(0, layout.groupIds().size() - 1);
+        if (maxLaneX <= minLaneX) {
+            return defaultMiddleX;
+        }
+        return Math.max(minLaneX, Math.min(maxLaneX, minLaneX + groupIndex * laneSpacing));
+    }
+
+    private float resolveIncomingLinkEndLaneX(ResearchLink link,
+                                              ResearchNode from,
+                                              ResearchNode to,
+                                              float startX,
+                                              float endX,
+                                              IncomingGroupLayout layout
+    ) {
+        float defaultMiddleX = startX + (endX - startX) * 0.5f;
+        int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
+        if (groupIndex < 0) {
+            return defaultMiddleX;
+        }
+
+        float laneSpacing = Math.max(16f, getLinkWidth(link) * 6f);
+        float maxLaneX = endX - 24f;
+        float minLaneX = startX + 28f + laneSpacing * Math.max(0, layout.groupIds().size() - 1);
+        if (maxLaneX <= minLaneX) {
+            return defaultMiddleX;
+        }
+        return Math.max(minLaneX, Math.min(maxLaneX, maxLaneX - groupIndex * laneSpacing));
+    }
+
+    private IncomingGroupLayout getIncomingGroupLayout(ResearchNode target) {
+        Map<String, GroupIncomingStats> statsByGroupId = new LinkedHashMap<>();
+        ResearchLink[] parentLinks = getLinksToNode(target.getId());
+        for (ResearchLink parentLink : parentLinks) {
+            ResearchNode parent = getNodeById(parentLink.getNodeFrom());
+            if (parent == null || !isNodeVisible(parent)) {
+                continue;
+            }
+
+            GroupIncomingStats stats = statsByGroupId.computeIfAbsent(
+                    parent.getGroup().getId(),
+                    ignored -> new GroupIncomingStats(parent.getGroup())
+            );
+            stats.centerYSum += parent.centerY();
+            stats.count++;
+        }
+
+        ObjectArrayList<GroupIncomingStats> stats = new ObjectArrayList<>(statsByGroupId.values());
+        stats.sort(Comparator
+                .comparingDouble(GroupIncomingStats::averageCenterY)
+                .thenComparing(groupStats -> groupStats.group().getTitle()));
+
+        ObjectArrayList<String> groupIds = new ObjectArrayList<>(stats.size());
+        for (int i = 0, size = stats.size(); i < size; i++) {
+            groupIds.add(stats.get(i).group().getId());
+        }
+        return new IncomingGroupLayout(groupIds);
+    }
+
+    private void compactAutoLayoutGroups() {
+        if (nodes.isEmpty()) {
+            return;
+        }
+
+        Map<String, Integer> groupOrder = collectStableGroupOrder();
+        Map<Float, ObjectArrayList<ResearchNode>> nodesByLayerX = new LinkedHashMap<>();
+        for (ResearchNode node : nodes) {
+            nodesByLayerX.computeIfAbsent(node.getX(), ignored -> new ObjectArrayList<>()).add(node);
+        }
+
+        for (ObjectArrayList<ResearchNode> layerNodes : nodesByLayerX.values()) {
+            if (layerNodes.size() <= 1) {
+                continue;
+            }
+
+            layerNodes.sort(Comparator.comparingDouble(ResearchNode::getY));
+
+            float originalMinY = Float.MAX_VALUE;
+            float originalMaxBottom = -Float.MAX_VALUE;
+            for (int i = 0, size = layerNodes.size(); i < size; i++) {
+                ResearchNode node = layerNodes.get(i);
+                originalMinY = Math.min(originalMinY, node.getY());
+                originalMaxBottom = Math.max(originalMaxBottom, node.getY() + node.getHeight());
+            }
+            float originalCenterY = (originalMinY + originalMaxBottom) * 0.5f;
+
+            Map<String, GroupVerticalCluster> clustersByGroupId = new LinkedHashMap<>();
+            for (int i = 0, size = layerNodes.size(); i < size; i++) {
+                ResearchNode node = layerNodes.get(i);
+                GroupVerticalCluster cluster = clustersByGroupId.computeIfAbsent(
+                        node.getGroup().getId(),
+                        ignored -> new GroupVerticalCluster(node.getGroup())
+                );
+                cluster.nodes.add(node);
+            }
+
+            ObjectArrayList<GroupVerticalCluster> clusters = new ObjectArrayList<>(clustersByGroupId.values());
+            for (int i = 0, size = clusters.size(); i < size; i++) {
+                clusters.get(i).sortAndCaptureAverageY();
+            }
+            clusters.sort(Comparator
+                    .comparingInt((GroupVerticalCluster cluster) -> groupOrder.getOrDefault(cluster.group().getId(), Integer.MAX_VALUE))
+                    .thenComparingDouble(GroupVerticalCluster::averageY)
+                    .thenComparing(cluster -> cluster.group().getTitle()));
+
+            float currentY = originalMinY;
+            for (int clusterIndex = 0, clusterCount = clusters.size(); clusterIndex < clusterCount; clusterIndex++) {
+                GroupVerticalCluster cluster = clusters.get(clusterIndex);
+                for (int nodeIndex = 0, nodeCount = cluster.nodes.size(); nodeIndex < nodeCount; nodeIndex++) {
+                    ResearchNode node = cluster.nodes.get(nodeIndex);
+                    node.setPosition(node.getX(), currentY);
+                    currentY += node.getHeight();
+                    if (nodeIndex < nodeCount - 1) {
+                        currentY += autoLayoutConfig.verticalGap();
+                    }
+                }
+
+                if (clusterIndex < clusterCount - 1) {
+                    currentY += autoLayoutConfig.verticalGap();
+                }
+            }
+
+            float newMinY = Float.MAX_VALUE;
+            float newMaxBottom = -Float.MAX_VALUE;
+            for (int i = 0, size = layerNodes.size(); i < size; i++) {
+                ResearchNode node = layerNodes.get(i);
+                newMinY = Math.min(newMinY, node.getY());
+                newMaxBottom = Math.max(newMaxBottom, node.getY() + node.getHeight());
+            }
+            float offsetY = originalCenterY - (newMinY + newMaxBottom) * 0.5f;
+            if (Math.abs(offsetY) > 0.001f) {
+                for (int i = 0, size = layerNodes.size(); i < size; i++) {
+                    ResearchNode node = layerNodes.get(i);
+                    node.setPosition(node.getX(), node.getY() + offsetY);
+                }
             }
         }
-        return visibleLinks;
+    }
+
+    private Map<String, Integer> collectStableGroupOrder() {
+        Map<String, Integer> groupOrder = new LinkedHashMap<>();
+        int nextIndex = 0;
+        for (int i = 0, size = nodes.size(); i < size; i++) {
+            ResearchNode node = nodes.get(i);
+            String groupId = node.getGroup().getId();
+            if (!groupOrder.containsKey(groupId)) {
+                groupOrder.put(groupId, nextIndex++);
+            }
+        }
+        return groupOrder;
     }
 
     private ObjectArrayList<GroupBounds> collectVisibleGroupBounds() {
@@ -1125,6 +1320,79 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                     maxX + DEFAULT_GROUP_BOUNDS_PADDING_X,
                     maxY + DEFAULT_GROUP_BOUNDS_PADDING_Y
             );
+        }
+    }
+
+    private static final class GroupVerticalCluster {
+        private final ResearchGroup group;
+        private final ObjectArrayList<ResearchNode> nodes = new ObjectArrayList<>();
+        private float averageY;
+
+        private GroupVerticalCluster(ResearchGroup group) {
+            this.group = group;
+        }
+
+        private void sortAndCaptureAverageY() {
+            nodes.sort(Comparator.comparingDouble(ResearchNode::getY).thenComparingInt(ResearchNode::getId));
+
+            float sum = 0f;
+            for (int i = 0, size = nodes.size(); i < size; i++) {
+                sum += nodes.get(i).centerY();
+            }
+            averageY = nodes.isEmpty() ? 0f : sum / nodes.size();
+        }
+
+        private ResearchGroup group() {
+            return group;
+        }
+
+        private float averageY() {
+            return averageY;
+        }
+    }
+
+    private record IncomingGroupLayout(ObjectArrayList<String> groupIds) {
+    }
+
+    private static final class GroupIncomingStats {
+        private final ResearchGroup group;
+        private float centerYSum;
+        private int count;
+
+        private GroupIncomingStats(ResearchGroup group) {
+            this.group = group;
+        }
+
+        private ResearchGroup group() {
+            return group;
+        }
+
+        private float averageCenterY() {
+            return count <= 0 ? 0f : centerYSum / count;
+        }
+    }
+
+    private record LinkRoute(ObjectArrayList<LinkRouteSegment> segments) {
+        private float totalLength() {
+            float total = 0f;
+            for (int i = 0, size = segments.size(); i < size; i++) {
+                total += segments.get(i).length();
+            }
+            return Math.max(0.0001f, total);
+        }
+    }
+
+    private record LinkRouteSegment(float x1,
+                                    float y1,
+                                    float x2,
+                                    float y2,
+                                    int startColor,
+                                    int endColor,
+                                    float width) {
+        private float length() {
+            float deltaX = x2 - x1;
+            float deltaY = y2 - y1;
+            return (float) Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         }
     }
 

@@ -156,24 +156,8 @@ public final class DependencyTreeAutoLayout {
             maxLayer = Math.max(maxLayer, layer);
         }
 
-        for (int layer = 0; layer <= maxLayer; layer++) {
-            List<NODE> layerNodes = nodesByLayer.get(layer);
-            if (layerNodes == null || layerNodes.isEmpty()) {
-                continue;
-            }
-
-            if (layer == 0) {
-                layerNodes.sort(Comparator.comparingInt(Node::getId));
-            } else {
-                layerNodes.sort(Comparator
-                        .comparingDouble((NODE node) -> averageParentRank(node.getId(), parentsByNodeId, rankByNodeId))
-                        .thenComparingInt(Node::getId));
-            }
-
-            for (int index = 0, size = layerNodes.size(); index < size; index++) {
-                rankByNodeId.put(layerNodes.get(index).getId(), index);
-            }
-        }
+        initializeLayerOrder(nodesByLayer, parentsByNodeId, childrenByNodeId, rankByNodeId, maxLayer);
+        refineLayerOrder(nodesByLayer, parentsByNodeId, childrenByNodeId, rankByNodeId, maxLayer);
 
         float[] layerMaxWidth = new float[maxLayer + 1];
         float[] layerMaxHeight = new float[maxLayer + 1];
@@ -193,7 +177,7 @@ public final class DependencyTreeAutoLayout {
             layerMaxHeight[layer] = maxHeight;
         }
 
-        return new GraphData<>(nodesByLayer, parentsByNodeId, rankByNodeId, maxLayer, layerMaxWidth, layerMaxHeight);
+        return new GraphData<>(nodeById, nodesByLayer, parentsByNodeId, childrenByNodeId, rankByNodeId, maxLayer, layerMaxWidth, layerMaxHeight);
     }
 
     private static <NODE extends Node> void applyLeftToRight(GraphData<NODE> graphData, Config config) {
@@ -219,6 +203,203 @@ public final class DependencyTreeAutoLayout {
 
             currentX += graphData.layerMaxWidth[layer] + config.horizontalGap();
         }
+
+        relaxNodeVerticalPlacement(graphData, config);
+    }
+
+    private static <NODE extends Node> void initializeLayerOrder(Int2ObjectOpenHashMap<List<NODE>> nodesByLayer,
+                                                                 Int2ObjectOpenHashMap<IntArrayList> parentsByNodeId,
+                                                                 Int2ObjectOpenHashMap<IntArrayList> childrenByNodeId,
+                                                                 Int2FloatOpenHashMap rankByNodeId,
+                                                                 int maxLayer
+    ) {
+        for (int layer = 0; layer <= maxLayer; layer++) {
+            List<NODE> layerNodes = nodesByLayer.get(layer);
+            if (layerNodes == null || layerNodes.isEmpty()) {
+                continue;
+            }
+
+            if (layer == 0) {
+                layerNodes.sort(Comparator.comparingInt(Node::getId));
+            } else {
+                layerNodes.sort(Comparator
+                        .comparingDouble((NODE node) -> averageParentRank(node.getId(), parentsByNodeId, rankByNodeId))
+                        .thenComparingDouble(node -> averageChildRank(node.getId(), childrenByNodeId, rankByNodeId))
+                        .thenComparingInt(Node::getId));
+            }
+        }
+
+        rebuildRanks(nodesByLayer, rankByNodeId, maxLayer);
+    }
+
+    private static <NODE extends Node> void refineLayerOrder(Int2ObjectOpenHashMap<List<NODE>> nodesByLayer,
+                                                             Int2ObjectOpenHashMap<IntArrayList> parentsByNodeId,
+                                                             Int2ObjectOpenHashMap<IntArrayList> childrenByNodeId,
+                                                             Int2FloatOpenHashMap rankByNodeId,
+                                                             int maxLayer
+    ) {
+        for (int iteration = 0; iteration < 6; iteration++) {
+            for (int layer = 1; layer <= maxLayer; layer++) {
+                List<NODE> layerNodes = nodesByLayer.get(layer);
+                if (layerNodes == null || layerNodes.size() <= 1) {
+                    continue;
+                }
+
+                layerNodes.sort(Comparator
+                        .comparingDouble((NODE node) -> averageParentRank(node.getId(), parentsByNodeId, rankByNodeId))
+                        .thenComparingDouble(node -> averageChildRank(node.getId(), childrenByNodeId, rankByNodeId))
+                        .thenComparingInt(Node::getId));
+            }
+            rebuildRanks(nodesByLayer, rankByNodeId, maxLayer);
+
+            for (int layer = maxLayer - 1; layer >= 0; layer--) {
+                List<NODE> layerNodes = nodesByLayer.get(layer);
+                if (layerNodes == null || layerNodes.size() <= 1) {
+                    continue;
+                }
+
+                layerNodes.sort(Comparator
+                        .comparingDouble((NODE node) -> averageChildRank(node.getId(), childrenByNodeId, rankByNodeId))
+                        .thenComparingDouble(node -> averageParentRank(node.getId(), parentsByNodeId, rankByNodeId))
+                        .thenComparingInt(Node::getId));
+            }
+            rebuildRanks(nodesByLayer, rankByNodeId, maxLayer);
+        }
+    }
+
+    private static <NODE extends Node> void rebuildRanks(Int2ObjectOpenHashMap<List<NODE>> nodesByLayer,
+                                                         Int2FloatOpenHashMap rankByNodeId,
+                                                         int maxLayer
+    ) {
+        for (int layer = 0; layer <= maxLayer; layer++) {
+            List<NODE> layerNodes = nodesByLayer.get(layer);
+            if (layerNodes == null) {
+                continue;
+            }
+
+            for (int index = 0, size = layerNodes.size(); index < size; index++) {
+                rankByNodeId.put(layerNodes.get(index).getId(), index);
+            }
+        }
+    }
+
+    private static <NODE extends Node> void relaxNodeVerticalPlacement(GraphData<NODE> graphData, Config config) {
+        for (int iteration = 0; iteration < 4; iteration++) {
+            for (int layer = 1; layer <= graphData.maxLayer; layer++) {
+                relaxLayerTowardsParents(graphData, config, layer);
+            }
+            for (int layer = graphData.maxLayer - 1; layer >= 0; layer--) {
+                relaxLayerTowardsChildren(graphData, config, layer);
+            }
+        }
+    }
+
+    private static <NODE extends Node> void relaxLayerTowardsParents(GraphData<NODE> graphData, Config config, int layer) {
+        List<NODE> layerNodes = graphData.nodesByLayer.get(layer);
+        if (layerNodes == null || layerNodes.isEmpty()) {
+            return;
+        }
+
+        float[] desiredTop = new float[layerNodes.size()];
+        for (int i = 0, size = layerNodes.size(); i < size; i++) {
+            NODE node = layerNodes.get(i);
+            desiredTop[i] = desiredTopFromConnectedCenters(
+                    node,
+                    graphData.parentsByNodeId.get(node.getId()),
+                    graphData.nodeById,
+                    config,
+                    node.getY()
+            );
+        }
+
+        applyLayerVerticalTargets(layerNodes, desiredTop, config);
+    }
+
+    private static <NODE extends Node> void relaxLayerTowardsChildren(GraphData<NODE> graphData, Config config, int layer) {
+        List<NODE> layerNodes = graphData.nodesByLayer.get(layer);
+        if (layerNodes == null || layerNodes.isEmpty()) {
+            return;
+        }
+
+        float[] desiredTop = new float[layerNodes.size()];
+        for (int i = 0, size = layerNodes.size(); i < size; i++) {
+            NODE node = layerNodes.get(i);
+            desiredTop[i] = desiredTopFromConnectedCenters(
+                    node,
+                    graphData.childrenByNodeId.get(node.getId()),
+                    graphData.nodeById,
+                    config,
+                    node.getY()
+            );
+        }
+
+        applyLayerVerticalTargets(layerNodes, desiredTop, config);
+    }
+
+    private static <NODE extends Node> float desiredTopFromConnectedCenters(NODE node,
+                                                                            IntArrayList connectedNodeIds,
+                                                                            Int2ObjectOpenHashMap<NODE> nodeById,
+                                                                            Config config,
+                                                                            float fallbackTop
+    ) {
+        if (connectedNodeIds == null || connectedNodeIds.isEmpty()) {
+            return fallbackTop;
+        }
+
+        float centerSum = 0f;
+        int counted = 0;
+        for (int i = 0, size = connectedNodeIds.size(); i < size; i++) {
+            NODE connected = nodeById.get(connectedNodeIds.getInt(i));
+            if (connected == null) {
+                continue;
+            }
+            centerSum += connected.centerY();
+            counted++;
+        }
+
+        if (counted == 0) {
+            return fallbackTop;
+        }
+
+        float desiredCenter = centerSum / counted;
+        return desiredCenter - node.getHeight() * 0.5f;
+    }
+
+    private static <NODE extends Node> void applyLayerVerticalTargets(List<NODE> layerNodes,
+                                                                      float[] desiredTop,
+                                                                      Config config
+    ) {
+        float currentTop = desiredTop[0];
+        layerNodes.get(0).setPosition(layerNodes.get(0).getX(), currentTop);
+        currentTop += layerNodes.get(0).getHeight() + config.verticalGap();
+
+        for (int i = 1, size = layerNodes.size(); i < size; i++) {
+            NODE node = layerNodes.get(i);
+            currentTop = Math.max(currentTop, desiredTop[i]);
+            node.setPosition(node.getX(), currentTop);
+            currentTop += node.getHeight() + config.verticalGap();
+        }
+
+        float minTop = Float.MAX_VALUE;
+        float maxBottom = -Float.MAX_VALUE;
+        float totalHeight = 0f;
+        for (NODE node : layerNodes) {
+            minTop = Math.min(minTop, node.getY());
+            maxBottom = Math.max(maxBottom, node.getY() + node.getHeight());
+            totalHeight += node.getHeight();
+        }
+        totalHeight += Math.max(0, layerNodes.size() - 1) * config.verticalGap();
+
+        float currentCenter = (minTop + maxBottom) * 0.5f;
+        float targetCenter = config.originY();
+        float offset = targetCenter - currentCenter;
+        if (Math.abs(offset) < 0.001f) {
+            return;
+        }
+
+        for (NODE node : layerNodes) {
+            node.setPosition(node.getX(), node.getY() + offset);
+        }
     }
 
     private static double averageParentRank(int nodeId,
@@ -242,25 +423,50 @@ public final class DependencyTreeAutoLayout {
         return counted == 0 ? Double.MAX_VALUE : sum / counted;
     }
 
+    private static double averageChildRank(int nodeId,
+                                           Int2ObjectOpenHashMap<IntArrayList> childrenByNodeId,
+                                           Int2FloatOpenHashMap rankByNodeId
+    ) {
+        IntArrayList children = childrenByNodeId.get(nodeId);
+        if (children == null || children.isEmpty()) {
+            return Double.MAX_VALUE;
+        }
+
+        float sum = 0f;
+        int counted = 0;
+        for (int i = 0, size = children.size(); i < size; i++) {
+            float rank = rankByNodeId.get(children.getInt(i));
+            if (rank >= 0f) {
+                sum += rank;
+                counted++;
+            }
+        }
+        return counted == 0 ? Double.MAX_VALUE : sum / counted;
+    }
+
     private static final class GraphData<NODE extends Node> {
+        private final Int2ObjectOpenHashMap<NODE> nodeById;
         private final Int2ObjectOpenHashMap<List<NODE>> nodesByLayer;
-        @SuppressWarnings("unused")
         private final Int2ObjectOpenHashMap<IntArrayList> parentsByNodeId;
-        @SuppressWarnings("unused")
+        private final Int2ObjectOpenHashMap<IntArrayList> childrenByNodeId;
         private final Int2FloatOpenHashMap rankByNodeId;
         private final int maxLayer;
         private final float[] layerMaxWidth;
         private final float[] layerMaxHeight;
 
-        private GraphData(Int2ObjectOpenHashMap<List<NODE>> nodesByLayer,
+        private GraphData(Int2ObjectOpenHashMap<NODE> nodeById,
+                          Int2ObjectOpenHashMap<List<NODE>> nodesByLayer,
                           Int2ObjectOpenHashMap<IntArrayList> parentsByNodeId,
+                          Int2ObjectOpenHashMap<IntArrayList> childrenByNodeId,
                           Int2FloatOpenHashMap rankByNodeId,
                           int maxLayer,
                           float[] layerMaxWidth,
                           float[] layerMaxHeight
         ) {
+            this.nodeById = nodeById;
             this.nodesByLayer = nodesByLayer;
             this.parentsByNodeId = parentsByNodeId;
+            this.childrenByNodeId = childrenByNodeId;
             this.rankByNodeId = rankByNodeId;
             this.maxLayer = maxLayer;
             this.layerMaxWidth = layerMaxWidth;
