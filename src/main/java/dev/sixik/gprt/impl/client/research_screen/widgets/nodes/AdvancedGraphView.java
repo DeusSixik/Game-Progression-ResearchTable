@@ -5,6 +5,7 @@ import com.lowdragmc.lowdraglib2.client.utils.RenderBufferUtils;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.GraphView;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.EnhancedPoseStack;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
@@ -30,23 +31,27 @@ public class AdvancedGraphView<
         LINK_LIST extends List<LINK>
         > extends GraphView {
 
+    @Getter
     protected final NODE_LIST nodes;
+    @Getter
     protected final LINK_LIST links;
+    @Getter
     protected final NodeManager<NODE, NODE_LIST> nodeManager;
+    @Getter
     protected final NodeLinkManager<LINK, LINK_LIST> linkManager;
 
-    private final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
+    protected final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
 
     // Per-link geometry cache. Each link stores prebuilt polylines, so draw-time does not recalculate bends.
-    private final Object2ObjectOpenHashMap<LINK, LinkRenderData> linkRenderDataByLink = new Object2ObjectOpenHashMap<>();
+    protected final Object2ObjectOpenHashMap<LINK, LinkRenderData> linkRenderDataByLink = new Object2ObjectOpenHashMap<>();
 
     // Batches split cached polylines by render style, so one style uses one buffer acquisition + one batch method.
     private final Object2ObjectOpenHashMap<LineStyleKey, LineBatch> lineBatchesByStyle = new Object2ObjectOpenHashMap<>();
 
     // Fallback flag for cases when caller changes a lot of data and wants full cache rebuild.
-    private boolean rebuildAllLinkGeometryDirty = true;
+    protected boolean rebuildAllLinkGeometryDirty = true;
 
-    private boolean fittedOnce;
+    protected boolean fittedOnce;
 
     public AdvancedGraphView(NodeManager<NODE, NODE_LIST> nodeManager,
                              NodeLinkManager<LINK, LINK_LIST> linkManager
@@ -58,12 +63,7 @@ public class AdvancedGraphView<
 
         constructorParams();
 
-        addEventListener(UIEvents.LAYOUT_CHANGED, event -> {
-            if (!fittedOnce && getContentWidth() > 0 && getContentHeight() > 0) {
-                fittedOnce = true;
-                fitToChildren(80f, 0.35f);
-            }
-        });
+        addEventListener(UIEvents.LAYOUT_CHANGED, this::onLayoutChanged);
     }
 
     protected void constructorParams() {
@@ -77,22 +77,6 @@ public class AdvancedGraphView<
                 .maxScale(2.5f)
                 .gridSize(48f)
         );
-    }
-
-    public NODE_LIST getNodes() {
-        return nodes;
-    }
-
-    public LINK_LIST getLinks() {
-        return links;
-    }
-
-    public NodeManager<NODE, NODE_LIST> getNodeManager() {
-        return nodeManager;
-    }
-
-    public NodeLinkManager<LINK, LINK_LIST> getLinkManager() {
-        return linkManager;
     }
 
     public void focusCameraOnMouse(float mouseX, float mouseY) {
@@ -472,6 +456,13 @@ public class AdvancedGraphView<
 
     private void collectLinks(ObjectOpenHashSet<LINK> out, LINK[] links) {
         Collections.addAll(out, links);
+    }
+
+    private void onLayoutChanged(UIEvent event) {
+        if (!fittedOnce && getContentWidth() > 0 && getContentHeight() > 0) {
+            fittedOnce = true;
+            fitToChildren(80f, 0.35f);
+        }
     }
 
     protected static final class LinkRenderData {

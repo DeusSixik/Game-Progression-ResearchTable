@@ -130,9 +130,8 @@ dependencies {
 
     implementation "com.github.DeusSixik:Game-Progression-Framework:${gpf_version}"
 
-    compileOnly 'org.projectlombok:lombok:1.18.24'
-    annotationProcessor 'org.projectlombok:lombok:1.18.24'
-    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all")
 }

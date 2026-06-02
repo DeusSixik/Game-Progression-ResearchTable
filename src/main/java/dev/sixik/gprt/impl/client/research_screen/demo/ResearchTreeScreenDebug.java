@@ -25,26 +25,34 @@ public class ResearchTreeScreenDebug extends ResearchTreeScreen {
     }
 
     public ResearchTreeScreenDebug() {
-        addNode(new ResearchNode(0, 0, 0, 120, 34));
-        addNode(new ResearchNode(1, 200, 100, 120, 34));
+        int node = createNode(0, 0);
+        createNodeWithLink(node, 120+20, 0);
+        createNodeWithLink(node, 0, 60);
+        node = createNodeWithLink(node, 120+20, 60);
 
-        addLink(new ResearchLink(0, 1));
+        createNodeWithLink(node, (120+20) * 2, 0);
+        createNodeWithLink(node, (120+20) * 2, -60);
+        createNodeWithLink(node, (120+20) * 2, 60);
+    }
+
+    private int currentIndex = 0;
+
+    public int createNode(int x, int y) {
+        addNode(new ResearchNode(currentIndex,x,y, 120, 34));
+        return currentIndex++;
+    }
+
+    public int createNodeWithLink(int root, int x, int y) {
+        int current = createNode(x, y);
+        addLink(new ResearchLink(root, current));
+        return current;
     }
 
     @Override
     protected @Nullable UIElement createNodeWidget(ResearchNode node) {
-        var nodeButton = new Button();
+        Button nodeButton = new Button();
         nodeButton.setText(String.valueOf(node.getId()));
-
-        // По клику на ноду центрируем камеру на ее центре.
         nodeButton.setOnClick(event -> centerCameraOn(node.getId()));
-
-        // Ключевой момент GraphView:
-        // дочерние элементы contentRoot можно свободно расставлять через ABSOLUTE.
-        //
-        // x/y - это координаты в world-space canvas.
-        // Они не обязаны совпадать с экранными координатами и будут потом
-        // автоматически преобразованы через zoom + pan.
         nodeButton.layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(node.getX())
