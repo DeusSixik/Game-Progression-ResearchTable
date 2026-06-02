@@ -7,6 +7,6 @@ import dev.sixik.gprt.impl.client.research_screen.demo.ResearchTreeScreenDebug;
 public class ResearchTreeScreenCreator {
 
     public static ModularUI createMainScreen() {
-        return ModularUI.of(UI.of(ResearchTreeScreenDebug.createView()));
+        return ModularUI.of(UI.of(new ResearchTreeScreenDebug().createView()));
     }
 }

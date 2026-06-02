@@ -1,4 +1,4 @@
-package dev.sixik.gprt.impl.client.research_screen.demo;
+package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
  * Temporary standalone overlay for TABLE research.
  * <p>
  * The real table gameplay screen will replace this later, but moving the placeholder
- * into its own class already keeps the debug tree screen much smaller and gives it a
+ * into its own class already keeps the main research screen smaller and gives it a
  * clearer API: show node data, hide itself and forward button callbacks upward.
  * </p>
  */
