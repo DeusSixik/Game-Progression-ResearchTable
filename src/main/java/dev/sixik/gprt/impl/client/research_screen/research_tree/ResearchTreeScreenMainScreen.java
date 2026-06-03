@@ -1026,12 +1026,16 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .panelColor(0xD0000000 | (applyLinkRenderStateColor(node.getGroupColor(), toRenderState(state)) & 0x00FFFFFF));
 
         if (isAutoConditionsSectionEnabled()) {
-            builder.conditions(collectParentNodes(node));
+            List<ResearchNode> parents = collectParentNodes(node);
+            if(!parents.isEmpty())
+                builder.conditions(parents);
         } else {
             builder.noConditions();
         }
         if (isAutoUnlocksSectionEnabled()) {
-            builder.unlocks(collectVisibleUnlockedChildren(node), buildUnlocksFallbackText(node));
+            List<ResearchNode> unlocks = collectVisibleUnlockedChildren(node);
+            if(!unlocks.isEmpty())
+                builder.unlocks(unlocks, buildUnlocksFallbackText(node));
         } else {
             builder.noUnlocks();
         }
