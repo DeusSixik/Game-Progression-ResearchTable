@@ -1,0 +1,264 @@
+package dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets;
+
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Reusable semantic theme preset for one research-node family.
+ * <p>
+ * Unlike {@link ResearchNodeVisualDefinition}, this model is not the final rendered style.
+ * It stores higher-level defaults such as branch colors, icon, shape and optional preset badge.
+ * A visual resolver can then combine this theme with runtime state and produce the final node look.
+ * </p>
+ */
+public final class ResearchNodeTheme {
+    private final boolean titleVisible;
+    private final boolean subtitleVisible;
+    private final boolean iconVisible;
+    private final boolean progressVisible;
+    private final int primaryColor;
+    private final int secondaryColor;
+    private final @Nullable Integer accentColor;
+    private final @Nullable Integer badgeColor;
+    private final @Nullable Integer progressBarColor;
+    private final @Nullable Integer progressBarBackgroundColor;
+    private final String iconPath;
+    private final String badgeText;
+    private final ResearchNodeVisualDefinition.ShapeStyle shapeStyle;
+    private final @Nullable ResearchNodeVisualDefinition.SizePreset sizePreset;
+    private final @Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment;
+
+    private ResearchNodeTheme(Builder builder) {
+        this.titleVisible = builder.titleVisible;
+        this.subtitleVisible = builder.subtitleVisible;
+        this.iconVisible = builder.iconVisible;
+        this.progressVisible = builder.progressVisible;
+        this.primaryColor = builder.primaryColor;
+        this.secondaryColor = builder.secondaryColor;
+        this.accentColor = builder.accentColor;
+        this.badgeColor = builder.badgeColor;
+        this.progressBarColor = builder.progressBarColor;
+        this.progressBarBackgroundColor = builder.progressBarBackgroundColor;
+        this.iconPath = builder.iconPath;
+        this.badgeText = builder.badgeText;
+        this.shapeStyle = builder.shapeStyle;
+        this.sizePreset = builder.sizePreset;
+        this.titleAlignment = builder.titleAlignment;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public Builder toBuilder() {
+        return new Builder()
+                .titleVisible(titleVisible)
+                .subtitleVisible(subtitleVisible)
+                .iconVisible(iconVisible)
+                .progressVisible(progressVisible)
+                .primaryColor(primaryColor)
+                .secondaryColor(secondaryColor)
+                .accentColor(accentColor)
+                .badgeColor(badgeColor)
+                .progressBarColor(progressBarColor)
+                .progressBarBackgroundColor(progressBarBackgroundColor)
+                .iconPath(iconPath)
+                .badgeText(badgeText)
+                .shapeStyle(shapeStyle)
+                .sizePreset(sizePreset)
+                .titleAlignment(titleAlignment);
+    }
+
+    public boolean isTitleVisible() {
+        return titleVisible;
+    }
+
+    public boolean isSubtitleVisible() {
+        return subtitleVisible;
+    }
+
+    public boolean isIconVisible() {
+        return iconVisible;
+    }
+
+    public boolean isProgressVisible() {
+        return progressVisible;
+    }
+
+    public int getPrimaryColor() {
+        return primaryColor;
+    }
+
+    public int getSecondaryColor() {
+        return secondaryColor;
+    }
+
+    public @Nullable Integer getAccentColor() {
+        return accentColor;
+    }
+
+    public @Nullable Integer getBadgeColor() {
+        return badgeColor;
+    }
+
+    public @Nullable Integer getProgressBarColor() {
+        return progressBarColor;
+    }
+
+    public @Nullable Integer getProgressBarBackgroundColor() {
+        return progressBarBackgroundColor;
+    }
+
+    public String getIconPath() {
+        return iconPath;
+    }
+
+    public String getBadgeText() {
+        return badgeText;
+    }
+
+    public ResearchNodeVisualDefinition.ShapeStyle getShapeStyle() {
+        return shapeStyle;
+    }
+
+    public @Nullable ResearchNodeVisualDefinition.SizePreset getSizePreset() {
+        return sizePreset;
+    }
+
+    public @Nullable ResearchNodeVisualDefinition.TitleAlignment getTitleAlignment() {
+        return titleAlignment;
+    }
+
+    public static final class Builder {
+        private boolean titleVisible = true;
+        private boolean subtitleVisible = true;
+        private boolean iconVisible;
+        private boolean progressVisible = true;
+        private int primaryColor = 0xFF67B7FF;
+        private int secondaryColor = 0xFF67B7FF;
+        private @Nullable Integer accentColor;
+        private @Nullable Integer badgeColor;
+        private @Nullable Integer progressBarColor;
+        private @Nullable Integer progressBarBackgroundColor;
+        private String iconPath = "";
+        private String badgeText = "";
+        private ResearchNodeVisualDefinition.ShapeStyle shapeStyle = ResearchNodeVisualDefinition.ShapeStyle.ROUNDED_RECTANGLE;
+        private @Nullable ResearchNodeVisualDefinition.SizePreset sizePreset;
+        private @Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment;
+
+        public Builder titleVisible(boolean titleVisible) {
+            this.titleVisible = titleVisible;
+            return this;
+        }
+
+        public Builder showTitle(boolean titleVisible) {
+            return titleVisible(titleVisible);
+        }
+
+        public Builder subtitleVisible(boolean subtitleVisible) {
+            this.subtitleVisible = subtitleVisible;
+            return this;
+        }
+
+        public Builder showSubtitle(boolean subtitleVisible) {
+            return subtitleVisible(subtitleVisible);
+        }
+
+        public Builder iconVisible(boolean iconVisible) {
+            this.iconVisible = iconVisible;
+            return this;
+        }
+
+        public Builder showIcon(boolean iconVisible) {
+            return iconVisible(iconVisible);
+        }
+
+        public Builder progressVisible(boolean progressVisible) {
+            this.progressVisible = progressVisible;
+            return this;
+        }
+
+        public Builder showProgress(boolean progressVisible) {
+            return progressVisible(progressVisible);
+        }
+
+        public Builder primaryColor(int primaryColor) {
+            this.primaryColor = primaryColor;
+            return this;
+        }
+
+        public Builder secondaryColor(int secondaryColor) {
+            this.secondaryColor = secondaryColor;
+            return this;
+        }
+
+        public Builder colors(int primaryColor, int secondaryColor) {
+            this.primaryColor = primaryColor;
+            this.secondaryColor = secondaryColor;
+            return this;
+        }
+
+        public Builder accentColor(@Nullable Integer accentColor) {
+            this.accentColor = accentColor;
+            return this;
+        }
+
+        public Builder badgeColor(@Nullable Integer badgeColor) {
+            this.badgeColor = badgeColor;
+            return this;
+        }
+
+        public Builder progressBarColor(@Nullable Integer progressBarColor) {
+            this.progressBarColor = progressBarColor;
+            return this;
+        }
+
+        public Builder progressBarBackgroundColor(@Nullable Integer progressBarBackgroundColor) {
+            this.progressBarBackgroundColor = progressBarBackgroundColor;
+            return this;
+        }
+
+        public Builder iconPath(String iconPath) {
+            this.iconPath = iconPath == null ? "" : iconPath;
+            if (!this.iconPath.isBlank()) {
+                this.iconVisible = true;
+            }
+            return this;
+        }
+
+        public Builder icon(String iconPath) {
+            return iconPath(iconPath);
+        }
+
+        public Builder badgeText(String badgeText) {
+            this.badgeText = badgeText == null ? "" : badgeText;
+            return this;
+        }
+
+        public Builder badge(String badgeText, int badgeColor) {
+            this.badgeText = badgeText == null ? "" : badgeText;
+            this.badgeColor = badgeColor;
+            return this;
+        }
+
+        public Builder shapeStyle(ResearchNodeVisualDefinition.ShapeStyle shapeStyle) {
+            if (shapeStyle != null) {
+                this.shapeStyle = shapeStyle;
+            }
+            return this;
+        }
+
+        public Builder sizePreset(@Nullable ResearchNodeVisualDefinition.SizePreset sizePreset) {
+            this.sizePreset = sizePreset;
+            return this;
+        }
+
+        public Builder titleAlignment(@Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment) {
+            this.titleAlignment = titleAlignment;
+            return this;
+        }
+
+        public ResearchNodeTheme build() {
+            return new ResearchNodeTheme(this);
+        }
+    }
+}

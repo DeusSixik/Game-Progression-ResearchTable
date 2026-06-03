@@ -13,6 +13,8 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
@@ -36,7 +38,16 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private static final String METALLURGY_GROUP_ID = "metallurgy";
     private static final String FARMING_GROUP_ID = "farming";
     private static final String LOGISTICS_GROUP_ID = "logistics";
+    private static final ResearchGroup ROOT_GROUP = ResearchGroup.of(ROOT_GROUP_ID, "Root", 0xFFD0D5DD);
+    private static final ResearchGroup METALLURGY_GROUP = ResearchGroup.of(METALLURGY_GROUP_ID, "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
+    private static final ResearchGroup FARMING_GROUP = ResearchGroup.of(FARMING_GROUP_ID, "Farming", 0xFF54B36B, 0xFF87D99C);
+    private static final ResearchGroup LOGISTICS_GROUP = ResearchGroup.of(LOGISTICS_GROUP_ID, "Logistics", 0xFF4C90E8, 0xFF81B7FF);
 
+    private DebugResearchNodeWidgetShowcase.StyleMode currentNodeStyle = DebugResearchNodeWidgetShowcase.StyleMode.BRANCH_SHOWCASE;
+    private boolean overlayExpanded = true;
+    private UIElement overlayContent;
+    private Button overlayToggleButton;
+    private Label nodeStyleLabel;
     private Label revealStageLabel;
     private Label revealNodeLabel;
     private Label revealNodeProgressLabel;
@@ -52,12 +63,46 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
 
     @Override
     protected UIElement createOverlayPanel() {
-        UIElement panel = new UIElement()
+        UIElement root = new UIElement()
                 .layout(layout -> layout
                         .positionType(TaffyPosition.ABSOLUTE)
                         .left(8)
                         .top(8)
                         .width(310)
+                        .gapAll(4)
+                );
+
+        UIElement header = new UIElement()
+                .layout(layout -> layout
+                        .widthPercent(100)
+                        .paddingHorizontal(6)
+                        .paddingVertical(5)
+                )
+                .style(style -> style.backgroundTexture(new ColorRectTexture(0xE6161E28)));
+
+        UIElement headerText = new UIElement()
+                .layout(layout -> layout
+                        .width(228)
+                        .gapAll(1)
+                );
+        headerText.addChildren(
+                new Label().setText("Debug Overlay"),
+                new Label().setText("Camera, groups and showcase tools")
+        );
+
+        overlayToggleButton = new Button()
+                .setText("Collapse")
+                .setOnClick(event -> {
+                    overlayExpanded = !overlayExpanded;
+                    updateOverlayVisibility();
+                });
+        overlayToggleButton.layout(layout -> layout.width(72));
+
+        header.addChildren(headerText, overlayToggleButton);
+
+        UIElement panel = new UIElement()
+                .layout(layout -> layout
+                        .widthPercent(100)
                         .paddingAll(6)
                         .gapAll(4)
                 )
@@ -66,6 +111,8 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         UIElement cameraButtons = new UIElement()
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
         UIElement groupButtons = new UIElement()
+                .layout(layout -> layout.widthPercent(100).gapAll(4));
+        UIElement styleButtons = new UIElement()
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
         UIElement revealDebugPanel = new UIElement()
                 .layout(layout -> layout.widthPercent(100).paddingAll(6).gapAll(2))
@@ -86,6 +133,17 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Button().setText("Farming").setOnClick(event -> toggleGroupFocus(FARMING_GROUP_ID)),
                 new Button().setText("Logistics").setOnClick(event -> toggleGroupFocus(LOGISTICS_GROUP_ID)),
                 new Button().setText("Clear Mark").setOnClick(event -> clearFocusedGroup())
+        );
+
+        nodeStyleLabel = new Label();
+        updateNodeStyleLabel();
+        styleButtons.addChildren(
+                new Button().setText("Switch Node Style").setOnClick(event -> {
+                    currentNodeStyle = currentNodeStyle.next();
+                    updateNodeStyleLabel();
+                    refreshNodeWidgetsNow();
+                }),
+                nodeStyleLabel
         );
 
         revealStageLabel = new Label();
@@ -113,10 +171,14 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Label().setText("This class now mostly defines data and screen-specific controls."),
                 cameraButtons,
                 groupButtons,
+                styleButtons,
                 revealDebugPanel
         );
 
-        return panel;
+        overlayContent = panel;
+        root.addChildren(header, panel);
+        updateOverlayVisibility();
+        return root;
     }
 
     @Override
@@ -125,13 +187,29 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     }
 
     @Override
+    protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
+        return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> currentNodeStyle);
+    }
+
+    @Override
+    protected void configureNodeThemePresets(ResearchNodeGroupThemeResolver.Builder builder) {
+        DebugResearchNodeWidgetShowcase.configureThemePresets(
+                builder,
+                ROOT_GROUP,
+                METALLURGY_GROUP,
+                FARMING_GROUP,
+                LOGISTICS_GROUP
+        );
+    }
+
+    @Override
     protected void buildResearchTree() {
         ResearchTreeBuild build = ResearchTreeBuild.create();
 
-        ResearchGroup rootGroup = build.group(ROOT_GROUP_ID, "Root", 0xFFD0D5DD);
-        ResearchGroup metallurgyGroup = build.group(METALLURGY_GROUP_ID, "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
-        ResearchGroup farmingGroup = build.group(FARMING_GROUP_ID, "Farming", 0xFF54B36B, 0xFF87D99C);
-        ResearchGroup logisticsGroup = build.group(LOGISTICS_GROUP_ID, "Logistics", 0xFF4C90E8, 0xFF81B7FF);
+        ResearchGroup rootGroup = build.group(ROOT_GROUP.getId(), ROOT_GROUP.getTitle(), ROOT_GROUP.getPrimaryColor(), ROOT_GROUP.getSecondaryColor());
+        ResearchGroup metallurgyGroup = build.group(METALLURGY_GROUP.getId(), METALLURGY_GROUP.getTitle(), METALLURGY_GROUP.getPrimaryColor(), METALLURGY_GROUP.getSecondaryColor());
+        ResearchGroup farmingGroup = build.group(FARMING_GROUP.getId(), FARMING_GROUP.getTitle(), FARMING_GROUP.getPrimaryColor(), FARMING_GROUP.getSecondaryColor());
+        ResearchGroup logisticsGroup = build.group(LOGISTICS_GROUP.getId(), LOGISTICS_GROUP.getTitle(), LOGISTICS_GROUP.getPrimaryColor(), LOGISTICS_GROUP.getSecondaryColor());
 
         build.node(ROOT_KEY)
                 .definition(instantDefinition(ROOT_KEY, "Primitive Tools",
@@ -429,6 +507,21 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
 
     private String formatNumber(float value) {
         return String.format("%.2f", value);
+    }
+
+    private void updateNodeStyleLabel() {
+        if (nodeStyleLabel != null) {
+            nodeStyleLabel.setText("Node Style: " + currentNodeStyle.displayName());
+        }
+    }
+
+    private void updateOverlayVisibility() {
+        if (overlayContent != null) {
+            overlayContent.setDisplay(overlayExpanded);
+        }
+        if (overlayToggleButton != null) {
+            overlayToggleButton.setText(overlayExpanded ? "Collapse" : "Expand");
+        }
     }
 
     private static ResearchDefinition instantDefinition(String key, String title, String description) {

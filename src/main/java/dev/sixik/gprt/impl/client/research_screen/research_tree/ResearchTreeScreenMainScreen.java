@@ -2,7 +2,6 @@ package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContentFactory;
@@ -11,6 +10,15 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanel;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.DefaultResearchNodeWidgetFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.DefaultResearchNodeThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeRenderContext;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeTheme;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
@@ -79,12 +87,14 @@ import java.util.List;
 public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private static final long DETAILS_PANEL_ANIMATION_DURATION_MS = 240L;
 
-    private final Int2ObjectOpenHashMap<Button> nodeButtonsById = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
     private final SimpleClientResearchProgressManager researchProgressManager = new SimpleClientResearchProgressManager();
     private final ResearchProgressController researchProgressController = new ResearchProgressController(researchProgressManager);
 
     private @Nullable UIElement overlayPanel;
     private @Nullable ResearchInfoPanelWidget detailsPanel;
+    private @Nullable ResearchNodeWidgetFactory nodeWidgetFactory;
+    private @Nullable ResearchNodeThemeResolver nodeThemeResolver;
 
     private @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
     private int selectedNodeId = -1;
@@ -144,9 +154,85 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     /**
+     * Creates the factory responsible for research-node widgets.
+     * <p>
+     * Screens can override this to replace the default node look without touching selection,
+     * progression or reveal logic in the main screen itself.
+     * </p>
+     */
+    protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
+        return new DefaultResearchNodeWidgetFactory();
+    }
+
+    /**
+     * Creates the resolver that maps a research node to a reusable visual theme preset.
+     * <p>
+     * Override this when you want to centralize branch presets, icon packs or project-wide
+     * node theme rules separately from the final state-based rendering pass.
+     * </p>
+     */
+    protected ResearchNodeThemeResolver createNodeThemeResolver() {
+        ResearchNodeGroupThemeResolver.Builder builder = ResearchNodeGroupThemeResolver.builder()
+                .fallback(new DefaultResearchNodeThemeResolver());
+        configureNodeThemePresets(builder);
+        return builder.build();
+    }
+
+    /**
+     * Optional convenience hook for declarative group presets.
+     * <p>
+     * Most concrete screens should prefer this method over overriding
+     * {@link #createNodeThemeResolver()}: register one preset per branch/group here and keep the
+     * default fallback resolver for everything else.
+     * </p>
+     */
+    protected void configureNodeThemePresets(ResearchNodeGroupThemeResolver.Builder builder) {
+    }
+
+    /**
      * Hook for subclasses that want extra behavior when the user selects a node.
      */
     protected void onNodeSelected(ResearchNode node) {
+    }
+
+    /**
+     * Builds the runtime render context for a node widget.
+     * <p>
+     * This context carries volatile state such as selection, reveal lock and timed progress,
+     * while the visual definition returned by {@link #buildNodeVisualDefinition(ResearchNode, ResearchNodeRenderContext)}
+     * remains the reusable style description.
+     * </p>
+     */
+    protected ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node) {
+        return buildNodeRenderContext(node, System.currentTimeMillis());
+    }
+
+    /**
+     * Builds the reusable semantic theme for a research node before runtime state is applied.
+     * <p>
+     * Override this when you want branch-specific presets such as icons, badges, title alignment
+     * or shared per-group styling without duplicating the state-color logic.
+     * </p>
+     */
+    protected ResearchNodeTheme buildNodeTheme(ResearchNode node, ResearchNodeRenderContext context) {
+        return getNodeThemeResolver().resolveTheme(node, context);
+    }
+
+    /**
+     * Builds the visual description for one research node.
+     * <p>
+     * Override this only when the default theme + runtime-state pipeline is not enough.
+     * For most cases it is cleaner to override {@link #buildNodeTheme(ResearchNode, ResearchNodeRenderContext)}
+     * and let {@link ResearchNodeVisualResolver} derive the final stateful visuals.
+     * </p>
+     */
+    protected ResearchNodeVisualDefinition buildNodeVisualDefinition(ResearchNode node, ResearchNodeRenderContext context) {
+        return ResearchNodeVisualResolver.resolve(
+                buildNodeTheme(node, context),
+                node,
+                context,
+                resolveNodeSizePreset(node)
+        );
     }
 
     protected final ResearchProgressController progressController() {
@@ -166,10 +252,23 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     protected final void toggleGroupFocus(String groupId) {
         boolean zoomToGroup = groupId.equals(getHighlightedGroupId());
         focusGroup(groupId, zoomToGroup);
+        refreshAllNodeWidgets(System.currentTimeMillis());
     }
 
     protected final void clearFocusedGroup() {
         clearHighlightedGroup();
+        refreshAllNodeWidgets(System.currentTimeMillis());
+    }
+
+    /**
+     * Forces an immediate refresh of all currently existing node widgets.
+     * <p>
+     * Useful for debug tools or runtime theme switches where the underlying node data does not
+     * change, but the current visual presentation should be reapplied right away.
+     * </p>
+     */
+    protected final void refreshNodeWidgetsNow() {
+        refreshAllNodeWidgets(System.currentTimeMillis());
     }
 
     /**
@@ -248,36 +347,35 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     @Override
     protected @Nullable UIElement createNodeWidget(ResearchNode node) {
-        Button nodeButton = new Button();
-        nodeButtonsById.put(node.getId(), nodeButton);
-        applyNodeButtonState(nodeButton, node);
-        nodeButton.setOnClick(event -> {
-            if (isRevealSequenceActive()) {
-                return;
-            }
-            openDetailsPanel(node.getId());
-            centerCameraOn(node.getId());
-            onNodeSelected(node);
-        });
-        nodeButton.layout(layout -> layout
+        ResearchNodeRenderContext context = buildNodeRenderContext(node);
+        UIElement nodeWidget = getNodeWidgetFactory().createNodeWidget(
+                node,
+                context,
+                buildNodeVisualDefinition(node, context),
+                () -> {
+                    if (isRevealSequenceActive()) {
+                        return;
+                    }
+                    openDetailsPanel(node.getId());
+                    centerCameraOn(node.getId());
+                    onNodeSelected(node);
+                }
+        );
+        nodeWidgetsById.put(node.getId(), nodeWidget);
+        nodeWidget.layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
                 .left(node.getX())
                 .top(node.getY())
                 .width(node.getWidth())
                 .height(node.getHeight())
         );
-        return nodeButton;
+        return nodeWidget;
     }
 
     @Override
     protected void onResearchProgressionUpdated() {
         syncProgressManagerUnlockedState();
-        for (ResearchNode node : nodes) {
-            Button nodeButton = nodeButtonsById.get(node.getId());
-            if (nodeButton != null) {
-                applyNodeButtonState(nodeButton, node);
-            }
-        }
+        refreshAllNodeWidgets(System.currentTimeMillis());
         refreshDetailsPanel();
         refreshTablePlaceholderOverlay();
     }
@@ -327,10 +425,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         if (researchProgressController.isStudied(node)) {
             setNodeStudied(node.getId(), true);
         } else {
-            Button nodeButton = nodeButtonsById.get(node.getId());
-            if (nodeButton != null) {
-                applyNodeButtonState(nodeButton, node);
-            }
+            refreshNodeWidget(node, System.currentTimeMillis());
             refreshDetailsPanel();
             refreshTablePlaceholderOverlay();
         }
@@ -360,6 +455,8 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             refreshDetailsPanel();
         }
 
+        refreshRealtimeNodeWidgets(System.currentTimeMillis());
+
         ResearchNode tableNode = selectedNodeId >= 0 ? getNodeById(selectedNodeId) : null;
         if (tablePlaceholderOverlay != null
                 && tablePlaceholderVisible
@@ -379,7 +476,10 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private void openDetailsPanel(int nodeId) {
+        int previousSelectedNodeId = selectedNodeId;
         selectedNodeId = nodeId;
+        refreshNodeWidgetById(previousSelectedNodeId, System.currentTimeMillis());
+        refreshNodeWidgetById(selectedNodeId, System.currentTimeMillis());
         if (detailsPanel != null) {
             detailsPanel.setDisplay(true);
         }
@@ -391,6 +491,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private void closeDetailsPanel() {
+        refreshNodeWidgetById(selectedNodeId, System.currentTimeMillis());
         if (overlayPanel != null) {
             // Show the helper overlay immediately under the sliding panel so it is already
             // present by the time the close animation finishes.
@@ -434,10 +535,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         }
 
         if (researchProgressController.tryCancelResearch(node)) {
-            Button nodeButton = nodeButtonsById.get(node.getId());
-            if (nodeButton != null) {
-                applyNodeButtonState(nodeButton, node);
-            }
+            refreshNodeWidget(node, System.currentTimeMillis());
             closeTablePlaceholderOverlay();
             refreshDetailsPanel();
         }
@@ -588,23 +686,6 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     private float clamp01(float value) {
         return Math.max(0f, Math.min(1f, value));
-    }
-
-    private void applyNodeButtonState(Button nodeButton, ResearchNode node) {
-        ResearchState state = resolveNodeState(node);
-        String stateText = switch (state) {
-            case STUDIED -> "DONE";
-            case AVAILABLE -> "OPEN";
-            case IN_PROGRESS -> node.getStudyType() == ResearchStudyType.TIMED ? "TIME" : "WORK";
-            case LOCKED -> "LOCK";
-        };
-
-        String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
-        nodeButton.setText(stateText + " | " + title);
-
-        ResearchLinkRenderState renderState = toRenderState(state);
-        int backgroundColor = applyLinkRenderStateColor(node.getGroupColor(), renderState);
-        nodeButton.style(style -> style.backgroundTexture(new ColorRectTexture(backgroundColor)));
     }
 
     private ResearchState resolveNodeState(ResearchNode node) {
@@ -777,4 +858,78 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         OPEN,
         CLOSING
     }
+
+    private ResearchNodeWidgetFactory getNodeWidgetFactory() {
+        if (nodeWidgetFactory == null) {
+            nodeWidgetFactory = createNodeWidgetFactory();
+        }
+        return nodeWidgetFactory;
+    }
+
+    private ResearchNodeThemeResolver getNodeThemeResolver() {
+        if (nodeThemeResolver == null) {
+            nodeThemeResolver = createNodeThemeResolver();
+        }
+        return nodeThemeResolver;
+    }
+
+    private ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node, long nowMs) {
+        return ResearchNodeRenderContext.builder()
+                .state(resolveNodeState(node))
+                .visible(isNodeVisible(node.getId()))
+                .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
+                .revealLocked(isRevealSequenceActive())
+                .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
+                .hasNewUnlockMarker(false)
+                .nowMs(nowMs)
+                .progress(researchProgressController.getProgress(node))
+                .build();
+    }
+
+    private void refreshAllNodeWidgets(long nowMs) {
+        for (ResearchNode node : nodes) {
+            refreshNodeWidget(node, nowMs);
+        }
+    }
+
+    private void refreshRealtimeNodeWidgets(long nowMs) {
+        for (ResearchNode node : nodes) {
+            if (node.getId() == selectedNodeId
+                    || researchProgressController.isInProgress(node)
+                    || node.getStudyType() == ResearchStudyType.TIMED) {
+                refreshNodeWidget(node, nowMs);
+            }
+        }
+    }
+
+    private void refreshNodeWidgetById(int nodeId, long nowMs) {
+        if (nodeId < 0) {
+            return;
+        }
+        ResearchNode node = getNodeById(nodeId);
+        if (node != null) {
+            refreshNodeWidget(node, nowMs);
+        }
+    }
+
+    private void refreshNodeWidget(ResearchNode node, long nowMs) {
+        UIElement widget = nodeWidgetsById.get(node.getId());
+        if (widget == null) {
+            return;
+        }
+
+        ResearchNodeRenderContext context = buildNodeRenderContext(node, nowMs);
+        getNodeWidgetFactory().updateNodeWidget(widget, node, context, buildNodeVisualDefinition(node, context));
+    }
+
+    private ResearchNodeVisualDefinition.SizePreset resolveNodeSizePreset(ResearchNode node) {
+        if (node.getHeight() >= 50f || node.getWidth() >= 170f) {
+            return ResearchNodeVisualDefinition.SizePreset.LARGE;
+        }
+        if (node.getHeight() <= 30f || node.getWidth() <= 116f) {
+            return ResearchNodeVisualDefinition.SizePreset.SMALL;
+        }
+        return ResearchNodeVisualDefinition.SizePreset.MEDIUM;
+    }
+
 }
