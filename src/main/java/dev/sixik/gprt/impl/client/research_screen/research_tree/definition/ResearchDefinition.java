@@ -77,6 +77,24 @@ public final class ResearchDefinition {
                 .studyDurationMs(studyDurationMs);
     }
 
+    /**
+     * Fluent builder for immutable {@link ResearchDefinition} objects.
+     * <p>
+     * This builder describes the static identity of one research entry: title, description and
+     * study mode. It intentionally does not contain unlock/studied runtime flags because those
+     * belong to progress managers and graph nodes.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #title(String)} - human-readable title;</li>
+     *     <li>{@link #description(String)} - long description shown in UI;</li>
+     *     <li>{@link #studyType(ResearchStudyType)} - explicit study mode;</li>
+     *     <li>{@link #studyDurationMs(long)} - duration payload for timed mode;</li>
+     *     <li>{@link #timed(long)} - convenience helper for timed research;</li>
+     *     <li>{@link #build()} - create the immutable definition snapshot.</li>
+     * </ul>
+     */
     public static final class Builder {
         private final String key;
         private String title;
@@ -88,16 +106,25 @@ public final class ResearchDefinition {
             this.key = Objects.requireNonNull(key, "key");
         }
 
+        /**
+         * Sets the human-readable title of the research.
+         */
         public Builder title(String title) {
             this.title = title;
             return this;
         }
 
+        /**
+         * Sets the long-form descriptive text used by details panels and tooltips.
+         */
         public Builder description(String description) {
             this.description = description;
             return this;
         }
 
+        /**
+         * Sets the explicit study mode.
+         */
         public Builder studyType(ResearchStudyType studyType) {
             if (studyType != null) {
                 this.studyType = studyType;
@@ -105,17 +132,30 @@ public final class ResearchDefinition {
             return this;
         }
 
+        /**
+         * Sets the study duration payload in milliseconds.
+         * <p>
+         * The value is always clamped to a non-negative number. It matters primarily for
+         * {@link ResearchStudyType#TIMED}, but keeping it here also makes serialization simpler.
+         * </p>
+         */
         public Builder studyDurationMs(long studyDurationMs) {
             this.studyDurationMs = Math.max(0L, studyDurationMs);
             return this;
         }
 
+        /**
+         * Convenience helper that switches the definition into timed mode and assigns its duration.
+         */
         public Builder timed(long studyDurationMs) {
             this.studyType = ResearchStudyType.TIMED;
             this.studyDurationMs = Math.max(0L, studyDurationMs);
             return this;
         }
 
+        /**
+         * Builds the immutable definition snapshot.
+         */
         public ResearchDefinition build() {
             return new ResearchDefinition(key, title, description, studyType, studyDurationMs);
         }

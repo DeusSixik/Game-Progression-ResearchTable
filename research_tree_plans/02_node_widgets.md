@@ -122,7 +122,7 @@ ResearchNodeVisualDefinition visual = ResearchNodeVisualDefinition.builder()
 - `ResearchState state`
 - `boolean visible`
 - `boolean highlighted`
-- `boolean revealLocked`
+- `boolean interactionLocked`
 - `@Nullable ClientResearchProgress progress`
 - `boolean selected`
 - `boolean hasNewUnlockMarker`

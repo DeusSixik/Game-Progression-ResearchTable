@@ -41,7 +41,7 @@
 Поля:
 
 - `Set<String> seenVisibleResearchIds`
-- `Set<String> pendingRevealResearchIds`
+- `Set<String> pendingUnlockAnimationResearchIds`
 - `long lastTreeOpenTime`
 - `boolean tutorialWasShown`
 
@@ -59,14 +59,14 @@
 1. экран получает текущее состояние исследований
 2. вычисляет список всех нод, которые сейчас видимы
 3. сравнивает их с `seenVisibleResearchIds`
-4. все новые видимые ноды добавляет в `pendingRevealResearchIds`
-5. если очередь не пуста — запускает последовательную reveal animation
+4. все новые видимые ноды добавляет в `pendingUnlockAnimationResearchIds`
+5. если очередь не пуста — запускает последовательную unlock animation
 
 ### После показа
 
 Когда анимация конкретной ноды завершилась:
 
-- удалить её из `pendingRevealResearchIds`
+- удалить её из `pendingUnlockAnimationResearchIds`
 - добавить её в `seenVisibleResearchIds`
 
 ---
@@ -78,31 +78,31 @@
 Отдельный контроллер, который:
 
 - знает про seen-state
-- знает про pending reveal queue
+- знает про pending unlock-animation queue
 - умеет подготовить список нод к показу
-- умеет запускать reveal sequence при открытии экрана
+- умеет запускать unlock-animation sequence при открытии экрана
 
 Он не должен жить внутри `ResearchTreeScreen`.
 
 ### Возможные методы
 
-- `collectPendingRevealNodes(...)`
+- `collectPendingUnlockAnimationNodes(...)`
 - `markVisibleAsSeen(...)`
-- `markRevealFinished(String researchId)`
-- `hasPendingReveal()`
+- `markUnlockAnimationFinished(String researchId)`
+- `hasPendingUnlockAnimation()`
 - `resetSeenState()`
 
 ---
 
-## Интеграция с текущими reveal animation
+## Интеграция с текущими unlock animation
 
-Сейчас базовый `ResearchTreeScreen` уже умеет проигрывать reveal animation для новых видимых нод.  
+Сейчас базовый `ResearchTreeScreen` уже умеет проигрывать unlock animation для новых видимых нод.  
 Это очень хорошо, потому что не нужно изобретать её заново.
 
 Нужно сделать надстройку, которая:
 
 - на открытии дерева вычислит нужные ноды
-- передаст их в существующий reveal pipeline
+- передаст их в существующий unlock-animation pipeline
 
 То есть лучше не делать отдельную вторую систему анимации.  
 Нужно переиспользовать уже существующие методы дерева.
@@ -133,10 +133,10 @@
 
 ### Не мешать обучению
 
-Если запущен tutorial, reveal animation и tutorial могут конфликтовать.  
+Если запущен tutorial, unlock animation и tutorial могут конфликтовать.  
 Нужен приоритет:
 
-- либо сначала reveal
+- либо сначала unlock animation
 - либо сначала tutorial
 
 ---
@@ -181,7 +181,7 @@
 
 ### Этап 2
 
-- запускать текущую reveal animation на pending nodes
+- запускать текущую unlock animation на pending nodes
 - после завершения отмечать их как seen
 
 ### Этап 3
@@ -189,7 +189,7 @@
 - добавить persistence
 - добавить настройки типа:
   - показывать ли анимацию
-  - ограничение длины reveal queue
+  - ограничение длины unlock-animation queue
 
 ---
 
@@ -200,6 +200,6 @@
 - новые исследования не будут теряться, если игрок открыл дерево позже
 - интерфейс станет понятнее и “живее”
 - появится база для более сложной презентации:
-  - group reveal
+  - group unlock animation
   - special unlock marker
   - “new” badges

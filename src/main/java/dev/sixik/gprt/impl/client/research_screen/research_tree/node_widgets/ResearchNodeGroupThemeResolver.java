@@ -77,6 +77,27 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
         return builder.build();
     }
 
+    /**
+     * Fluent builder for {@link ResearchNodeGroupThemeResolver}.
+     * <p>
+     * This is the ergonomic API for group-based styling. Typical usage:
+     * </p>
+     * <ol>
+     *     <li>configure one fallback theme/resolver,</li>
+     *     <li>register one explicit preset per research group,</li>
+     *     <li>build the resolver and hand it to the main screen.</li>
+     * </ol>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #fallback(ResearchNodeThemeResolver)} / {@link #fallback(ResearchNodeTheme)} - default styling;</li>
+     *     <li>{@link #group(ResearchGroup)}, {@link #group(ResearchGroup, ResearchNodeTheme)},
+     *     {@link #group(ResearchGroup, Consumer)} - group registration by logical group object;</li>
+     *     <li>{@link #group(String, ResearchNodeTheme)}, {@link #group(String, Consumer)} - raw id registration;</li>
+     *     <li>{@link #clearGroup(String)}, {@link #getGroupTheme(String)} - maintenance helpers;</li>
+     *     <li>{@link #build()} - final immutable resolver.</li>
+     * </ul>
+     */
     public static final class Builder {
         private final Object2ObjectOpenHashMap<String, ResearchNodeTheme> themesByGroupId = new Object2ObjectOpenHashMap<>();
         private ResearchNodeThemeResolver fallbackResolver = new DefaultResearchNodeThemeResolver();
@@ -84,27 +105,42 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
         private Builder() {
         }
 
+        /**
+         * Sets the fallback resolver used when a group has no explicit preset.
+         */
         public Builder fallback(ResearchNodeThemeResolver fallbackResolver) {
             this.fallbackResolver = Objects.requireNonNull(fallbackResolver, "fallbackResolver");
             return this;
         }
 
+        /**
+         * Sets a constant fallback theme for groups without explicit presets.
+         */
         public Builder fallback(ResearchNodeTheme fallbackTheme) {
             Objects.requireNonNull(fallbackTheme, "fallbackTheme");
             this.fallbackResolver = (node, context) -> fallbackTheme;
             return this;
         }
 
+        /**
+         * Registers the default theme derived from the provided group's metadata/colors.
+         */
         public Builder group(ResearchGroup group) {
             Objects.requireNonNull(group, "group");
             return group(group.getId(), ResearchNodeThemes.fromGroup(group));
         }
 
+        /**
+         * Registers a fully prepared theme for the provided group.
+         */
         public Builder group(ResearchGroup group, ResearchNodeTheme theme) {
             Objects.requireNonNull(group, "group");
             return group(group.getId(), theme);
         }
 
+        /**
+         * Registers a group by starting from its default preset and then applying a customizer.
+         */
         public Builder group(ResearchGroup group, Consumer<ResearchNodeTheme.Builder> customizer) {
             Objects.requireNonNull(group, "group");
             ResearchNodeTheme.Builder builder = ResearchNodeThemes.fromGroup(group).toBuilder();
@@ -112,6 +148,9 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
             return group(group.getId(), builder.build());
         }
 
+        /**
+         * Registers a fully prepared theme under a raw group id.
+         */
         public Builder group(String groupId, ResearchNodeTheme theme) {
             if (groupId != null && !groupId.isBlank() && theme != null) {
                 themesByGroupId.put(groupId, theme);
@@ -119,6 +158,9 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
             return this;
         }
 
+        /**
+         * Registers a raw group id by starting from the default theme and applying a customizer.
+         */
         public Builder group(String groupId, Consumer<ResearchNodeTheme.Builder> customizer) {
             Objects.requireNonNull(customizer, "customizer");
             ResearchNodeTheme.Builder builder = ResearchNodeThemes.defaultTheme().toBuilder();
@@ -126,6 +168,9 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
             return group(groupId, builder.build());
         }
 
+        /**
+         * Removes any explicit preset for the group id.
+         */
         public Builder clearGroup(String groupId) {
             if (groupId != null) {
                 themesByGroupId.remove(groupId);
@@ -133,10 +178,16 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
             return this;
         }
 
+        /**
+         * Returns the currently registered explicit theme for the group, if one exists.
+         */
         public @Nullable ResearchNodeTheme getGroupTheme(String groupId) {
             return groupId == null ? null : themesByGroupId.get(groupId);
         }
 
+        /**
+         * Builds the immutable resolver.
+         */
         public ResearchNodeGroupThemeResolver build() {
             return new ResearchNodeGroupThemeResolver(this);
         }

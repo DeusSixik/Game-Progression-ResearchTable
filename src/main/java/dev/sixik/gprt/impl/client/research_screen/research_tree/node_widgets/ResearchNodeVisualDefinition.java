@@ -5,6 +5,7 @@ package dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets;
  * <p>
  * This object intentionally contains only visual configuration and no runtime widget logic,
  * so screens can build styles declaratively and factories can render them consistently.
+ * Think of it as the final set of "paint/layout hints" for one node widget.
  * </p>
  */
 public final class ResearchNodeVisualDefinition {
@@ -148,6 +149,28 @@ public final class ResearchNodeVisualDefinition {
         return titleAlignment;
     }
 
+    /**
+     * Fluent builder for {@link ResearchNodeVisualDefinition}.
+     * <p>
+     * Use this builder when you want direct low-level control over the final node visuals:
+     * colors, icon path, badge text, progress-bar colors, title visibility and simple layout hints.
+     * In most real screens this builder is filled indirectly by a theme + resolver pipeline, but it
+     * is also valid to build definitions by hand for fully custom node systems.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #titleVisible(boolean)}, {@link #subtitleVisible(boolean)}, {@link #iconVisible(boolean)},
+     *     {@link #progressVisible(boolean)}, {@link #badgeVisible(boolean)} - feature toggles;</li>
+     *     <li>{@link #backgroundColor(int)}, {@link #borderColor(int)}, {@link #accentColor(int)} -
+     *     base palette;</li>
+     *     <li>{@link #badgeColor(int)}, {@link #badgeText(String)} - badge presentation;</li>
+     *     <li>{@link #progressBarColor(int)}, {@link #progressBarBackgroundColor(int)} - progress styling;</li>
+     *     <li>{@link #iconPath(String)}, {@link #shapeStyle(ShapeStyle)}, {@link #sizePreset(SizePreset)},
+     *     {@link #titleAlignment(TitleAlignment)} - layout and icon hints;</li>
+     *     <li>{@link #build()} - final immutable visual description.</li>
+     * </ul>
+     */
     public static final class Builder {
         private boolean titleVisible = true;
         private boolean subtitleVisible;
@@ -166,81 +189,139 @@ public final class ResearchNodeVisualDefinition {
         private SizePreset sizePreset = SizePreset.MEDIUM;
         private TitleAlignment titleAlignment = TitleAlignment.CENTER;
 
+        /**
+         * Controls whether the main title should be rendered.
+         */
         public Builder titleVisible(boolean titleVisible) {
             this.titleVisible = titleVisible;
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #titleVisible(boolean)}.
+         */
         public Builder showTitle(boolean titleVisible) {
             return titleVisible(titleVisible);
         }
 
+        /**
+         * Controls whether the subtitle/status line should be rendered.
+         */
         public Builder subtitleVisible(boolean subtitleVisible) {
             this.subtitleVisible = subtitleVisible;
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #subtitleVisible(boolean)}.
+         */
         public Builder showSubtitle(boolean subtitleVisible) {
             return subtitleVisible(subtitleVisible);
         }
 
+        /**
+         * Controls whether the icon slot may be rendered.
+         */
         public Builder iconVisible(boolean iconVisible) {
             this.iconVisible = iconVisible;
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #iconVisible(boolean)}.
+         */
         public Builder showIcon(boolean iconVisible) {
             return iconVisible(iconVisible);
         }
 
+        /**
+         * Controls whether the node-level progress bar may be rendered.
+         * <p>
+         * Final runtime visibility still depends on current node state and whether a timed-progress
+         * snapshot exists.
+         * </p>
+         */
         public Builder progressVisible(boolean progressVisible) {
             this.progressVisible = progressVisible;
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #progressVisible(boolean)}.
+         */
         public Builder showProgress(boolean progressVisible) {
             return progressVisible(progressVisible);
         }
 
+        /**
+         * Controls whether the badge area may be rendered.
+         */
         public Builder badgeVisible(boolean badgeVisible) {
             this.badgeVisible = badgeVisible;
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #badgeVisible(boolean)}.
+         */
         public Builder showBadge(boolean badgeVisible) {
             return badgeVisible(badgeVisible);
         }
 
+        /**
+         * Sets the main card background color.
+         */
         public Builder backgroundColor(int backgroundColor) {
             this.backgroundColor = backgroundColor;
             return this;
         }
 
+        /**
+         * Sets the outer frame/border color.
+         */
         public Builder borderColor(int borderColor) {
             this.borderColor = borderColor;
             return this;
         }
 
+        /**
+         * Sets the accent color used for stripes, bars and other emphasis details.
+         */
         public Builder accentColor(int accentColor) {
             this.accentColor = accentColor;
             return this;
         }
 
+        /**
+         * Sets the badge background color.
+         */
         public Builder badgeColor(int badgeColor) {
             this.badgeColor = badgeColor;
             return this;
         }
 
+        /**
+         * Sets the timed-progress fill color.
+         */
         public Builder progressBarColor(int progressBarColor) {
             this.progressBarColor = progressBarColor;
             return this;
         }
 
+        /**
+         * Sets the timed-progress track/background color.
+         */
         public Builder progressBarBackgroundColor(int progressBarBackgroundColor) {
             this.progressBarBackgroundColor = progressBarBackgroundColor;
             return this;
         }
 
+        /**
+         * Sets the sprite path used as the node icon.
+         * <p>
+         * Non-blank values automatically enable icon visibility.
+         * </p>
+         */
         public Builder iconPath(String iconPath) {
             this.iconPath = iconPath == null ? "" : iconPath;
             if (!this.iconPath.isBlank()) {
@@ -249,16 +330,25 @@ public final class ResearchNodeVisualDefinition {
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #iconPath(String)}.
+         */
         public Builder icon(String iconPath) {
             return iconPath(iconPath);
         }
 
+        /**
+         * Sets the badge text and auto-enables badge visibility when the text is non-blank.
+         */
         public Builder badgeText(String badgeText) {
             this.badgeText = badgeText == null ? "" : badgeText;
             this.badgeVisible = !this.badgeText.isBlank();
             return this;
         }
 
+        /**
+         * Selects the coarse outer silhouette/style family.
+         */
         public Builder shapeStyle(ShapeStyle shapeStyle) {
             if (shapeStyle != null) {
                 this.shapeStyle = shapeStyle;
@@ -266,6 +356,9 @@ public final class ResearchNodeVisualDefinition {
             return this;
         }
 
+        /**
+         * Selects the coarse size preset used by widget factories for layout density and fonts.
+         */
         public Builder sizePreset(SizePreset sizePreset) {
             if (sizePreset != null) {
                 this.sizePreset = sizePreset;
@@ -273,6 +366,9 @@ public final class ResearchNodeVisualDefinition {
             return this;
         }
 
+        /**
+         * Selects the default title alignment hint for widget factories.
+         */
         public Builder titleAlignment(TitleAlignment titleAlignment) {
             if (titleAlignment != null) {
                 this.titleAlignment = titleAlignment;
@@ -280,6 +376,9 @@ public final class ResearchNodeVisualDefinition {
             return this;
         }
 
+        /**
+         * Builds the immutable visual definition.
+         */
         public ResearchNodeVisualDefinition build() {
             return new ResearchNodeVisualDefinition(this);
         }

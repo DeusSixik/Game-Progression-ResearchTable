@@ -14,6 +14,16 @@ import java.util.List;
  * <p>
  * Each row can render text, an item/icon display, tooltips and an optional
  * jump button that focuses another research by key.
+ * This is the smallest reusable content unit of the info-panel system.
+ * </p>
+ *
+ * <p><b>Common examples:</b></p>
+ * <ul>
+ *     <li>a prerequisite line like "Open Metallurgy"</li>
+ *     <li>a reward line with an item icon and custom text</li>
+ *     <li>a plain note/help row</li>
+ *     <li>a row with a jump button that focuses another visible research</li>
+ * </ul>
  * </p>
  */
 public final class ResearchInfoEntry {
@@ -98,6 +108,32 @@ public final class ResearchInfoEntry {
         return visibleJumpTargetOnly;
     }
 
+    /**
+     * Fluent builder for {@link ResearchInfoEntry}.
+     * <p>
+     * Use this builder when section-level sugar helpers are not enough and a row needs a custom
+     * combination of text, display payload, tooltips, completion state and navigation behavior.
+     * </p>
+     *
+     * <p>
+     * Most callers will not instantiate this builder directly very often; instead it is usually
+     * accessed through {@link ResearchInfoSection.Builder#entry(java.util.function.Consumer)},
+     * {@link ResearchInfoSection.Builder#condition(java.util.function.Consumer)} or
+     * {@link ResearchInfoSection.Builder#reward(java.util.function.Consumer)}.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #text(String)} - primary label text;</li>
+     *     <li>{@link #item(ItemStack)}, {@link #ingredient(Ingredient)}, {@link #icon(com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture)} -
+     *     visual payload;</li>
+     *     <li>{@link #tooltip(Component)}, {@link #tooltips(Iterable)} - hover hints;</li>
+     *     <li>{@link #completed(boolean)} - condition/result state;</li>
+     *     <li>{@link #jumpToResearch(String)}, {@link #jumpToResearchVisibleOnly(String)} - navigation behavior;</li>
+     *     <li>{@link #showJumpButton(boolean)}, {@link #jumpButtonText(String)} - jump button presentation;</li>
+     *     <li>{@link #build()} - final immutable row snapshot.</li>
+     * </ul>
+     */
     public static final class Builder {
         private Kind kind = Kind.INFO;
         private @Nullable String text;
@@ -213,6 +249,13 @@ public final class ResearchInfoEntry {
             return this;
         }
 
+        /**
+         * Configures a jump target that can always be opened from the panel.
+         * <p>
+         * Use this only when the design intentionally allows navigation regardless of current
+         * visibility rules.
+         * </p>
+         */
         public Builder jumpToResearch(String jumpToResearchKey) {
             this.jumpToResearchKey = jumpToResearchKey;
             return this;
@@ -222,7 +265,7 @@ public final class ResearchInfoEntry {
          * Configures a jump target that should only render its button while the target research
          * is currently visible to the player.
          * <p>
-         * Use this for prerequisites, contextual hints and any other entries that must not reveal
+         * Use this for prerequisites, contextual hints and any other entries that must not expose
          * hidden branches through the info panel.
          * </p>
          *
@@ -237,6 +280,9 @@ public final class ResearchInfoEntry {
             return this;
         }
 
+        /**
+         * Controls whether the jump button is allowed to render when a target is present.
+         */
         public Builder showJumpButton(boolean showJumpButton) {
             this.showJumpButton = showJumpButton;
             return this;
@@ -270,6 +316,9 @@ public final class ResearchInfoEntry {
             return this;
         }
 
+        /**
+         * Builds the immutable row description.
+         */
         public ResearchInfoEntry build() {
             return new ResearchInfoEntry(this);
         }

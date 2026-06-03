@@ -38,14 +38,14 @@
 
 ---
 
-### 3. Unlock Reveal On Open
+### 3. Unlock Animation On Open
 
-Файл: `03_unlock_reveal_on_open.md`
+Файл: `03_unlock_animation_on_open.md`
 
 О чем:
 - как показывать новые исследования не сразу, а при следующем открытии дерева
-- seen-state / pending reveal
-- переиспользование текущего reveal pipeline
+- seen-state / pending unlock animation
+- переиспользование текущего unlock-animation pipeline
 - подготовка к persisted cache
 
 Когда читать:
@@ -74,14 +74,14 @@
 
 1. `01_info_panel.md`
 2. `02_node_widgets.md`
-3. `03_unlock_reveal_on_open.md`
+3. `03_unlock_animation_on_open.md`
 4. `04_tutorial_and_assistant.md`
 
 ## Почему именно так
 
 - сначала лучше стабилизировать панель деталей и сделать нормальную точку расширения
 - потом вынести визуал самих нод в отдельную систему
-- затем добавить отложенное reveal новых исследований
+- затем добавить отложенное unlock animation новых исследований
 - и только после этого накладывать обучение и ассистента поверх уже чистой архитектуры
 
 ## Быстрый маршрут
@@ -89,5 +89,5 @@
 Если коротко:
 - хочешь начать рефактор UI -> `01_info_panel.md`
 - хочешь улучшать карточки исследований -> `02_node_widgets.md`
-- хочешь красивое появление новых исследований -> `03_unlock_reveal_on_open.md`
+- хочешь красивое появление новых исследований -> `03_unlock_animation_on_open.md`
 - хочешь обучение и помощника -> `04_tutorial_and_assistant.md`

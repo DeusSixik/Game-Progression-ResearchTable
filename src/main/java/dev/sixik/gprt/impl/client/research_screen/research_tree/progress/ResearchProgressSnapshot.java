@@ -74,6 +74,23 @@ public final class ResearchProgressSnapshot {
         return new Builder(researchId);
     }
 
+    /**
+     * Fluent builder for immutable {@link ResearchProgressSnapshot} payloads.
+     * <p>
+     * This builder is the client-side transport shape for research progression data. The same API
+     * can be used by debug code, packet decoders and future server-sync adapters without forcing
+     * the UI to care where the state came from.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #unlocked(boolean)} / {@link #studied(boolean)} - coarse progression flags;</li>
+     *     <li>{@link #inProgress(boolean)} - active timed/session flag;</li>
+     *     <li>{@link #startedAtMs(long)} / {@link #finishesAtMs(long)} - timed study timestamps;</li>
+     *     <li>{@link #sessionActive(boolean)} / {@link #sessionStepIndex(int)} - table/session state;</li>
+     *     <li>{@link #build()} - create the immutable snapshot.</li>
+     * </ul>
+     */
     public static final class Builder {
         private final String researchId;
         private boolean unlocked;
@@ -88,41 +105,69 @@ public final class ResearchProgressSnapshot {
             this.researchId = researchId;
         }
 
+        /**
+         * Marks whether the research is currently unlocked/available to start.
+         */
         public Builder unlocked(boolean unlocked) {
             this.unlocked = unlocked;
             return this;
         }
 
+        /**
+         * Marks whether the research has already been fully completed.
+         */
         public Builder studied(boolean studied) {
             this.studied = studied;
             return this;
         }
 
+        /**
+         * Marks whether the research is currently being processed.
+         * <p>
+         * For timed research this usually means an active timer is running. For table/session-based
+         * research this can mean the investigation flow is currently open or active.
+         * </p>
+         */
         public Builder inProgress(boolean inProgress) {
             this.inProgress = inProgress;
             return this;
         }
 
+        /**
+         * Stores the server-authoritative start timestamp for timed progression.
+         */
         public Builder startedAtMs(long startedAtMs) {
             this.startedAtMs = startedAtMs;
             return this;
         }
 
+        /**
+         * Stores the server-authoritative finish timestamp for timed progression.
+         */
         public Builder finishesAtMs(long finishesAtMs) {
             this.finishesAtMs = finishesAtMs;
             return this;
         }
 
+        /**
+         * Marks whether a table/session-style investigation is currently active.
+         */
         public Builder sessionActive(boolean sessionActive) {
             this.sessionActive = sessionActive;
             return this;
         }
 
+        /**
+         * Stores the current step index for multi-step/session-based investigations.
+         */
         public Builder sessionStepIndex(int sessionStepIndex) {
             this.sessionStepIndex = sessionStepIndex;
             return this;
         }
 
+        /**
+         * Builds the immutable snapshot.
+         */
         public ResearchProgressSnapshot build() {
             return new ResearchProgressSnapshot(
                     researchId,

@@ -13,6 +13,16 @@ import java.util.function.Consumer;
 
 /**
  * Logical section of the info panel.
+ * <p>
+ * A section is a titled container of rows. It is intentionally presentation-oriented:
+ * the panel does not care whether rows describe conditions, rewards, tips, recipe unlocks or
+ * anything else, as long as they are expressed through {@link ResearchInfoEntry}.
+ * </p>
+ *
+ * <p>
+ * This keeps the info panel extensible: new content types usually do not require a new panel
+ * widget, only a new way to assemble section entries.
+ * </p>
  */
 public final class ResearchInfoSection {
     private final String title;
@@ -41,10 +51,37 @@ public final class ResearchInfoSection {
         return entries;
     }
 
+    /**
+     * Fluent builder for {@link ResearchInfoSection}.
+     * <p>
+     * Use this builder to assemble one coherent block of rows such as:
+     * prerequisites, unlocks, rewards, notes, debug information or table-specific hints.
+     * </p>
+     *
+     * <p>
+     * The section builder exposes both low-level row construction APIs and high-level sugar
+     * helpers for common cases like text conditions, item rewards and safe research jumps.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #entry(Consumer)}, {@link #condition(Consumer)}, {@link #reward(Consumer)} - low-level row builders;</li>
+     *     <li>{@link #infoText(String)}, {@link #infoLine(String, String)} - simple info rows;</li>
+     *     <li>{@link #conditionText(String, boolean)}, {@link #conditionResearchVisibleOnly(String, boolean, String)} -
+     *     prerequisite helpers;</li>
+     *     <li>{@link #rewardItem(ItemStack)}, {@link #rewardIngredient(String, Ingredient)}, {@link #rewardResearchVisibleOnly(String, String)} -
+     *     reward/unlock helpers;</li>
+     *     <li>{@link #rewardItemId(String)} - convenience resolver from raw item id;</li>
+     *     <li>{@link #build()} - final immutable section.</li>
+     * </ul>
+     */
     public static final class Builder {
         private String title = "";
         private final List<ResearchInfoEntry> entries = new ArrayList<>();
 
+        /**
+         * Sets the optional section title shown above the rows.
+         */
         public Builder title(String title) {
             this.title = title;
             return this;
@@ -291,6 +328,9 @@ public final class ResearchInfoSection {
             return rewardItem(stack, defaultItemName(stack));
         }
 
+        /**
+         * Builds the immutable logical section.
+         */
         public ResearchInfoSection build() {
             return new ResearchInfoSection(this);
         }

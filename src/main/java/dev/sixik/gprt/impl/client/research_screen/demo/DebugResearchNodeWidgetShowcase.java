@@ -315,7 +315,7 @@ public final class DebugResearchNodeWidgetShowcase {
                            ResearchNodeVisualDefinition visualDefinition
         ) {
             setDisplay(context.isVisible());
-            setActive(context.isVisible() && !context.isRevealLocked());
+            setActive(context.isVisible() && !context.isInteractionLocked());
 
             float width = node.getWidth();
             float height = node.getHeight();
@@ -334,7 +334,7 @@ public final class DebugResearchNodeWidgetShowcase {
          * Configures the outer clickable card.
          * <p>
          * This is the best place to change the main background and border behavior:
-         * hover, pressed, selected feel, dimming during reveal lock and so on.
+         * hover, pressed, selected feel, temporary interaction-lock styling and so on.
          * </p>
          */
         private void applyButtonFrame(ResearchNodeRenderContext context,

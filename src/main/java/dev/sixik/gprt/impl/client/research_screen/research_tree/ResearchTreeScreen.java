@@ -40,7 +40,7 @@ import org.joml.Vector2f;
  * This class is the high-level "gameplay layer" of the graph:
  * it knows what a researched node is, when a node is visible, how unlock progression works,
  * how links should change color depending on state, how optional auto-layout is applied,
- * how group focus/highlight behaves, and how reveal animations play when new research becomes available.
+ * how group focus/highlight behaves, and how unlock animations play when new research becomes available.
  * </p>
  *
  * <p><b>Quick navigation through the class:</b></p>
@@ -76,21 +76,21 @@ import org.joml.Vector2f;
  *     {@link #getLinkRenderPriority(ResearchLink, ResearchNode, ResearchNode)},
  *     {@link #buildLinkRenderData(ResearchLink, ResearchNode, ResearchNode)},
  *     {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}</li>
- *     <li><b>Reveal animation flow:</b>
- *     {@link #prepareRevealAnimationState(IntOpenHashSet, boolean)},
- *     {@link #startNextRevealAnimation()},
- *     {@link #updateRevealAnimationState()},
- *     {@link #finishActiveRevealAnimation()},
- *     {@link #onRevealAnimationStart(ResearchNode)},
- *     {@link #onRevealNodeAnimationStart(ResearchNode)},
- *     {@link #onRevealNodeProgress(ResearchNode, float, float, float)},
- *     {@link #onRevealNodeAnimationEnd(ResearchNode)},
- *     {@link #onRevealLinkAnimationStart(ResearchNode)},
- *     {@link #onRevealLinkProgress(ResearchNode, float)},
- *     {@link #onRevealLinkAnimationEnd(ResearchNode)},
- *     {@link #onRevealAnimationEnd(ResearchNode)},
- *     {@link #drawActiveRevealLinks(GUIContext)},
- *     {@link #drawRevealLinkProgress(GUIContext, ResearchLink, ResearchNode, ResearchNode, float)}</li>
+ *     <li><b>Unlock animation flow:</b>
+ *     {@link #prepareUnlockAnimationState(IntOpenHashSet, boolean)},
+ *     {@link #startNextUnlockAnimation()},
+ *     {@link #updateUnlockAnimationState()},
+ *     {@link #finishActiveUnlockAnimation()},
+ *     {@link #onUnlockAnimationStart(ResearchNode)},
+ *     {@link #onUnlockNodeAnimationStart(ResearchNode)},
+ *     {@link #onUnlockNodeProgress(ResearchNode, float, float, float)},
+ *     {@link #onUnlockNodeAnimationEnd(ResearchNode)},
+ *     {@link #onUnlockLinkAnimationStart(ResearchNode)},
+ *     {@link #onUnlockLinkProgress(ResearchNode, float)},
+ *     {@link #onUnlockLinkAnimationEnd(ResearchNode)},
+ *     {@link #onUnlockAnimationEnd(ResearchNode)},
+ *     {@link #drawActiveUnlockAnimationLinks(GUIContext)},
+ *     {@link #drawUnlockLinkProgress(GUIContext, ResearchLink, ResearchNode, ResearchNode, float)}</li>
  *     <li><b>Visibility / unlock logic:</b>
  *     {@link #syncResearchNodeVisibility()},
  *     {@link #collectVisibleNodeIds()},
@@ -113,19 +113,19 @@ import org.joml.Vector2f;
  *     studied links are drawn above available ones, and available ones above locked ones.</li>
  *     <li>Separate incoming links from different groups into parallel lanes, so cross-group routes are
  *     easier to read and do not sit directly on top of each other.</li>
- *     <li>Handle cinematic reveal sequences for newly unlocked nodes:
+ *     <li>Handle cinematic unlock animation sequences for newly unlocked nodes:
  *     camera move, node drop/scale, delayed link connection and temporary input lock.</li>
  * </ul>
  *
  * <p><b>Useful maintenance notes for future you:</b></p>
  * <ul>
  *     <li>If unlock logic starts behaving strangely, inspect the visibility methods first; they are the
- *     source of truth for both node attachment and reveal queue generation.</li>
+ *     source of truth for both node attachment and unlock-animation queue generation.</li>
  *     <li>If lines look wrong, check {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}
- *     before touching render code elsewhere, because both cached rendering and reveal rendering rely on it.</li>
+ *     before touching render code elsewhere, because both cached rendering and unlock-animation rendering rely on it.</li>
  *     <li>If group order drifts or branches start mixing visually, inspect
  *     {@link #compactAutoLayoutGroups()} and {@link #collectStableGroupOrder()}.</li>
- *     <li>If the camera behaves unexpectedly during unlocks, the reveal lifecycle methods are the correct
+ *     <li>If the camera behaves unexpectedly during unlocks, the unlock-animation lifecycle methods are the correct
  *     place to debug rather than the generic camera helpers in the parent class.</li>
  * </ul>
  */
@@ -145,14 +145,14 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private static final float GROUP_NODE_HIGHLIGHT_WIDTH = 2f;
     private static final float GROUP_NODE_HIGHLIGHT_GLOW_WIDTH = 1f;
     private static final long GROUP_HIGHLIGHT_BLINK_DURATION_MS = 4_000L;
-    private static final long REVEAL_CAMERA_DURATION_MS = 480L;
-    private static final long REVEAL_NODE_DELAY_MS = 180L;
-    private static final long REVEAL_NODE_DURATION_MS = 720L;
-    private static final long REVEAL_LINK_DELAY_MS = 430L;
-    private static final long REVEAL_LINK_DURATION_MS = 460L;
-    private static final long REVEAL_STEP_DURATION_MS = 1_080L;
-    private static final float REVEAL_NODE_START_SCALE = 3.0f;
-    private static final float REVEAL_NODE_START_Y = -52f;
+    private static final long UNLOCK_CAMERA_DURATION_MS = 480L;
+    private static final long UNLOCK_NODE_DELAY_MS = 180L;
+    private static final long UNLOCK_NODE_DURATION_MS = 720L;
+    private static final long UNLOCK_LINK_DELAY_MS = 430L;
+    private static final long UNLOCK_LINK_DURATION_MS = 460L;
+    private static final long UNLOCK_STEP_DURATION_MS = 1_080L;
+    private static final float UNLOCK_NODE_START_SCALE = 3.0f;
+    private static final float UNLOCK_NODE_START_Y = -52f;
 
     protected enum ResearchLinkRenderState {
         LOCKED(0),
@@ -177,9 +177,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private @Nullable String highlightedGroupId;
     private long highlightedGroupBlinkStartedAtMs;
     private int autoLayoutSuspendDepth;
-    private final IntArrayList queuedRevealNodeIds = new IntArrayList();
-    private final IntOpenHashSet queuedRevealNodeIdSet = new IntOpenHashSet();
-    private @Nullable RevealAnimation activeRevealAnimation;
+    private final IntArrayList queuedUnlockAnimationNodeIds = new IntArrayList();
+    private final IntOpenHashSet queuedUnlockAnimationNodeIdSet = new IntOpenHashSet();
+    private @Nullable UnlockAnimation activeUnlockAnimation;
 
     public ResearchTreeScreen() {
         this(new ResearchNodeManager(), new ResearchNodeLinkManager());
@@ -259,12 +259,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         DependencyTreeAutoLayout.apply(nodes, links, autoLayoutConfig);
         compactAutoLayoutGroups();
         syncAllNodeWidgetBounds();
-        prepareRevealAnimationState(visibleBefore, animateNewNodes);
+        prepareUnlockAnimationState(visibleBefore, animateNewNodes);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
         onResearchProgressionUpdated();
 
-        if (autoLayoutAutoFit && !isRevealSequenceActive() && getContentWidth() > 0 && getContentHeight() > 0) {
+        if (autoLayoutAutoFit && !isUnlockAnimationActive() && getContentWidth() > 0 && getContentHeight() > 0) {
             fitToChildren(80f, 0.35f);
         }
     }
@@ -278,12 +278,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     private ResearchTreeScreen refreshResearchProgression(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
         syncAllNodeWidgetBounds();
-        prepareRevealAnimationState(visibleBefore, animateNewNodes);
+        prepareUnlockAnimationState(visibleBefore, animateNewNodes);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
         onResearchProgressionUpdated();
 
-        if (autoLayoutAutoFit && !isRevealSequenceActive() && getContentWidth() > 0 && getContentHeight() > 0) {
+        if (autoLayoutAutoFit && !isUnlockAnimationActive() && getContentWidth() > 0 && getContentHeight() > 0) {
             fitToChildren(80f, 0.35f);
         }
         return this;
@@ -292,7 +292,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     /**
      * Changes whether a node is studied and refreshes progression.
      * <p>
-     * When a node becomes studied, newly visible nodes can be queued for reveal animation.
+     * When a node becomes studied, newly visible nodes can be queued for unlock animation.
      * </p>
      */
     public ResearchTreeScreen setNodeStudied(int nodeId, boolean studied) {
@@ -382,13 +382,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     /**
-     * Returns {@code true} while reveal animations are active or queued.
+     * Returns {@code true} while unlock animations are active or queued.
      * <p>
      * This is the main flag used to lock input during cinematic unlocks.
      * </p>
      */
-    public boolean isRevealSequenceActive() {
-        return activeRevealAnimation != null || !queuedRevealNodeIds.isEmpty();
+    public boolean isUnlockAnimationActive() {
+        return activeUnlockAnimation != null || !queuedUnlockAnimationNodeIds.isEmpty();
     }
 
     /**
@@ -506,13 +506,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     /**
      * Builds cached render geometry for one research link.
      * <p>
-     * Hidden links and links currently owned by the reveal animation are skipped, while all others
+     * Hidden links and links currently owned by the unlock animation are skipped, while all others
      * are routed through {@link #buildLinkRoute(ResearchLink, ResearchNode, ResearchNode)}.
      * </p>
      */
     @Override
     protected @Nullable LinkRenderData buildLinkRenderData(ResearchLink link, ResearchNode from, ResearchNode to) {
-        if (!isNodeVisible(from) || !isNodeVisible(to) || isLinkHandledByRevealAnimation(link, to)) {
+        if (!isNodeVisible(from) || !isNodeVisible(to) || isLinkHandledByUnlockAnimation(link, to)) {
             return null;
         }
 
@@ -536,28 +536,28 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     /**
-     * Updates reveal state and then draws the normal graph plus reveal/highlight overlays.
+     * Updates unlock-animation state and then draws the normal graph plus unlock-animation/highlight overlays.
      */
     @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
-        updateRevealAnimationState();
+        updateUnlockAnimationState();
         super.drawBackgroundAdditional(guiContext);
-        drawActiveRevealLinks(guiContext);
+        drawActiveUnlockAnimationLinks(guiContext);
         drawHighlightedGroupBounds(guiContext);
     }
 
     /**
-     * Advances reveal animation state once per tick.
+     * Advances unlock animation state once per tick.
      */
     @Override
     public void screenTick() {
-        updateRevealAnimationState();
+        updateUnlockAnimationState();
         super.screenTick();
     }
 
     @Override
     protected void onMouseDown(UIEvent event) {
-        if (activeRevealAnimation != null) {
+        if (activeUnlockAnimation != null) {
             return;
         }
         super.onMouseDown(event);
@@ -565,7 +565,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     @Override
     protected void onDragSourceUpdate(UIEvent event) {
-        if (activeRevealAnimation != null) {
+        if (activeUnlockAnimation != null) {
             return;
         }
         super.onDragSourceUpdate(event);
@@ -573,7 +573,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     @Override
     protected void onMouseWheel(UIEvent event) {
-        if (activeRevealAnimation != null) {
+        if (activeUnlockAnimation != null) {
             return;
         }
         super.onMouseWheel(event);
@@ -599,19 +599,19 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     private void syncResearchNodeVisibility() {
         for (ResearchNode node : nodes) {
-            setNodeWidgetAttached(node.getId(), isNodeVisible(node) && !isNodeWaitingForReveal(node.getId()));
+            setNodeWidgetAttached(node.getId(), isNodeVisible(node) && !isNodeWaitingForUnlockAnimation(node.getId()));
         }
     }
 
-    private void prepareRevealAnimationState(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
+    private void prepareUnlockAnimationState(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
         if (!animateNewNodes) {
-            clearRevealAnimations();
+            clearUnlockAnimations();
             return;
         }
 
         enqueueNewlyVisibleNodes(visibleBefore);
-        if (activeRevealAnimation == null) {
-            startNextRevealAnimation();
+        if (activeUnlockAnimation == null) {
+            startNextUnlockAnimation();
         }
     }
 
@@ -633,48 +633,48 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 .thenComparingInt(ResearchNode::getId));
 
         Set<Integer> alreadyQueued = new HashSet<>();
-        for (int i = 0, size = queuedRevealNodeIds.size(); i < size; i++) {
-            alreadyQueued.add(queuedRevealNodeIds.getInt(i));
+        for (int i = 0, size = queuedUnlockAnimationNodeIds.size(); i < size; i++) {
+            alreadyQueued.add(queuedUnlockAnimationNodeIds.getInt(i));
         }
-        if (activeRevealAnimation != null) {
-            alreadyQueued.add(activeRevealAnimation.nodeId());
+        if (activeUnlockAnimation != null) {
+            alreadyQueued.add(activeUnlockAnimation.nodeId());
         }
 
         for (int i = 0, size = newlyVisibleNodes.size(); i < size; i++) {
             ResearchNode node = newlyVisibleNodes.get(i);
             if (alreadyQueued.add(node.getId())) {
-                queuedRevealNodeIds.add(node.getId());
-                queuedRevealNodeIdSet.add(node.getId());
+                queuedUnlockAnimationNodeIds.add(node.getId());
+                queuedUnlockAnimationNodeIdSet.add(node.getId());
             }
         }
     }
 
-    private void clearRevealAnimations() {
-        if (activeRevealAnimation != null) {
-            resetNodeRevealTransform(activeRevealAnimation.nodeId());
+    private void clearUnlockAnimations() {
+        if (activeUnlockAnimation != null) {
+            resetUnlockNodeTransform(activeUnlockAnimation.nodeId());
         }
-        activeRevealAnimation = null;
-        queuedRevealNodeIds.clear();
-        queuedRevealNodeIdSet.clear();
+        activeUnlockAnimation = null;
+        queuedUnlockAnimationNodeIds.clear();
+        queuedUnlockAnimationNodeIdSet.clear();
     }
 
-    private void startNextRevealAnimation() {
-        if (queuedRevealNodeIds.isEmpty()) {
-            activeRevealAnimation = null;
+    private void startNextUnlockAnimation() {
+        if (queuedUnlockAnimationNodeIds.isEmpty()) {
+            activeUnlockAnimation = null;
             return;
         }
 
-        int nodeId = queuedRevealNodeIds.removeInt(0);
-        queuedRevealNodeIdSet.remove(nodeId);
+        int nodeId = queuedUnlockAnimationNodeIds.removeInt(0);
+        queuedUnlockAnimationNodeIdSet.remove(nodeId);
         ResearchNode node = getNodeById(nodeId);
         if (node == null || !isNodeVisible(node)) {
-            startNextRevealAnimation();
+            startNextUnlockAnimation();
             return;
         }
 
         float targetOffsetX = computeCenteredOffsetX(node.centerX());
         float targetOffsetY = computeCenteredOffsetY(node.centerY());
-        activeRevealAnimation = new RevealAnimation(
+        activeUnlockAnimation = new UnlockAnimation(
                 nodeId,
                 System.currentTimeMillis(),
                 getOffsetX(),
@@ -690,22 +690,22 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 false
         );
 
-        onRevealAnimationStart(node);
-        playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 0.85f);
-        applyNodeRevealTransform(nodeId, 0f);
+        onUnlockAnimationStart(node);
+        playUnlockAnimationSound(GPTRSounds.SUCK_IN.get(), 1.0f, 0.85f);
+        applyUnlockNodeTransform(nodeId, 0f);
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
         onResearchProgressionUpdated();
     }
 
-    private void updateRevealAnimationState() {
-        if (activeRevealAnimation == null) {
+    private void updateUnlockAnimationState() {
+        if (activeUnlockAnimation == null) {
             return;
         }
 
-        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
         if (node == null || !isNodeVisible(node)) {
-            clearRevealAnimations();
+            clearUnlockAnimations();
             syncResearchNodeVisibility();
             invalidateLinkGeometry();
             onResearchProgressionUpdated();
@@ -713,92 +713,92 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         long now = System.currentTimeMillis();
-        float elapsed = now - activeRevealAnimation.startedAtMs();
+        float elapsed = now - activeUnlockAnimation.startedAtMs();
 
-        float cameraProgress = clamp01(elapsed / (float) REVEAL_CAMERA_DURATION_MS);
+        float cameraProgress = clamp01(elapsed / (float) UNLOCK_CAMERA_DURATION_MS);
         float cameraEase = easeInOutCubic(cameraProgress);
-        setOffsetX(lerp(activeRevealAnimation.cameraStartOffsetX(), activeRevealAnimation.cameraTargetOffsetX(), cameraEase));
-        setOffsetY(lerp(activeRevealAnimation.cameraStartOffsetY(), activeRevealAnimation.cameraTargetOffsetY(), cameraEase));
+        setOffsetX(lerp(activeUnlockAnimation.cameraStartOffsetX(), activeUnlockAnimation.cameraTargetOffsetX(), cameraEase));
+        setOffsetY(lerp(activeUnlockAnimation.cameraStartOffsetY(), activeUnlockAnimation.cameraTargetOffsetY(), cameraEase));
         syncCameraTransform();
 
-        float nodeProgress = clamp01((elapsed - REVEAL_NODE_DELAY_MS) / (float) REVEAL_NODE_DURATION_MS);
-        applyNodeRevealTransform(node.getId(), nodeProgress);
+        float nodeProgress = clamp01((elapsed - UNLOCK_NODE_DELAY_MS) / (float) UNLOCK_NODE_DURATION_MS);
+        applyUnlockNodeTransform(node.getId(), nodeProgress);
 
-        if (!activeRevealAnimation.nodeAnimationStarted() && elapsed >= REVEAL_NODE_DELAY_MS) {
-            onRevealNodeAnimationStart(node);
-            activeRevealAnimation = activeRevealAnimation.withNodeAnimationStarted();
+        if (!activeUnlockAnimation.nodeAnimationStarted() && elapsed >= UNLOCK_NODE_DELAY_MS) {
+            onUnlockNodeAnimationStart(node);
+            activeUnlockAnimation = activeUnlockAnimation.withNodeAnimationStarted();
         }
 
-        if (!activeRevealAnimation.nodeDropSoundPlayed() && elapsed >= REVEAL_NODE_DELAY_MS) {
-            playRevealSound(GPTRSounds.SPIT_OUT.get(), 1.0f, 1.05f);
-            activeRevealAnimation = activeRevealAnimation.withNodeDropSoundPlayed();
+        if (!activeUnlockAnimation.nodeDropSoundPlayed() && elapsed >= UNLOCK_NODE_DELAY_MS) {
+            playUnlockAnimationSound(GPTRSounds.SPIT_OUT.get(), 1.0f, 1.05f);
+            activeUnlockAnimation = activeUnlockAnimation.withNodeDropSoundPlayed();
         }
 
-        if (!activeRevealAnimation.linkAnimationStarted() && elapsed >= REVEAL_LINK_DELAY_MS) {
-            onRevealLinkAnimationStart(node);
-            activeRevealAnimation = activeRevealAnimation.withLinkAnimationStarted();
+        if (!activeUnlockAnimation.linkAnimationStarted() && elapsed >= UNLOCK_LINK_DELAY_MS) {
+            onUnlockLinkAnimationStart(node);
+            activeUnlockAnimation = activeUnlockAnimation.withLinkAnimationStarted();
         }
 
-        if (!activeRevealAnimation.linkConnectSoundPlayed() && elapsed >= REVEAL_LINK_DELAY_MS) {
-            playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 1.18f);
-            activeRevealAnimation = activeRevealAnimation.withLinkConnectSoundPlayed();
+        if (!activeUnlockAnimation.linkConnectSoundPlayed() && elapsed >= UNLOCK_LINK_DELAY_MS) {
+            playUnlockAnimationSound(GPTRSounds.SUCK_IN.get(), 1.0f, 1.18f);
+            activeUnlockAnimation = activeUnlockAnimation.withLinkConnectSoundPlayed();
         }
 
-        float lineProgress = clamp01((elapsed - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
-        if (elapsed >= REVEAL_LINK_DELAY_MS) {
-            onRevealLinkProgress(node, lineProgress);
+        float lineProgress = clamp01((elapsed - UNLOCK_LINK_DELAY_MS) / (float) UNLOCK_LINK_DURATION_MS);
+        if (elapsed >= UNLOCK_LINK_DELAY_MS) {
+            onUnlockLinkProgress(node, lineProgress);
         }
 
-        if (!activeRevealAnimation.nodeAnimationFinished() && nodeProgress >= 1f) {
-            onRevealNodeAnimationEnd(node);
-            activeRevealAnimation = activeRevealAnimation.withNodeAnimationFinished();
+        if (!activeUnlockAnimation.nodeAnimationFinished() && nodeProgress >= 1f) {
+            onUnlockNodeAnimationEnd(node);
+            activeUnlockAnimation = activeUnlockAnimation.withNodeAnimationFinished();
         }
 
-        if (!activeRevealAnimation.linkAnimationFinished() && lineProgress >= 1f) {
-            onRevealLinkAnimationEnd(node);
-            activeRevealAnimation = activeRevealAnimation.withLinkAnimationFinished();
+        if (!activeUnlockAnimation.linkAnimationFinished() && lineProgress >= 1f) {
+            onUnlockLinkAnimationEnd(node);
+            activeUnlockAnimation = activeUnlockAnimation.withLinkAnimationFinished();
         }
 
-        if (elapsed >= REVEAL_STEP_DURATION_MS) {
-            finishActiveRevealAnimation();
+        if (elapsed >= UNLOCK_STEP_DURATION_MS) {
+            finishActiveUnlockAnimation();
         }
     }
 
-    private void finishActiveRevealAnimation() {
-        if (activeRevealAnimation == null) {
+    private void finishActiveUnlockAnimation() {
+        if (activeUnlockAnimation == null) {
             return;
         }
 
-        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
         if (node != null) {
-            if (!activeRevealAnimation.nodeAnimationStarted()) {
-                onRevealNodeAnimationStart(node);
+            if (!activeUnlockAnimation.nodeAnimationStarted()) {
+                onUnlockNodeAnimationStart(node);
             }
-            onRevealNodeProgress(node, 1f, 1f, 0f);
-            if (!activeRevealAnimation.nodeAnimationFinished()) {
-                onRevealNodeAnimationEnd(node);
+            onUnlockNodeProgress(node, 1f, 1f, 0f);
+            if (!activeUnlockAnimation.nodeAnimationFinished()) {
+                onUnlockNodeAnimationEnd(node);
             }
-            if (!activeRevealAnimation.linkAnimationStarted()) {
-                onRevealLinkAnimationStart(node);
+            if (!activeUnlockAnimation.linkAnimationStarted()) {
+                onUnlockLinkAnimationStart(node);
             }
-            onRevealLinkProgress(node, 1f);
-            if (!activeRevealAnimation.linkAnimationFinished()) {
-                onRevealLinkAnimationEnd(node);
+            onUnlockLinkProgress(node, 1f);
+            if (!activeUnlockAnimation.linkAnimationFinished()) {
+                onUnlockLinkAnimationEnd(node);
             }
         }
 
-        resetNodeRevealTransform(activeRevealAnimation.nodeId());
+        resetUnlockNodeTransform(activeUnlockAnimation.nodeId());
         if (node != null) {
-            onRevealAnimationEnd(node);
+            onUnlockAnimationEnd(node);
         }
-        activeRevealAnimation = null;
+        activeUnlockAnimation = null;
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
-        startNextRevealAnimation();
+        startNextUnlockAnimation();
         onResearchProgressionUpdated();
     }
 
-    private void applyNodeRevealTransform(int nodeId, float progress) {
+    private void applyUnlockNodeTransform(int nodeId, float progress) {
         UIElement widget = getNodeWidget(nodeId);
         if (widget == null) {
             return;
@@ -811,18 +811,18 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
         float easedScale = easeOutBack(progress);
         float easedDrop = easeOutBounce(progress);
-        float scale = lerp(REVEAL_NODE_START_SCALE, 1.0f, easedScale);
-        float translateY = lerp(REVEAL_NODE_START_Y, 0f, easedDrop);
+        float scale = lerp(UNLOCK_NODE_START_SCALE, 1.0f, easedScale);
+        float translateY = lerp(UNLOCK_NODE_START_Y, 0f, easedDrop);
 
         widget.style(style -> style.transform2D(new Transform2D()
                 .pivot(0.5f, 0.5f)
                 .translate(0f, translateY)
                 .scale(scale)));
 
-        onRevealNodeProgress(node, progress, scale, translateY);
+        onUnlockNodeProgress(node, progress, scale, translateY);
     }
 
-    private void resetNodeRevealTransform(int nodeId) {
+    private void resetUnlockNodeTransform(int nodeId) {
         UIElement widget = getNodeWidget(nodeId);
         if (widget == null) {
             return;
@@ -831,18 +831,18 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         widget.style(style -> style.transform2D(Transform2D.identity()));
     }
 
-    private void drawActiveRevealLinks(GUIContext guiContext) {
-        if (activeRevealAnimation == null) {
+    private void drawActiveUnlockAnimationLinks(GUIContext guiContext) {
+        if (activeUnlockAnimation == null) {
             return;
         }
 
-        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
         if (node == null || !isNodeVisible(node)) {
             return;
         }
 
         long now = System.currentTimeMillis();
-        float lineProgress = clamp01((now - activeRevealAnimation.startedAtMs() - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
+        float lineProgress = clamp01((now - activeUnlockAnimation.startedAtMs() - UNLOCK_LINK_DELAY_MS) / (float) UNLOCK_LINK_DURATION_MS);
         if (lineProgress <= 0f) {
             return;
         }
@@ -859,13 +859,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             if (parent == null || !isNodeVisible(parent)) {
                 continue;
             }
-            drawRevealLinkProgress(guiContext, parentLink, parent, node, lineProgress);
+            drawUnlockLinkProgress(guiContext, parentLink, parent, node, lineProgress);
         }
 
         pose.popPose();
     }
 
-    private void drawRevealLinkProgress(GUIContext guiContext,
+    private void drawUnlockLinkProgress(GUIContext guiContext,
                                         ResearchLink link,
                                         ResearchNode from,
                                         ResearchNode to,
@@ -892,15 +892,15 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
     }
 
-    private boolean isNodeWaitingForReveal(int nodeId) {
-        return queuedRevealNodeIdSet.contains(nodeId);
+    private boolean isNodeWaitingForUnlockAnimation(int nodeId) {
+        return queuedUnlockAnimationNodeIdSet.contains(nodeId);
     }
 
-    private boolean isLinkHandledByRevealAnimation(ResearchLink link, ResearchNode to) {
-        if (queuedRevealNodeIdSet.contains(to.getId())) {
+    private boolean isLinkHandledByUnlockAnimation(ResearchLink link, ResearchNode to) {
+        if (queuedUnlockAnimationNodeIdSet.contains(to.getId())) {
             return true;
         }
-        return activeRevealAnimation != null && activeRevealAnimation.nodeId() == to.getId();
+        return activeUnlockAnimation != null && activeUnlockAnimation.nodeId() == to.getId();
     }
 
     private IntOpenHashSet collectVisibleNodeIds() {
@@ -962,7 +962,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
     }
 
-    private void playRevealSound(net.minecraft.sounds.SoundEvent soundEvent, float volume, float pitch) {
+    private void playUnlockAnimationSound(net.minecraft.sounds.SoundEvent soundEvent, float volume, float pitch) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || minecraft.getSoundManager() == null) {
             return;
@@ -1136,7 +1136,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     /**
      * Builds the full multi-segment route of one dependency link.
      * <p>
-     * Both cached rendering and reveal-animation rendering use this method, so future shape changes
+     * Both cached rendering and unlock-animation rendering use this method, so future shape changes
      * should usually be implemented here first.
      * </p>
      */
@@ -1492,67 +1492,67 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     /**
-     * Called once when a newly unlocked research starts its full reveal sequence.
+     * Called once when a newly unlocked research starts its full unlock animation sequence.
      * <p>
-     * This is the earliest hook in the cinematic lifecycle: the node is selected for reveal,
-     * the camera target is chosen and the widget becomes managed by the temporary reveal state.
+     * This is the earliest hook in the cinematic lifecycle: the node is selected for unlock animation,
+     * the camera target is chosen and the widget becomes managed by the temporary unlock-animation state.
      * </p>
      */
-    protected void onRevealAnimationStart(ResearchNode node) {
+    protected void onUnlockAnimationStart(ResearchNode node) {
     }
 
     /**
-     * Called when the node "drop / scale" part of the reveal begins.
+     * Called when the node "drop / scale" part of the unlock animation begins.
      */
-    protected void onRevealNodeAnimationStart(ResearchNode node) {
+    protected void onUnlockNodeAnimationStart(ResearchNode node) {
     }
 
     /**
-     * Called on reveal updates while the node drop / scale animation is active.
+     * Called on unlock-animation updates while the node drop / scale animation is active.
      * <p>
      * {@code progress01} is the raw normalized stage progress in range {@code [0..1]}.
      * {@code currentScale} and {@code currentTranslateY} are the final values that were just
      * applied to the widget transform for this frame/update.
      * </p>
      */
-    protected void onRevealNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
+    protected void onUnlockNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
     }
 
     /**
      * Called when the node "drop / scale" part reaches its final transform.
      */
-    protected void onRevealNodeAnimationEnd(ResearchNode node) {
+    protected void onUnlockNodeAnimationEnd(ResearchNode node) {
     }
 
     /**
      * Called when the animated dependency-line connection starts.
      */
-    protected void onRevealLinkAnimationStart(ResearchNode node) {
+    protected void onUnlockLinkAnimationStart(ResearchNode node) {
     }
 
     /**
-     * Called on reveal updates while dependency lines are being drawn towards the node.
+     * Called on unlock-animation updates while dependency lines are being drawn towards the node.
      * <p>
      * {@code progress01} is the current normalized line-draw progress in range {@code [0..1]}.
      * </p>
      */
-    protected void onRevealLinkProgress(ResearchNode node, float progress01) {
+    protected void onUnlockLinkProgress(ResearchNode node, float progress01) {
     }
 
     /**
      * Called when the animated dependency-line connection finishes.
      */
-    protected void onRevealLinkAnimationEnd(ResearchNode node) {
+    protected void onUnlockLinkAnimationEnd(ResearchNode node) {
     }
 
     /**
-     * Called once when the full reveal step ends for the current node.
+     * Called once when the full unlock-animation step ends for the current node.
      * <p>
      * At this point the node transform is reset to identity and the screen is ready to continue
-     * with the next queued reveal, if any.
+     * with the next queued unlock animation, if any.
      * </p>
      */
-    protected void onRevealAnimationEnd(ResearchNode node) {
+    protected void onUnlockAnimationEnd(ResearchNode node) {
     }
 
     /**
@@ -1695,7 +1695,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
     }
 
-    private record RevealAnimation(int nodeId,
+    private record UnlockAnimation(int nodeId,
                                    long startedAtMs,
                                    float cameraStartOffsetX,
                                    float cameraStartOffsetY,
@@ -1708,8 +1708,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                                    boolean nodeAnimationFinished,
                                    boolean linkAnimationStarted,
                                    boolean linkAnimationFinished) {
-        private RevealAnimation withNodeDropSoundPlayed() {
-            return new RevealAnimation(
+        private UnlockAnimation withNodeDropSoundPlayed() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,
@@ -1726,8 +1726,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
         }
 
-        private RevealAnimation withLinkConnectSoundPlayed() {
-            return new RevealAnimation(
+        private UnlockAnimation withLinkConnectSoundPlayed() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,
@@ -1744,8 +1744,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
         }
 
-        private RevealAnimation withNodeAnimationStarted() {
-            return new RevealAnimation(
+        private UnlockAnimation withNodeAnimationStarted() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,
@@ -1762,8 +1762,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
         }
 
-        private RevealAnimation withNodeAnimationFinished() {
-            return new RevealAnimation(
+        private UnlockAnimation withNodeAnimationFinished() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,
@@ -1780,8 +1780,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
         }
 
-        private RevealAnimation withLinkAnimationStarted() {
-            return new RevealAnimation(
+        private UnlockAnimation withLinkAnimationStarted() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,
@@ -1798,8 +1798,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
         }
 
-        private RevealAnimation withLinkAnimationFinished() {
-            return new RevealAnimation(
+        private UnlockAnimation withLinkAnimationFinished() {
+            return new UnlockAnimation(
                     nodeId,
                     startedAtMs,
                     cameraStartOffsetX,

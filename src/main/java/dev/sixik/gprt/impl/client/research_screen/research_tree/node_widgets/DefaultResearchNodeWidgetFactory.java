@@ -131,7 +131,7 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
                            ResearchNodeVisualDefinition visualDefinition
         ) {
             setDisplay(context.isVisible());
-            setActive(context.isVisible() && !context.isRevealLocked());
+            setActive(context.isVisible() && !context.isInteractionLocked());
 
             applyFrameStyle(context, visualDefinition);
             applyAccentBar(visualDefinition);
@@ -256,7 +256,7 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
             long nowMs = context.getNowMs();
             return switch (state) {
                 case STUDIED -> "Studied";
-                case LOCKED -> context.isRevealLocked() ? "Locked during reveal" : "Locked";
+                case LOCKED -> context.isInteractionLocked() ? "Temporarily unavailable" : "Locked";
                 case AVAILABLE -> switch (node.getStudyType()) {
                     case TIMED -> "Ready - " + ResearchInfoPresentationRules.formatDuration(node.getStudyDurationMs());
                     case TABLE -> "Ready - table research";

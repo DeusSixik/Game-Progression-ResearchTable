@@ -128,6 +128,28 @@ public final class ResearchNodeTheme {
         return titleAlignment;
     }
 
+    /**
+     * Fluent builder for {@link ResearchNodeTheme}.
+     * <p>
+     * A theme is a reusable semantic preset, not the final widget paint result. You normally use
+     * this builder to define one family style per branch/group/type of research and then let
+     * {@link ResearchNodeVisualResolver} combine that preset with runtime state.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #titleVisible(boolean)}, {@link #subtitleVisible(boolean)}, {@link #iconVisible(boolean)} -
+     *     content visibility defaults;</li>
+     *     <li>{@link #primaryColor(int)}, {@link #secondaryColor(int)}, {@link #accentColor(Integer)} -
+     *     semantic palette;</li>
+     *     <li>{@link #iconPath(String)}, {@link #badgeText(String)}, {@link #badge(String, int)} -
+     *     reusable decorations;</li>
+     *     <li>{@link #progressBarColor(Integer)}, {@link #progressBarBackgroundColor(Integer)} - timed style overrides;</li>
+     *     <li>{@link #shapeStyle(ResearchNodeVisualDefinition.ShapeStyle)}, {@link #sizePreset(ResearchNodeVisualDefinition.SizePreset)},
+     *     {@link #titleAlignment(ResearchNodeVisualDefinition.TitleAlignment)} - layout hints;</li>
+     *     <li>{@link #build()} - final immutable theme preset.</li>
+     * </ul>
+     */
     public static final class Builder {
         private boolean titleVisible = true;
         private boolean subtitleVisible = true;
@@ -145,6 +167,9 @@ public final class ResearchNodeTheme {
         private @Nullable ResearchNodeVisualDefinition.SizePreset sizePreset;
         private @Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment;
 
+        /**
+         * Controls whether titles are normally visible for this theme family.
+         */
         public Builder titleVisible(boolean titleVisible) {
             this.titleVisible = titleVisible;
             return this;
@@ -154,6 +179,9 @@ public final class ResearchNodeTheme {
             return titleVisible(titleVisible);
         }
 
+        /**
+         * Controls whether subtitles are normally visible for this theme family.
+         */
         public Builder subtitleVisible(boolean subtitleVisible) {
             this.subtitleVisible = subtitleVisible;
             return this;
@@ -163,6 +191,9 @@ public final class ResearchNodeTheme {
             return subtitleVisible(subtitleVisible);
         }
 
+        /**
+         * Controls whether icons are normally visible for this theme family.
+         */
         public Builder iconVisible(boolean iconVisible) {
             this.iconVisible = iconVisible;
             return this;
@@ -172,6 +203,9 @@ public final class ResearchNodeTheme {
             return iconVisible(iconVisible);
         }
 
+        /**
+         * Controls whether timed progress is allowed to appear for this theme family.
+         */
         public Builder progressVisible(boolean progressVisible) {
             this.progressVisible = progressVisible;
             return this;
@@ -181,42 +215,69 @@ public final class ResearchNodeTheme {
             return progressVisible(progressVisible);
         }
 
+        /**
+         * Sets the main branch/family color.
+         */
         public Builder primaryColor(int primaryColor) {
             this.primaryColor = primaryColor;
             return this;
         }
 
+        /**
+         * Sets the secondary branch/family color, often used for studied-state variants.
+         */
         public Builder secondaryColor(int secondaryColor) {
             this.secondaryColor = secondaryColor;
             return this;
         }
 
+        /**
+         * Convenience helper that sets primary and secondary colors together.
+         */
         public Builder colors(int primaryColor, int secondaryColor) {
             this.primaryColor = primaryColor;
             this.secondaryColor = secondaryColor;
             return this;
         }
 
+        /**
+         * Optional explicit accent override.
+         */
         public Builder accentColor(@Nullable Integer accentColor) {
             this.accentColor = accentColor;
             return this;
         }
 
+        /**
+         * Optional explicit badge color override.
+         */
         public Builder badgeColor(@Nullable Integer badgeColor) {
             this.badgeColor = badgeColor;
             return this;
         }
 
+        /**
+         * Optional explicit timed-progress fill color override.
+         */
         public Builder progressBarColor(@Nullable Integer progressBarColor) {
             this.progressBarColor = progressBarColor;
             return this;
         }
 
+        /**
+         * Optional explicit timed-progress track color override.
+         */
         public Builder progressBarBackgroundColor(@Nullable Integer progressBarBackgroundColor) {
             this.progressBarBackgroundColor = progressBarBackgroundColor;
             return this;
         }
 
+        /**
+         * Sets the default icon path for this theme family.
+         * <p>
+         * Non-blank values automatically enable icon visibility.
+         * </p>
+         */
         public Builder iconPath(String iconPath) {
             this.iconPath = iconPath == null ? "" : iconPath;
             if (!this.iconPath.isBlank()) {
@@ -225,21 +286,33 @@ public final class ResearchNodeTheme {
             return this;
         }
 
+        /**
+         * Friendly alias for {@link #iconPath(String)}.
+         */
         public Builder icon(String iconPath) {
             return iconPath(iconPath);
         }
 
+        /**
+         * Sets the preset badge text for this theme family.
+         */
         public Builder badgeText(String badgeText) {
             this.badgeText = badgeText == null ? "" : badgeText;
             return this;
         }
 
+        /**
+         * Convenience helper that sets both badge text and badge color.
+         */
         public Builder badge(String badgeText, int badgeColor) {
             this.badgeText = badgeText == null ? "" : badgeText;
             this.badgeColor = badgeColor;
             return this;
         }
 
+        /**
+         * Selects the default outer silhouette/style family for nodes using this theme.
+         */
         public Builder shapeStyle(ResearchNodeVisualDefinition.ShapeStyle shapeStyle) {
             if (shapeStyle != null) {
                 this.shapeStyle = shapeStyle;
@@ -247,16 +320,25 @@ public final class ResearchNodeTheme {
             return this;
         }
 
+        /**
+         * Optional default size preset hint.
+         */
         public Builder sizePreset(@Nullable ResearchNodeVisualDefinition.SizePreset sizePreset) {
             this.sizePreset = sizePreset;
             return this;
         }
 
+        /**
+         * Optional default title alignment hint.
+         */
         public Builder titleAlignment(@Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment) {
             this.titleAlignment = titleAlignment;
             return this;
         }
 
+        /**
+         * Builds the immutable semantic theme preset.
+         */
         public ResearchNodeTheme build() {
             return new ResearchNodeTheme(this);
         }

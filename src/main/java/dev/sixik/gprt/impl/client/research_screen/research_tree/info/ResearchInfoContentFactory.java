@@ -65,6 +65,24 @@ public final class ResearchInfoContentFactory {
                 .build();
     }
 
+    /**
+     * High-level fluent builder for standard details-panel content.
+     * <p>
+     * Use this builder when you want a mostly conventional info panel without manually assembling
+     * every section through raw {@link ResearchInfoContent.Builder} calls.
+     * </p>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #modeText(String)} / {@link #stateText(String)} / {@link #visibilityText(String)} -
+     *     standard metadata labels;</li>
+     *     <li>{@link #conditions(List)} / {@link #noConditions()} - prerequisites block;</li>
+     *     <li>{@link #unlocks(List, String)} / {@link #noUnlocks()} - unlock preview block;</li>
+     *     <li>{@link #timedProgress(String, float, int)} / {@link #hideTimedProgress()} - timed mode row;</li>
+     *     <li>{@link #researchButton(String)} / {@link #hideResearchButton()} - bottom action button;</li>
+     *     <li>{@link #build()} - final immutable content snapshot.</li>
+     * </ul>
+     */
     public static final class Builder {
         private final ResearchNode node;
         private String modeText = "Mode: -";
@@ -87,38 +105,59 @@ public final class ResearchInfoContentFactory {
             this.node = node;
         }
 
+        /**
+         * Sets the short mode text shown near the panel header.
+         */
         public Builder modeText(String modeText) {
             this.modeText = modeText;
             return this;
         }
 
+        /**
+         * Sets the short state/status text shown near the panel header.
+         */
         public Builder stateText(String stateText) {
             this.stateText = stateText;
             return this;
         }
 
+        /**
+         * Sets the visibility/explanation text used by the standard metadata section.
+         */
         public Builder visibilityText(String visibilityText) {
             this.visibilityText = visibilityText;
             return this;
         }
 
+        /**
+         * Overrides the panel background tint used by the standard preset.
+         */
         public Builder panelColor(int panelColor) {
             this.panelColor = panelColor;
             return this;
         }
 
+        /**
+         * Enables the standard prerequisites section and supplies the parent nodes to render.
+         */
         public Builder conditions(List<ResearchNode> parentNodes) {
             this.includeConditions = true;
             this.parentNodes = parentNodes == null ? List.of() : List.copyOf(parentNodes);
             return this;
         }
 
+        /**
+         * Disables the standard prerequisites section entirely.
+         */
         public Builder noConditions() {
             this.includeConditions = false;
             this.parentNodes = List.of();
             return this;
         }
 
+        /**
+         * Enables the standard unlocks/rewards section and supplies the child nodes to render.
+         */
         public Builder unlocks(List<ResearchNode> unlockedChildren, String fallbackText) {
             this.includeUnlocks = true;
             this.unlockedChildren = unlockedChildren == null ? List.of() : List.copyOf(unlockedChildren);
@@ -126,12 +165,18 @@ public final class ResearchInfoContentFactory {
             return this;
         }
 
+        /**
+         * Disables the standard unlocks/rewards section entirely.
+         */
         public Builder noUnlocks() {
             this.includeUnlocks = false;
             this.unlockedChildren = List.of();
             return this;
         }
 
+        /**
+         * Shows the timed-progress block with preformatted text and fill state.
+         */
         public Builder timedProgress(String timedProgressText, float timedProgress01, int timedProgressFillColor) {
             this.showTimedProgress = true;
             this.timedProgressText = timedProgressText;
@@ -140,6 +185,9 @@ public final class ResearchInfoContentFactory {
             return this;
         }
 
+        /**
+         * Hides the timed-progress block.
+         */
         public Builder hideTimedProgress() {
             this.showTimedProgress = false;
             this.timedProgressText = "Progress: -";
@@ -147,17 +195,26 @@ public final class ResearchInfoContentFactory {
             return this;
         }
 
+        /**
+         * Shows the main action button and sets its label.
+         */
         public Builder researchButton(String researchButtonText) {
             this.showResearchButton = true;
             this.researchButtonText = researchButtonText;
             return this;
         }
 
+        /**
+         * Hides the main action button completely.
+         */
         public Builder hideResearchButton() {
             this.showResearchButton = false;
             return this;
         }
 
+        /**
+         * Builds the final standard panel content snapshot.
+         */
         public ResearchInfoContent build() {
             ResearchInfoContent.Builder builder = ResearchInfoContentPresets.defaultNodeContent(
                     node,

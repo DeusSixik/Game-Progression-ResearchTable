@@ -36,7 +36,7 @@ import java.util.List;
 /**
  * Reusable "real screen" layer on top of {@link ResearchTreeScreen}.
  * <p>
- * {@link ResearchTreeScreen} stays focused on graph logic, layout, reveal animation and link rendering,
+ * {@link ResearchTreeScreen} stays focused on graph logic, layout, unlock animation and link rendering,
  * while this class owns the higher-level HUD pieces that most actual research-tree screens will need:
  * details panel, timed progress bar, research button flow, table placeholder overlay and client-side
  * progress controller integration.
@@ -157,7 +157,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
      * Creates the factory responsible for research-node widgets.
      * <p>
      * Screens can override this to replace the default node look without touching selection,
-     * progression or reveal logic in the main screen itself.
+     * progression or animation/interaction-lock logic in the main screen itself.
      * </p>
      */
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
@@ -198,7 +198,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     /**
      * Builds the runtime render context for a node widget.
      * <p>
-     * This context carries volatile state such as selection, reveal lock and timed progress,
+     * This context carries volatile state such as selection, temporary interaction lock and timed progress,
      * while the visual definition returned by {@link #buildNodeVisualDefinition(ResearchNode, ResearchNodeRenderContext)}
      * remains the reusable style description.
      * </p>
@@ -316,7 +316,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
      * Controls whether an info-panel jump is allowed to focus the target research.
      * <p>
      * By default hidden researches are protected from info-panel navigation, so prerequisite
-     * rows cannot reveal branches that are still intentionally invisible to the player.
+     * rows cannot expose branches that are still intentionally invisible to the player.
      * </p>
      */
     protected boolean canFocusResearchFromInfoPanel(ResearchNode node) {
@@ -353,7 +353,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 context,
                 buildNodeVisualDefinition(node, context),
                 () -> {
-                    if (isRevealSequenceActive()) {
+                    if (isUnlockAnimationActive()) {
                         return;
                     }
                     openDetailsPanel(node.getId());
@@ -401,7 +401,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     protected final void tryStartResearch(ResearchNode node) {
         String researchKey = node.getResearchKey();
-        if (researchKey == null || isRevealSequenceActive()) {
+        if (researchKey == null || isUnlockAnimationActive()) {
             return;
         }
 
@@ -878,7 +878,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .state(resolveNodeState(node))
                 .visible(isNodeVisible(node.getId()))
                 .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
-                .revealLocked(isRevealSequenceActive())
+                .interactionLocked(isUnlockAnimationActive())
                 .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
                 .hasNewUnlockMarker(false)
                 .nowMs(nowMs)

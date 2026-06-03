@@ -10,6 +10,19 @@ import java.util.function.Consumer;
  * This model intentionally stores ready-to-render rich content:
  * title settings, basic text blocks, timed progress state and a list of
  * reusable sections made from visual entries.
+ * It is the final data snapshot consumed by a {@link ResearchInfoPanelWidget}.
+ * </p>
+ *
+ * <p><b>Why this class exists:</b></p>
+ * <ul>
+ *     <li>The screen should not micromanage individual labels, progress bars and buttons.</li>
+ *     <li>Panel widgets should render data, not re-derive gameplay state on their own.</li>
+ *     <li>Different panel skins can reuse the same content snapshot.</li>
+ * </ul>
+ *
+ * <p>
+ * In other words, this class answers the question:
+ * <b>"what exactly should the info panel show right now?"</b>
  * </p>
  */
 public final class ResearchInfoContent {
@@ -135,6 +148,31 @@ public final class ResearchInfoContent {
         return Math.max(0f, Math.min(1f, value));
     }
 
+    /**
+     * Fluent builder for {@link ResearchInfoContent}.
+     * <p>
+     * Use this builder when you want full control over a panel snapshot:
+     * header texts, progress block, action button and arbitrary custom sections.
+     * </p>
+     *
+     * <p><b>Typical usage patterns:</b></p>
+     * <ul>
+     *     <li>Build content fully by hand for a special research.</li>
+     *     <li>Start from {@code content.toBuilder()} and append project-specific sections.</li>
+     *     <li>Let {@link ResearchInfoContentFactory} build the standard base and then customize it.</li>
+     * </ul>
+     *
+     * <p><b>Quick navigation:</b></p>
+     * <ul>
+     *     <li>{@link #title(String)}, {@link #titleAlign(TitleAlign)}, {@link #titleLarge(boolean)} - header setup;</li>
+     *     <li>{@link #groupText(String)}, {@link #modeText(String)}, {@link #stateText(String)} - metadata rows;</li>
+     *     <li>{@link #description(String)} - free-form description block;</li>
+     *     <li>{@link #timedProgress(String, float, int)} / {@link #hideTimedProgress()} - live progress area;</li>
+     *     <li>{@link #researchButton(String, boolean)} / {@link #hideResearchButton()} - action button;</li>
+     *     <li>{@link #section(String, Consumer)}, {@link #addSection(ResearchInfoSection)} - body sections;</li>
+     *     <li>{@link #build()} - final immutable panel snapshot.</li>
+     * </ul>
+     */
     public static final class Builder {
         private String title = "Research";
         private TitleAlign titleAlign = TitleAlign.CENTER;
@@ -323,6 +361,9 @@ public final class ResearchInfoContent {
             return addSection(sectionBuilder.build());
         }
 
+        /**
+         * Builds the immutable panel content snapshot.
+         */
         public ResearchInfoContent build() {
             return new ResearchInfoContent(this);
         }

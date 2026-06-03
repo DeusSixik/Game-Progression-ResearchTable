@@ -6,11 +6,23 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.Researc
 
 /**
  * Converts a reusable {@link ResearchNodeTheme} plus runtime state into a final visual definition.
+ * <p>
+ * This class is the bridge between semantic presets and final widget-ready visuals.
+ * It folds together:
+ * </p>
+ * <ul>
+ *     <li>group/theme defaults,</li>
+ *     <li>logical node metadata such as study type,</li>
+ *     <li>runtime state such as selection/highlighting/interaction lock/progress.</li>
+ * </ul>
  */
 public final class ResearchNodeVisualResolver {
     private ResearchNodeVisualResolver() {
     }
 
+    /**
+     * Resolves a final widget-ready visual definition.
+     */
     public static ResearchNodeVisualDefinition resolve(ResearchNodeTheme theme,
                                                        ResearchNode node,
                                                        ResearchNodeRenderContext context,

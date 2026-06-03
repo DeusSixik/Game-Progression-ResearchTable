@@ -48,10 +48,10 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private UIElement overlayContent;
     private Button overlayToggleButton;
     private Label nodeStyleLabel;
-    private Label revealStageLabel;
-    private Label revealNodeLabel;
-    private Label revealNodeProgressLabel;
-    private Label revealLinkProgressLabel;
+    private Label unlockAnimationStageLabel;
+    private Label unlockAnimationNodeLabel;
+    private Label unlockAnimationNodeProgressLabel;
+    private Label unlockAnimationLinkProgressLabel;
 
     public ResearchTreeScreenDebug() {
         autoLayoutConfig()
@@ -114,7 +114,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
         UIElement styleButtons = new UIElement()
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
-        UIElement revealDebugPanel = new UIElement()
+        UIElement unlockAnimationDebugPanel = new UIElement()
                 .layout(layout -> layout.widthPercent(100).paddingAll(6).gapAll(2))
                 .style(style -> style.backgroundTexture(new ColorRectTexture(0x66253446)));
 
@@ -122,7 +122,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Button().setText("Fit").setOnClick(event -> fitToChildren(80f, 0.35f)),
                 new Button().setText("Center Root").setOnClick(event -> centerRootNode()),
                 new Button().setText("Reset Demo").setOnClick(event -> {
-                    resetRevealDebugState();
+                    resetUnlockAnimationDebugState();
                     resetProgressState();
                 })
         );
@@ -146,21 +146,21 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 nodeStyleLabel
         );
 
-        revealStageLabel = new Label();
-        revealStageLabel.setText("Reveal Stage: idle");
-        revealNodeLabel = new Label();
-        revealNodeLabel.setText("Reveal Node: -");
-        revealNodeProgressLabel = new Label();
-        revealNodeProgressLabel.setText("Node Progress: -");
-        revealLinkProgressLabel = new Label();
-        revealLinkProgressLabel.setText("Link Progress: -");
-        revealDebugPanel.addChildren(
-                new Label().setText("Reveal Hook Debug"),
-                new Label().setText("This block is updated from onReveal... hooks in real time."),
-                revealStageLabel,
-                revealNodeLabel,
-                revealNodeProgressLabel,
-                revealLinkProgressLabel
+        unlockAnimationStageLabel = new Label();
+        unlockAnimationStageLabel.setText("Animation Stage: idle");
+        unlockAnimationNodeLabel = new Label();
+        unlockAnimationNodeLabel.setText("Active Node: -");
+        unlockAnimationNodeProgressLabel = new Label();
+        unlockAnimationNodeProgressLabel.setText("Node Progress: -");
+        unlockAnimationLinkProgressLabel = new Label();
+        unlockAnimationLinkProgressLabel.setText("Link Progress: -");
+        unlockAnimationDebugPanel.addChildren(
+                new Label().setText("Unlock Animation Debug"),
+                new Label().setText("This block is updated from unlock animation hooks in real time."),
+                unlockAnimationStageLabel,
+                unlockAnimationNodeLabel,
+                unlockAnimationNodeProgressLabel,
+                unlockAnimationLinkProgressLabel
         );
 
         panel.addChildren(
@@ -172,7 +172,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 cameraButtons,
                 groupButtons,
                 styleButtons,
-                revealDebugPanel
+                unlockAnimationDebugPanel
         );
 
         overlayContent = panel;
@@ -370,21 +370,21 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     }
 
     @Override
-    protected void onRevealAnimationStart(ResearchNode node) {
-        setRevealDebugStage("sequence-start", node);
-        revealNodeProgressLabel.setText("Node Progress: waiting for node phase");
-        revealLinkProgressLabel.setText("Link Progress: waiting for line phase");
+    protected void onUnlockAnimationStart(ResearchNode node) {
+        setUnlockAnimationDebugStage("sequence-start", node);
+        unlockAnimationNodeProgressLabel.setText("Node Progress: waiting for node phase");
+        unlockAnimationLinkProgressLabel.setText("Link Progress: waiting for line phase");
     }
 
     @Override
-    protected void onRevealNodeAnimationStart(ResearchNode node) {
-        setRevealDebugStage("node-start", node);
+    protected void onUnlockNodeAnimationStart(ResearchNode node) {
+        setUnlockAnimationDebugStage("node-start", node);
     }
 
     @Override
-    protected void onRevealNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
-        setRevealNodeLabel(node);
-        revealNodeProgressLabel.setText(
+    protected void onUnlockNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
+        setUnlockAnimationNodeLabel(node);
+        unlockAnimationNodeProgressLabel.setText(
                 "Node Progress: "
                         + formatPercent(progress01)
                         + " | scale "
@@ -395,31 +395,31 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     }
 
     @Override
-    protected void onRevealNodeAnimationEnd(ResearchNode node) {
-        setRevealDebugStage("node-end", node);
+    protected void onUnlockNodeAnimationEnd(ResearchNode node) {
+        setUnlockAnimationDebugStage("node-end", node);
     }
 
     @Override
-    protected void onRevealLinkAnimationStart(ResearchNode node) {
-        setRevealDebugStage("links-start", node);
+    protected void onUnlockLinkAnimationStart(ResearchNode node) {
+        setUnlockAnimationDebugStage("links-start", node);
     }
 
     @Override
-    protected void onRevealLinkProgress(ResearchNode node, float progress01) {
-        setRevealNodeLabel(node);
-        revealLinkProgressLabel.setText("Link Progress: " + formatPercent(progress01));
+    protected void onUnlockLinkProgress(ResearchNode node, float progress01) {
+        setUnlockAnimationNodeLabel(node);
+        unlockAnimationLinkProgressLabel.setText("Link Progress: " + formatPercent(progress01));
     }
 
     @Override
-    protected void onRevealLinkAnimationEnd(ResearchNode node) {
-        setRevealDebugStage("links-end", node);
+    protected void onUnlockLinkAnimationEnd(ResearchNode node) {
+        setUnlockAnimationDebugStage("links-end", node);
     }
 
     @Override
-    protected void onRevealAnimationEnd(ResearchNode node) {
-        setRevealDebugStage("sequence-end", node);
-        revealNodeProgressLabel.setText("Node Progress: complete");
-        revealLinkProgressLabel.setText("Link Progress: complete");
+    protected void onUnlockAnimationEnd(ResearchNode node) {
+        setUnlockAnimationDebugStage("sequence-end", node);
+        unlockAnimationNodeProgressLabel.setText("Node Progress: complete");
+        unlockAnimationLinkProgressLabel.setText("Link Progress: complete");
     }
 
     private ResearchInfoContent buildFactoryShowcaseContent(ResearchNode node, ResearchState state) {
@@ -472,32 +472,32 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         return false;
     }
 
-    private void resetRevealDebugState() {
-        if (revealStageLabel != null) {
-            revealStageLabel.setText("Reveal Stage: idle");
+    private void resetUnlockAnimationDebugState() {
+        if (unlockAnimationStageLabel != null) {
+            unlockAnimationStageLabel.setText("Animation Stage: idle");
         }
-        if (revealNodeLabel != null) {
-            revealNodeLabel.setText("Reveal Node: -");
+        if (unlockAnimationNodeLabel != null) {
+            unlockAnimationNodeLabel.setText("Active Node: -");
         }
-        if (revealNodeProgressLabel != null) {
-            revealNodeProgressLabel.setText("Node Progress: -");
+        if (unlockAnimationNodeProgressLabel != null) {
+            unlockAnimationNodeProgressLabel.setText("Node Progress: -");
         }
-        if (revealLinkProgressLabel != null) {
-            revealLinkProgressLabel.setText("Link Progress: -");
+        if (unlockAnimationLinkProgressLabel != null) {
+            unlockAnimationLinkProgressLabel.setText("Link Progress: -");
         }
     }
 
-    private void setRevealDebugStage(String stage, ResearchNode node) {
-        if (revealStageLabel != null) {
-            revealStageLabel.setText("Reveal Stage: " + stage);
+    private void setUnlockAnimationDebugStage(String stage, ResearchNode node) {
+        if (unlockAnimationStageLabel != null) {
+            unlockAnimationStageLabel.setText("Animation Stage: " + stage);
         }
-        setRevealNodeLabel(node);
+        setUnlockAnimationNodeLabel(node);
     }
 
-    private void setRevealNodeLabel(ResearchNode node) {
-        if (revealNodeLabel != null) {
+    private void setUnlockAnimationNodeLabel(ResearchNode node) {
+        if (unlockAnimationNodeLabel != null) {
             String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
-            revealNodeLabel.setText("Reveal Node: " + title + " [" + node.getId() + "]");
+            unlockAnimationNodeLabel.setText("Active Node: " + title + " [" + node.getId() + "]");
         }
     }
 
