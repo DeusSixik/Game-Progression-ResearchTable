@@ -1,59 +1,86 @@
 # План 2. Builder и factory для виджетов исследований
 
-## Зачем это нужно
+## Статус
 
-Сейчас нода по сути рендерится как кнопка с текстом состояния и заголовком.  
-Для прототипа этого хватает, но для реального дерева исследований этого мало.
+Базовый план уже реализован.
 
-Хочется добавить:
+Что уже есть в проекте:
 
-- иконки
-- стили фона
-- цветовые схемы
-- бейджи
-- дополнительные маркеры
-- индикацию состояния
-- progress bar на ноде для `TIMED`
-- отдельный внешний вид для закрытого / доступного / изученного / активного состояния
+- `ResearchNodeVisualDefinition` как отдельная модель внешнего вида ноды
+- `ResearchNodeRenderContext` как отдельный контекст рендера/состояния
+- `ResearchNodeWidgetFactory` с разделением на `createNodeWidget(...)` и `updateNodeWidget(...)`
+- reusable-реализация `DefaultResearchNodeWidgetFactory`
+- сборка visual definition и render context внутри `ResearchTreeScreenMainScreen`
+- progress bar на самой ноде для `TIMED`
+- group theme presets и branch-specific styling
+- отдельный debug/tutorial showcase для кастомных node widgets
 
-Если всё это встраивать прямо в `createNodeWidget`, код быстро станет очень тяжёлым.  
-Поэтому лучше перейти на систему:
-
-- описание внешнего вида
-- builder описания
-- factory, которая строит сам UI
+Итог: цель плана достигнута. Ниже план переписан в актуальном виде, чтобы он отражал уже внедренную архитектуру и оставшиеся optional-расширения.
 
 ---
 
-## Целевое устройство
+## Зачем это было нужно
+
+Раньше нода по сути рендерилась как простая кнопка с текстом состояния и заголовком.
+Для прототипа этого хватало, но для нормального дерева исследований было нужно разделить:
+
+- доменную логику исследований
+- описание внешнего вида ноды
+- фабрику, которая строит UI
+
+Также была цель добавить:
+
+- иконки
+- стили фона
+- цветовые схемы по группам
+- badge-элементы
+- индикаторы состояния
+- progress bar на ноде для `TIMED`
+- разные визуальные состояния для locked / available / studied / selected / in-progress
+
+---
+
+## Итоговая архитектура
 
 ### Слой 1. `ResearchNodeVisualDefinition`
 
-Описание того, как нода должна выглядеть.
+Отдельная модель, которая описывает внешний вид ноды, а не сам `UIElement`.
 
-Примерные поля:
+Уже используется для таких параметров:
 
 - `titleVisible`
 - `subtitleVisible`
 - `iconVisible`
 - `progressVisible`
+- `badgeVisible`
 - `backgroundColor`
 - `borderColor`
 - `accentColor`
-- `iconTexture`
+- `iconPath`
 - `badgeText`
 - `badgeColor`
+- `progressBarColor`
+- `progressBarBackgroundColor`
 - `shapeStyle`
 - `sizePreset`
 - `titleAlignment`
 
-Это не сам `UIElement`, а описание внешнего вида.
+`ResearchNodeVisualDefinition` уже стал основной reusable-точкой настройки node visuals.
 
-### Слой 2. `ResearchNodeWidgetBuilder`
+### Слой 2. Builder visual definition
 
-Fluent API для удобной сборки visual definition.
+Изначально в плане был отдельный `ResearchNodeWidgetBuilder`.
 
-Пример:
+На практике его роль сейчас выполняют:
+
+- builder внутри `ResearchNodeVisualDefinition`
+- `ResearchNodeTheme`
+- `ResearchNodeGroupThemeResolver`
+- `ResearchNodeVisualResolver`
+
+То есть fluent API для сборки внешнего вида уже есть, просто оно реализовано не отдельным классом `ResearchNodeWidgetBuilder`, а через связку visual-definition builder + theme/resolver layer.
+
+Пример направления использования:
 
 ```java
 ResearchNodeVisualDefinition visual = ResearchNodeVisualDefinition.builder()
@@ -68,53 +95,29 @@ ResearchNodeVisualDefinition visual = ResearchNodeVisualDefinition.builder()
 
 ### Слой 3. `ResearchNodeWidgetFactory`
 
-Фабрика, которая:
+Фабрика вынесена в отдельный reusable-контракт.
 
-- получает `ResearchNode`
-- получает `ResearchState`
-- получает `ResearchNodeVisualDefinition`
-- получает progress snapshot при необходимости
-- создаёт UI-виджет ноды
+Актуальные методы:
+
+- `UIElement createNodeWidget(ResearchNode node, ResearchNodeRenderContext context, ResearchNodeVisualDefinition visualDefinition, Runnable onClick)`
+- `void updateNodeWidget(UIElement widget, ResearchNode node, ResearchNodeRenderContext context, ResearchNodeVisualDefinition visualDefinition)`
+
+Это лучше исходного плана, потому что фабрика теперь сразу получает:
+
+- саму ноду
+- render context
+- resolved visual definition
+- callback на выбор ноды
+
+И может как создавать новый виджет, так и дешево обновлять уже существующий.
 
 ---
 
-## Предлагаемые классы
+## `ResearchNodeRenderContext`
 
-### `ResearchNodeVisualDefinition`
+Контекст рендера/состояния ноды уже вынесен в отдельный класс.
 
-Основная модель внешнего вида.
-
-Минимальный состав:
-
-- `iconPath`
-- `showIcon`
-- `showTitle`
-- `showProgress`
-- `showBadge`
-- `backgroundColor`
-- `accentColor`
-- `borderColor`
-- `badgeText`
-- `badgeColor`
-- `progressBarColor`
-- `progressBarBackgroundColor`
-
-### `ResearchNodeWidgetFactory`
-
-Основной reusable класс.
-
-Нужные методы:
-
-- `UIElement createNodeWidget(ResearchNode node, ResearchNodeRenderContext context)`
-- `void updateNodeWidget(UIElement widget, ResearchNode node, ResearchNodeRenderContext context)`
-
-Идея: не только создавать, но и уметь обновлять существующий виджет.
-
-### `ResearchNodeRenderContext`
-
-Контекст рендера/состояния ноды.
-
-Поля:
+Он хранит:
 
 - `ResearchState state`
 - `boolean visible`
@@ -123,157 +126,175 @@ ResearchNodeVisualDefinition visual = ResearchNodeVisualDefinition.builder()
 - `@Nullable ClientResearchProgress progress`
 - `boolean selected`
 - `boolean hasNewUnlockMarker`
+- `long nowMs`
+
+Это позволяет не хранить transient UI-state внутри самой кнопки и не смешивать визуализацию с логикой исследований.
 
 ---
 
 ## Progress bar на самой ноде
 
-Это важное расширение для `TIMED`.
+Пункт реализован.
 
-### Что нужно показывать
+Если исследование:
 
-Если исследование `TIMED` и находится в `IN_PROGRESS`, то на самой ноде должен появляться:
+- имеет тип `TIMED`
+- находится в состоянии `IN_PROGRESS`
+- имеет client progress snapshot
 
-- маленький progress bar
-- возможно краткий percent или countdown
+то factory показывает progress bar прямо на ноде.
 
-### Где хранить данные
+Важно, что данные берутся не из самой кнопки, а через controller/context chain:
 
-Не в самой кнопке.  
-Нода должна получать данные из `ResearchProgressController`.
+1. `ResearchTreeScreenMainScreen` получает progress из progress controller
+2. формирует `ResearchNodeRenderContext`
+3. строит `ResearchNodeVisualDefinition`
+4. передает все это в factory
+5. factory обновляет progress bar
 
-### Как это должно работать
-
-`ResearchTreeScreenMainScreen` или будущий node factory:
-
-- получает progress через controller
-- формирует render context
-- factory обновляет progress bar
+Это как раз и было одной из главных целей плана.
 
 ---
 
 ## Разделение логики и представления
 
-Очень важно не смешивать:
+Целевое разделение достигнуто.
 
-- доменную логику исследования
-- прогресс
-- чистый UI
+Текущая цепочка выглядит так:
 
-Правильная цепочка такая:
+1. `ResearchNode` - логическая нода дерева
+2. `ResearchProgressController` / client progress manager - текущее состояние исследования
+3. `ResearchNodeRenderContext` - моментальный render-state
+4. `ResearchNodeVisualDefinition` - описание внешнего вида
+5. `ResearchNodeWidgetFactory` - создание и обновление UI
 
-1. `ResearchNode` — логическая нода дерева
-2. `ResearchProgressController` — текущее состояние исследования
-3. `ResearchNodeVisualDefinition` — описание стиля
-4. `ResearchNodeWidgetFactory` — создание и обновление UI
+За счет этого логика ноды больше не смешана с ее отрисовкой в экране.
 
 ---
 
-## Как встроить в текущий код
+## Как это встроено в экран
 
-Сейчас `ResearchTreeScreenMainScreen` создаёт `Button` напрямую.
+Этот шаг тоже уже завершен.
 
-Лучше перейти на:
-
-```java
-protected ResearchNodeVisualDefinition buildNodeVisualDefinition(ResearchNode node, ResearchState state)
-```
-
-и
+`ResearchTreeScreenMainScreen` больше не строит ноду как жестко зашитую кнопку напрямую.
+Теперь он:
 
 ```java
 protected ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node)
 ```
 
-после чего:
+и
 
 ```java
-nodeWidgetFactory.createNodeWidget(node, context, visualDefinition)
+protected ResearchNodeVisualDefinition buildNodeVisualDefinition(ResearchNode node, ResearchNodeRenderContext context)
+```
+
+после чего передает данные в factory:
+
+```java
+nodeWidgetFactory.createNodeWidget(node, context, visualDefinition, onClick)
+```
+
+и позже:
+
+```java
+nodeWidgetFactory.updateNodeWidget(widget, node, context, visualDefinition)
 ```
 
 ---
 
 ## Поддержка кастомных тем и групп
 
-Этот план сразу поможет сделать разные ветки дерева визуально отличающимися.
+Пункт реализован.
 
-Например:
+Уже есть:
 
-- металлургия — тёплые жёлто-оранжевые
-- farming — зелёные
-- logistics — синие
+- branch/group presets
+- разные цветовые схемы для веток
+- badge text по темам
+- accent colors
+- progress colors
+- title alignment presets
 
-И отдельно:
+Примеры групповых тем уже используются для:
 
-- locked state
-- studied state
-- in-progress state
-- newly-unlocked state
+- metallurgy
+- farming
+- logistics
+- root
 
-можно будет настраивать через visual definition, а не хардкодить в одном месте.
+Отдельно debug showcase доказывает, что поверх той же data model можно строить полностью разные layouts node widgets.
 
 ---
 
-## Полезные будущие расширения
+## Что уже покрыто из этапов внедрения
 
-### Badge-система
+### Этап 1 - выполнен
 
-Например:
+- создан `ResearchNodeVisualDefinition`
+- создан `ResearchNodeRenderContext`
+- создан `ResearchNodeWidgetFactory`
+- базовая кнопка вынесена в reusable factory-слой
 
-- `NEW`
-- `!`
-- `TIME`
-- `TABLE`
+### Этап 2 - выполнен
 
-### Icon overlay
+- добавлена icon support
+- добавлен state styling
+- добавлен progress bar на ноде для `TIMED`
 
-Поверх иконки:
+### Этап 3 - в основном выполнен
 
-- замок
-- галочка
-- песочные часы
-- вспышка нового исследования
+- добавлен badge support
+- добавлены group theme presets
+- добавлен debug showcase кастомных композиций node widgets
 
-### Animated node states
+---
 
-Если позже захочется:
+## Оставшиеся optional-расширения
+
+Эти пункты не мешают считать план завершенным, но их можно развивать отдельно.
+
+### 1. Реальный `hasNewUnlockMarker`
+
+Поле уже есть в `ResearchNodeRenderContext`, и visual resolver умеет на него реагировать,
+но сейчас оно еще не заведено как полноценный live-flow от состояния прогрессии.
+
+### 2. Полноценный icon overlay API
+
+Пока есть badge/progress/theme support, но отдельного общего overlay-слоя для:
+
+- замка
+- галочки
+- песочных часов
+- маркера нового исследования
+
+еще нет как завершенного reusable API.
+
+### 3. Обобщенные animated node states
+
+В проекте уже есть анимации появления/раскрытия, но это пока не оформлено как отдельный универсальный слой именно для node widgets.
+В будущем сюда можно вынести:
 
 - pulse
 - glow
 - progress shimmer
-- opening animation
+- reusable opening animation hooks
 
-это будет проще навесить на node factory, чем на голый button-код в экране.
+### 4. Еще более высокий уровень builder API
 
----
-
-## Минимальный этап внедрения
-
-### Этап 1
-
-- создать `ResearchNodeVisualDefinition`
-- создать `ResearchNodeRenderContext`
-- создать `ResearchNodeWidgetFactory`
-- перенести текущую кнопку туда без изменения внешнего вида
-
-### Этап 2
-
-- добавить icon support
-- добавить state styling
-- добавить progress bar на ноде для `TIMED`
-
-### Этап 3
-
-- добавить badge/overlay support
-- добавить group theme presets
+Если позже понадобится еще более удобный authoring API для моддеров, можно поверх текущей системы добавить отдельный high-level builder для карточек/слоев/layout presets.
+Но для текущих задач существующей архитектуры уже достаточно.
 
 ---
 
-## Ожидаемый результат
+## Итог
+
+План считается выполненным.
 
 После внедрения:
 
-- логика ноды не будет смешана с её отрисовкой
-- появится нормальная точка расширения для иконок и тем
-- `TIMED` исследования станут информативнее прямо на дереве
-- в будущем можно будет быстро менять визуальный стиль без переписывания экрана
+- логика ноды больше не смешана с ее отрисовкой
+- появилась нормальная точка расширения для icon/theme/badge/progress/state styling
+- `TIMED` исследования стали информативнее прямо на дереве
+- стало возможно быстро менять визуальный стиль нод без переписывания экрана
+- debug/showcase слой подтверждает, что система подходит не только для одной жесткой кнопки, а для разных композиций и стилей
