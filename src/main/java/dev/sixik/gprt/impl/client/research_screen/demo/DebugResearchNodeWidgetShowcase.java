@@ -127,18 +127,21 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(metallurgyGroup.getSecondaryColor())
                 .accentColor(0xFFFFC766)
                 .badge("FORGE", 0xFFF0C17C)
+                .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(farmingGroup, theme -> theme
                 .primaryColor(farmingGroup.getPrimaryColor())
                 .secondaryColor(farmingGroup.getSecondaryColor())
                 .accentColor(0xFF9BE27F)
                 .badge("GROW", 0xFFA7E3A4)
+                .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(logisticsGroup, theme -> theme
                 .primaryColor(logisticsGroup.getPrimaryColor())
                 .secondaryColor(logisticsGroup.getSecondaryColor())
                 .accentColor(0xFF8BC0FF)
                 .badge("FLOW", 0xFFA9CBFF)
+                .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
     }
 

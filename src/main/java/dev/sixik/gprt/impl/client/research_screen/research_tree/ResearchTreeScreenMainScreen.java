@@ -21,13 +21,17 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchTreeSeenStateCache;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchProgressController;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.SimpleClientResearchProgressManager;
 import dev.vfyjxf.taffy.style.TaffyPosition;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -95,6 +99,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private @Nullable ResearchInfoPanelWidget detailsPanel;
     private @Nullable ResearchNodeWidgetFactory nodeWidgetFactory;
     private @Nullable ResearchNodeThemeResolver nodeThemeResolver;
+    private @Nullable ResearchUnlockPresentationController unlockPresentationController;
 
     private @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
     private int selectedNodeId = -1;
@@ -104,12 +109,14 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private long detailsPanelAnimationStartedAtMs;
     private DetailsPanelAnimationPhase detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSED;
     private boolean tablePlaceholderVisible;
+    private boolean unlockAnimationOnOpenPrepared;
     private int rootNodeId = -1;
 
     /**
      * Creates the root UI container that hosts the graph, overlay controls and shared panels.
      */
     public final UIElement createView() {
+        prepareUnlockAnimationsOnOpen();
         return new RootView(this);
     }
 
@@ -272,6 +279,174 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     /**
+     * Controls whether this screen should replay unseen unlock animations on the next open.
+     * <p>
+     * Default is enabled. Concrete screens can disable it while the feature is still being wired
+     * to real server-driven progression state.
+     * </p>
+     */
+    protected boolean isUnlockAnimationOnOpenEnabled() {
+        return true;
+    }
+
+    /**
+     * Controls whether already studied but still unseen researches may replay their unlock
+     * animation the first time the player notices them in the tree.
+     * <p>
+     * This hook affects only delayed open presentation on tree show/reopen. It does not change
+     * real progression, unlock conditions, study completion, or node visibility.
+     * </p>
+     *
+     * <p>
+     * Default keeps the original conservative behavior: once a research is already studied it is
+     * treated as already seen and will not get a delayed open animation. Override this in screens
+     * that want the tree to visually introduce already completed content the first time the player
+     * notices it.
+     * </p>
+     */
+    protected ResearchUnlockPresentationController.StudiedResearchAnimationMode getStudiedUnlockAnimationMode() {
+        return ResearchUnlockPresentationController.StudiedResearchAnimationMode.NEVER_FOR_STUDIED;
+    }
+
+    /**
+     * Logical runtime key used by the delayed unlock-presentation cache.
+     * <p>
+     * Override this when several screens share the same research tree and should therefore also
+     * share the same "already seen" presentation state.
+     * </p>
+     */
+    protected String getUnlockAnimationPresentationKey() {
+        return getClass().getName();
+    }
+
+    /**
+     * Returns the delayed unlock-presentation controller used by this screen instance/tree key.
+     * <p>
+     * This is mainly exposed for debug or advanced presentation tooling. Most subclasses should
+     * prefer the higher-level helper methods below instead of mutating the cache directly.
+     * </p>
+     */
+    protected final ResearchUnlockPresentationController unlockPresentationController() {
+        return getUnlockPresentationController();
+    }
+
+    /**
+     * Clears the runtime-only "already shown to the player" state for delayed unlock presentation.
+     * <p>
+     * This does not change real research progression. It only resets the client cache that drives
+     * "animate newly visible researches on next open" behavior.
+     * </p>
+     */
+    protected final void resetUnlockPresentationState() {
+        getUnlockPresentationController().resetSeenState();
+    }
+
+    /**
+     * Simulates the normal "tree just opened" delayed unlock scan against currently visible nodes.
+     * <p>
+     * This uses the same flow as {@link #createView()}: visible researches are compared against the
+     * seen cache, new pending unlock animations are recorded, and matching visible nodes are queued
+     * into the regular unlock-animation pipeline.
+     * </p>
+     *
+     * @return number of visible node animations queued right now
+     */
+    protected final int simulateUnlockAnimationPresentationOpenNow() {
+        ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForUnlockPresentation();
+        ObjectArrayList<String> pendingResearchKeys = getUnlockPresentationController()
+                .collectPendingUnlockAnimationResearchIds(visibleNodes, getStudiedUnlockAnimationMode());
+        return queueUnlockAnimationsForResearchKeys(pendingResearchKeys);
+    }
+
+    /**
+     * Queues all currently visible, not-yet-seen, not-yet-pending researches for unlock animation.
+     * <p>
+     * Unlike {@link #simulateUnlockAnimationPresentationOpenNow()}, this helper bypasses the
+     * first-open suppression logic and is meant specifically for debug tooling or forced replays.
+     * </p>
+     *
+     * @return number of visible node animations queued right now
+     */
+    protected final int queueVisibleUnseenUnlockAnimationsNow() {
+        ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForUnlockPresentation();
+        ResearchTreeSeenStateCache cache = getUnlockPresentationController().cache();
+        ObjectArrayList<String> pendingResearchKeys = new ObjectArrayList<>();
+
+        for (int i = 0, size = visibleNodes.size(); i < size; i++) {
+            ResearchNode node = visibleNodes.get(i);
+            String researchKey = node.getResearchKey();
+            if (researchKey == null || researchKey.isBlank() || node.isStudied()) {
+                continue;
+            }
+            if (cache.seenVisibleResearchIds().contains(researchKey)
+                    || cache.pendingUnlockAnimationResearchIds().contains(researchKey)) {
+                continue;
+            }
+
+            cache.pendingUnlockAnimationResearchIds().add(researchKey);
+            pendingResearchKeys.add(researchKey);
+        }
+
+        return queueUnlockAnimationsForResearchKeys(pendingResearchKeys);
+    }
+
+    /**
+     * Replays every currently cached pending unlock animation that is still visible in the tree.
+     *
+     * @return number of visible node animations queued right now
+     */
+    protected final int replayPendingUnlockAnimationsNow() {
+        return queueUnlockAnimationsForResearchKeys(getUnlockPresentationController().cache().pendingUnlockAnimationResearchIds());
+    }
+
+    /**
+     * Marks all currently visible researches as already shown to the player.
+     *
+     * @return number of visible researches processed
+     */
+    protected final int markVisibleUnlockPresentationNodesSeen() {
+        ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForUnlockPresentation();
+        ObjectArrayList<String> visibleResearchKeys = new ObjectArrayList<>(visibleNodes.size());
+        for (int i = 0, size = visibleNodes.size(); i < size; i++) {
+            String researchKey = visibleNodes.get(i).getResearchKey();
+            if (researchKey != null && !researchKey.isBlank()) {
+                visibleResearchKeys.add(researchKey);
+            }
+        }
+        getUnlockPresentationController().markVisibleAsSeen(visibleResearchKeys);
+        return visibleResearchKeys.size();
+    }
+
+    /**
+     * Returns how many researches are visible right now and therefore participate in the
+     * delayed unlock-presentation scan.
+     */
+    protected final int getVisibleUnlockPresentationNodeCount() {
+        return collectVisibleNodesForUnlockPresentation().size();
+    }
+
+    /**
+     * Returns how many research keys are remembered as already shown to the player.
+     */
+    protected final int getSeenUnlockPresentationNodeCount() {
+        return getUnlockPresentationController().cache().seenVisibleResearchIds().size();
+    }
+
+    /**
+     * Returns how many research keys are still waiting to replay their delayed unlock animation.
+     */
+    protected final int getPendingUnlockPresentationNodeCount() {
+        return getUnlockPresentationController().cache().pendingUnlockAnimationResearchIds().size();
+    }
+
+    /**
+     * Returns the last timestamp when the delayed unlock-presentation "tree open" scan ran.
+     */
+    protected final long getUnlockPresentationLastTreeOpenTime() {
+        return getUnlockPresentationController().cache().lastTreeOpenTime();
+    }
+
+    /**
      * Auto-generated prerequisites section toggle.
      * <p>
      * Override in concrete screens when you want to fully own how conditions are presented.
@@ -378,6 +553,14 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         refreshAllNodeWidgets(System.currentTimeMillis());
         refreshDetailsPanel();
         refreshTablePlaceholderOverlay();
+    }
+
+    @Override
+    protected void afterUnlockAnimationCompleted(ResearchNode node) {
+        String researchKey = node.getResearchKey();
+        if (researchKey != null && !researchKey.isBlank()) {
+            getUnlockPresentationController().markUnlockAnimationFinished(researchKey);
+        }
     }
 
     @Override
@@ -686,6 +869,79 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     private float clamp01(float value) {
         return Math.max(0f, Math.min(1f, value));
+    }
+
+    private ResearchUnlockPresentationController getUnlockPresentationController() {
+        if (unlockPresentationController == null) {
+            unlockPresentationController = ResearchUnlockPresentationController.forTree(getUnlockAnimationPresentationKey());
+        }
+        return unlockPresentationController;
+    }
+
+    private void prepareUnlockAnimationsOnOpen() {
+        if (unlockAnimationOnOpenPrepared || !isUnlockAnimationOnOpenEnabled()) {
+            return;
+        }
+        unlockAnimationOnOpenPrepared = true;
+
+        ObjectArrayList<ResearchNode> visibleNodes = collectVisibleNodesForUnlockPresentation();
+        if (visibleNodes.isEmpty()) {
+            return;
+        }
+
+        ObjectArrayList<String> pendingResearchKeys = getUnlockPresentationController()
+                .collectPendingUnlockAnimationResearchIds(visibleNodes, getStudiedUnlockAnimationMode());
+        if (pendingResearchKeys.isEmpty()) {
+            return;
+        }
+
+        IntArrayList pendingNodeIds = new IntArrayList(pendingResearchKeys.size());
+        for (int i = 0, size = pendingResearchKeys.size(); i < size; i++) {
+            ResearchNode node = getNodeByResearchKey(pendingResearchKeys.get(i));
+            if (node != null) {
+                pendingNodeIds.add(node.getId());
+            }
+        }
+        queueUnlockAnimationNodeIds(pendingNodeIds);
+    }
+
+    private ObjectArrayList<ResearchNode> collectVisibleNodesForUnlockPresentation() {
+        ObjectArrayList<ResearchNode> visibleNodes = new ObjectArrayList<>();
+        for (ResearchNode node : nodes) {
+            if (isNodeVisible(node.getId())
+                    && node.getResearchKey() != null
+                    && !node.getResearchKey().isBlank()) {
+                visibleNodes.add(node);
+            }
+        }
+        visibleNodes.sort((left, right) -> {
+            int byX = Float.compare(left.getX(), right.getX());
+            if (byX != 0) {
+                return byX;
+            }
+            int byY = Float.compare(left.getY(), right.getY());
+            if (byY != 0) {
+                return byY;
+            }
+            return Integer.compare(left.getId(), right.getId());
+        });
+        return visibleNodes;
+    }
+
+    private int queueUnlockAnimationsForResearchKeys(Iterable<String> researchKeys) {
+        IntArrayList pendingNodeIds = new IntArrayList();
+        for (String researchKey : researchKeys) {
+            if (researchKey == null || researchKey.isBlank()) {
+                continue;
+            }
+
+            ResearchNode node = getNodeByResearchKey(researchKey);
+            if (node != null) {
+                pendingNodeIds.add(node.getId());
+            }
+        }
+        queueUnlockAnimationNodeIds(pendingNodeIds);
+        return pendingNodeIds.size();
     }
 
     private ResearchState resolveNodeState(ResearchNode node) {

@@ -16,6 +16,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -23,6 +24,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.Blocks;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Demo implementation of {@link ResearchTreeScreenMainScreen}.
@@ -48,10 +53,32 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private UIElement overlayContent;
     private Button overlayToggleButton;
     private Label nodeStyleLabel;
+    private Label overlaySectionLabel;
     private Label unlockAnimationStageLabel;
     private Label unlockAnimationNodeLabel;
     private Label unlockAnimationNodeProgressLabel;
     private Label unlockAnimationLinkProgressLabel;
+    private Label unlockPresentationTreeKeyLabel;
+    private Label unlockPresentationVisibleCountLabel;
+    private Label unlockPresentationSeenCountLabel;
+    private Label unlockPresentationPendingCountLabel;
+    private Label unlockPresentationLastOpenLabel;
+    private Label unlockPresentationActionLabel;
+    private Label debugResearchDataPresetLabel;
+    private Label debugResearchDataDescriptionLabel;
+    private Label debugResearchDataStudiedCountLabel;
+    private String lastUnlockPresentationAction = "-";
+    private int currentDebugResearchDataIndex;
+    private OverlaySection activeOverlaySection = OverlaySection.OVERVIEW;
+    private UIElement overviewSection;
+    private UIElement navigationSection;
+    private UIElement styleSection;
+    private UIElement researchDataSection;
+    private UIElement unlockAnimationSection;
+    private UIElement unlockPresentationSection;
+
+    private static final DateTimeFormatter DEBUG_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
 
     public ResearchTreeScreenDebug() {
         autoLayoutConfig()
@@ -108,22 +135,52 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 )
                 .style(style -> style.backgroundTexture(new ColorRectTexture(0xCC1A2330)));
 
-        UIElement cameraButtons = new UIElement()
+        UIElement sectionSwitcher = new UIElement()
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
-        UIElement groupButtons = new UIElement()
-                .layout(layout -> layout.widthPercent(100).gapAll(4));
-        UIElement styleButtons = new UIElement()
-                .layout(layout -> layout.widthPercent(100).gapAll(4));
-        UIElement unlockAnimationDebugPanel = new UIElement()
-                .layout(layout -> layout.widthPercent(100).paddingAll(6).gapAll(2))
-                .style(style -> style.backgroundTexture(new ColorRectTexture(0x66253446)));
+        overlaySectionLabel = new Label();
+        updateOverlaySectionLabel();
+        sectionSwitcher.addChildren(
+                new Button().setText("Prev").setOnClick(event -> {
+                    switchOverlaySection(-1);
+                    updateOverlaySectionVisibility();
+                }),
+                overlaySectionLabel,
+                new Button().setText("Next").setOnClick(event -> {
+                    switchOverlaySection(1);
+                    updateOverlaySectionVisibility();
+                })
+        );
+
+        overviewSection = createOverlaySection(
+                "Overview",
+                "General notes about this demo screen and shared UI shell.",
+                0x66213344
+        );
+        overviewSection.addChildren(
+                new Label().setText("ResearchTree progression demo"),
+                new Label().setText("Shared UI now lives in ResearchTreeScreenMainScreen."),
+                new Label().setText("Timed research uses the built-in progress bar and details panel."),
+                new Label().setText("Table research reuses the built-in placeholder overlay."),
+                new Label().setText("This class now mostly defines data and debug controls.")
+        );
+
+        navigationSection = createOverlaySection(
+                "Navigation",
+                "Camera helpers and category focus tools.",
+                0x66202E3D
+        );
+        UIElement cameraButtons = createOverlayButtonRow();
+        UIElement groupButtons = createOverlayButtonRow();
 
         cameraButtons.addChildren(
                 new Button().setText("Fit").setOnClick(event -> fitToChildren(80f, 0.35f)),
                 new Button().setText("Center Root").setOnClick(event -> centerRootNode()),
                 new Button().setText("Reset Demo").setOnClick(event -> {
                     resetUnlockAnimationDebugState();
+                    resetUnlockPresentationState();
                     resetProgressState();
+                    updateDebugResearchDataLabels("Reset runtime state");
+                    updateUnlockPresentationDebugLabels("Reset all runtime presentation state");
                 })
         );
 
@@ -134,7 +191,14 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Button().setText("Logistics").setOnClick(event -> toggleGroupFocus(LOGISTICS_GROUP_ID)),
                 new Button().setText("Clear Mark").setOnClick(event -> clearFocusedGroup())
         );
+        navigationSection.addChildren(cameraButtons, groupButtons);
 
+        styleSection = createOverlaySection(
+                "Node Styles",
+                "Switches the widget showcase factory at runtime.",
+                0x66223A2A
+        );
+        UIElement styleButtons = createOverlayButtonRow();
         nodeStyleLabel = new Label();
         updateNodeStyleLabel();
         styleButtons.addChildren(
@@ -145,6 +209,52 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 }),
                 nodeStyleLabel
         );
+        styleSection.addChildren(styleButtons);
+
+        researchDataSection = createOverlaySection(
+                "Debug Research Data",
+                "Preset studied-node states for quick testing.",
+                0x66312B15
+        );
+        debugResearchDataPresetLabel = new Label();
+        debugResearchDataDescriptionLabel = new Label();
+        debugResearchDataStudiedCountLabel = new Label();
+
+        UIElement researchDataButtonsRow1 = createOverlayButtonRow();
+        UIElement researchDataButtonsRow2 = createOverlayButtonRow();
+        researchDataButtonsRow1.addChildren(
+                new Button().setText("Prev").setOnClick(event -> {
+                    cycleDebugResearchData(-1);
+                    updateDebugResearchDataLabels("Selected preset");
+                }),
+                new Button().setText("Next").setOnClick(event -> {
+                    cycleDebugResearchData(1);
+                    updateDebugResearchDataLabels("Selected preset");
+                }),
+                new Button().setText("Apply").setOnClick(event ->
+                        applyDebugResearchData(currentDebugResearchData(), false))
+        );
+        researchDataButtonsRow2.addChildren(
+                new Button().setText("Apply + Reset Seen").setOnClick(event ->
+                        applyDebugResearchData(currentDebugResearchData(), true)),
+                new Button().setText("Preset: Mid").setOnClick(event ->
+                        applyDebugResearchData(DebugResearchData.MID_GAME, true)),
+                new Button().setText("Preset: All").setOnClick(event ->
+                        applyDebugResearchData(DebugResearchData.ALL_COMPLETED, true))
+        );
+        researchDataSection.addChildren(
+                debugResearchDataPresetLabel,
+                debugResearchDataDescriptionLabel,
+                debugResearchDataStudiedCountLabel,
+                researchDataButtonsRow1,
+                researchDataButtonsRow2
+        );
+
+        unlockAnimationSection = createOverlaySection(
+                "Unlock Animation Debug",
+                "Live state from node and line unlock-animation hooks.",
+                0x66253446
+        );
 
         unlockAnimationStageLabel = new Label();
         unlockAnimationStageLabel.setText("Animation Stage: idle");
@@ -154,30 +264,79 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         unlockAnimationNodeProgressLabel.setText("Node Progress: -");
         unlockAnimationLinkProgressLabel = new Label();
         unlockAnimationLinkProgressLabel.setText("Link Progress: -");
-        unlockAnimationDebugPanel.addChildren(
-                new Label().setText("Unlock Animation Debug"),
-                new Label().setText("This block is updated from unlock animation hooks in real time."),
+        unlockAnimationSection.addChildren(
                 unlockAnimationStageLabel,
                 unlockAnimationNodeLabel,
                 unlockAnimationNodeProgressLabel,
                 unlockAnimationLinkProgressLabel
         );
 
+        unlockPresentationSection = createOverlaySection(
+                "Unlock Presentation Cache",
+                "Delayed unlock-animation cache and replay controls.",
+                0x66312518
+        );
+        unlockPresentationTreeKeyLabel = new Label();
+        unlockPresentationVisibleCountLabel = new Label();
+        unlockPresentationSeenCountLabel = new Label();
+        unlockPresentationPendingCountLabel = new Label();
+        unlockPresentationLastOpenLabel = new Label();
+        unlockPresentationActionLabel = new Label();
+
+        UIElement unlockPresentationButtonsRow1 = createOverlayButtonRow();
+        UIElement unlockPresentationButtonsRow2 = createOverlayButtonRow();
+        unlockPresentationButtonsRow1.addChildren(
+                new Button().setText("Reset Seen").setOnClick(event -> {
+                    resetUnlockPresentationState();
+                    updateUnlockPresentationDebugLabels("Seen cache cleared");
+                }),
+                new Button().setText("Mark Visible").setOnClick(event -> {
+                    int markedCount = markVisibleUnlockPresentationNodesSeen();
+                    updateUnlockPresentationDebugLabels("Marked visible seen: " + markedCount);
+                }),
+                new Button().setText("Replay Pending").setOnClick(event -> {
+                    int queuedCount = replayPendingUnlockAnimationsNow();
+                    updateUnlockPresentationDebugLabels("Replayed pending: " + queuedCount);
+                })
+        );
+        unlockPresentationButtonsRow2.addChildren(
+                new Button().setText("Sim Open").setOnClick(event -> {
+                    int queuedCount = simulateUnlockAnimationPresentationOpenNow();
+                    updateUnlockPresentationDebugLabels("Simulated tree open, queued: " + queuedCount);
+                }),
+                new Button().setText("Queue Unseen").setOnClick(event -> {
+                    int queuedCount = queueVisibleUnseenUnlockAnimationsNow();
+                    updateUnlockPresentationDebugLabels("Queued visible unseen: " + queuedCount);
+                })
+        );
+
+        unlockPresentationSection.addChildren(
+                unlockPresentationTreeKeyLabel,
+                unlockPresentationVisibleCountLabel,
+                unlockPresentationSeenCountLabel,
+                unlockPresentationPendingCountLabel,
+                unlockPresentationLastOpenLabel,
+                unlockPresentationActionLabel,
+                unlockPresentationButtonsRow1,
+                unlockPresentationButtonsRow2
+        );
+
         panel.addChildren(
-                new Label().setText("ResearchTree progression demo"),
-                new Label().setText("Shared UI now lives in ResearchTreeScreenMainScreen."),
-                new Label().setText("Timed research uses the built-in progress bar and details panel."),
-                new Label().setText("Table research reuses the built-in placeholder overlay."),
-                new Label().setText("This class now mostly defines data and screen-specific controls."),
-                cameraButtons,
-                groupButtons,
-                styleButtons,
-                unlockAnimationDebugPanel
+                sectionSwitcher,
+                overviewSection,
+                navigationSection,
+                styleSection,
+                researchDataSection,
+                unlockAnimationSection,
+                unlockPresentationSection
         );
 
         overlayContent = panel;
         root.addChildren(header, panel);
         updateOverlayVisibility();
+        updateOverlaySectionVisibility();
+        updateDebugResearchDataLabels("Ready");
+        updateUnlockPresentationDebugLabels("Ready");
         return root;
     }
 
@@ -189,6 +348,11 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     @Override
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
         return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> currentNodeStyle);
+    }
+
+    @Override
+    protected ResearchUnlockPresentationController.StudiedResearchAnimationMode getStudiedUnlockAnimationMode() {
+        return ResearchUnlockPresentationController.StudiedResearchAnimationMode.ALLOW_FOR_STUDIED_UNSEEN;
     }
 
     @Override
@@ -420,6 +584,21 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         setUnlockAnimationDebugStage("sequence-end", node);
         unlockAnimationNodeProgressLabel.setText("Node Progress: complete");
         unlockAnimationLinkProgressLabel.setText("Link Progress: complete");
+        updateUnlockPresentationDebugLabels("Unlock animation finished: " + node.getResearchKey());
+    }
+
+    @Override
+    protected void onResearchProgressionUpdated() {
+        super.onResearchProgressionUpdated();
+        updateDebugResearchDataLabels(null);
+        updateUnlockPresentationDebugLabels(null);
+    }
+
+    @Override
+    public void screenTick() {
+        super.screenTick();
+        updateDebugResearchDataLabels(null);
+        updateUnlockPresentationDebugLabels(null);
     }
 
     private ResearchInfoContent buildFactoryShowcaseContent(ResearchNode node, ResearchState state) {
@@ -524,6 +703,157 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         }
     }
 
+    private void switchOverlaySection(int delta) {
+        OverlaySection[] sections = OverlaySection.values();
+        int currentIndex = activeOverlaySection.ordinal();
+        int nextIndex = Math.floorMod(currentIndex + delta, sections.length);
+        activeOverlaySection = sections[nextIndex];
+        updateOverlaySectionLabel();
+    }
+
+    private void updateOverlaySectionLabel() {
+        if (overlaySectionLabel != null) {
+            overlaySectionLabel.setText("Section: " + activeOverlaySection.title);
+        }
+    }
+
+    private void updateOverlaySectionVisibility() {
+        setSectionDisplay(overviewSection, activeOverlaySection == OverlaySection.OVERVIEW);
+        setSectionDisplay(navigationSection, activeOverlaySection == OverlaySection.NAVIGATION);
+        setSectionDisplay(styleSection, activeOverlaySection == OverlaySection.NODE_STYLES);
+        setSectionDisplay(researchDataSection, activeOverlaySection == OverlaySection.RESEARCH_DATA);
+        setSectionDisplay(unlockAnimationSection, activeOverlaySection == OverlaySection.UNLOCK_ANIMATION);
+        setSectionDisplay(unlockPresentationSection, activeOverlaySection == OverlaySection.UNLOCK_PRESENTATION);
+    }
+
+    private void setSectionDisplay(UIElement section, boolean visible) {
+        if (section != null) {
+            section.setDisplay(visible);
+        }
+    }
+
+    private UIElement createOverlaySection(String title, String description, int backgroundColor) {
+        UIElement section = new UIElement()
+                .layout(layout -> layout.widthPercent(100).paddingAll(6).gapAll(2))
+                .style(style -> style.backgroundTexture(new ColorRectTexture(backgroundColor)));
+        section.addChildren(
+                new Label().setText(title),
+                new Label().setText(description)
+        );
+        return section;
+    }
+
+    private UIElement createOverlayButtonRow() {
+        return new UIElement()
+                .layout(layout -> layout.widthPercent(100).gapAll(4));
+    }
+
+    private DebugResearchData currentDebugResearchData() {
+        return DebugResearchData.all().get(currentDebugResearchDataIndex);
+    }
+
+    private void cycleDebugResearchData(int delta) {
+        currentDebugResearchDataIndex = Math.floorMod(currentDebugResearchDataIndex + delta, DebugResearchData.all().size());
+    }
+
+    private void applyDebugResearchData(DebugResearchData data, boolean resetSeenState) {
+        int presetIndex = DebugResearchData.all().indexOf(data);
+        if (presetIndex >= 0) {
+            currentDebugResearchDataIndex = presetIndex;
+        }
+
+        resetUnlockAnimationDebugState();
+        if (resetSeenState) {
+            resetUnlockPresentationState();
+        }
+
+        resetProgressState();
+        beginAutoLayoutBatch();
+        try {
+            for (String researchKey : data.studiedResearchKeys()) {
+                setNodeStudiedByKey(researchKey, true);
+            }
+        } finally {
+            endAutoLayoutBatch();
+        }
+
+        String actionText = "Applied preset: " + data.title();
+        if (resetSeenState) {
+            actionText += " + reset seen";
+        }
+        updateDebugResearchDataLabels(actionText);
+        updateUnlockPresentationDebugLabels(actionText);
+    }
+
+    private boolean setNodeStudiedByKey(String researchKey, boolean studied) {
+        for (ResearchNode node : nodes) {
+            if (researchKey.equals(node.getResearchKey())) {
+                setNodeStudied(node.getId(), studied);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int getStudiedNodeCount() {
+        int studiedCount = 0;
+        for (ResearchNode node : nodes) {
+            if (node.isStudied()) {
+                studiedCount++;
+            }
+        }
+        return studiedCount;
+    }
+
+    private void updateDebugResearchDataLabels(String actionText) {
+        DebugResearchData data = currentDebugResearchData();
+        if (debugResearchDataPresetLabel != null) {
+            debugResearchDataPresetLabel.setText("Preset: " + data.title() + " [" + data.id() + "]");
+        }
+        if (debugResearchDataDescriptionLabel != null) {
+            debugResearchDataDescriptionLabel.setText(data.description());
+        }
+        if (debugResearchDataStudiedCountLabel != null) {
+            String suffix = actionText != null ? " | " + actionText : "";
+            debugResearchDataStudiedCountLabel.setText(
+                    "Studied Nodes: " + getStudiedNodeCount() + " / " + nodes.size()
+                            + " | Preset Keys: " + data.studiedResearchKeys().size()
+                            + suffix
+            );
+        }
+    }
+
+    private void updateUnlockPresentationDebugLabels(String actionText) {
+        if (actionText != null) {
+            lastUnlockPresentationAction = actionText;
+        }
+        if (unlockPresentationTreeKeyLabel != null) {
+            unlockPresentationTreeKeyLabel.setText("Tree Key: " + getUnlockAnimationPresentationKey());
+        }
+        if (unlockPresentationVisibleCountLabel != null) {
+            unlockPresentationVisibleCountLabel.setText("Visible Nodes: " + getVisibleUnlockPresentationNodeCount());
+        }
+        if (unlockPresentationSeenCountLabel != null) {
+            unlockPresentationSeenCountLabel.setText("Seen Cache: " + getSeenUnlockPresentationNodeCount());
+        }
+        if (unlockPresentationPendingCountLabel != null) {
+            unlockPresentationPendingCountLabel.setText("Pending Cache: " + getPendingUnlockPresentationNodeCount());
+        }
+        if (unlockPresentationLastOpenLabel != null) {
+            unlockPresentationLastOpenLabel.setText("Last Open Scan: " + formatDebugTimestamp(getUnlockPresentationLastTreeOpenTime()));
+        }
+        if (unlockPresentationActionLabel != null) {
+            unlockPresentationActionLabel.setText("Last Action: " + lastUnlockPresentationAction);
+        }
+    }
+
+    private String formatDebugTimestamp(long timestampMs) {
+        if (timestampMs <= 0L) {
+            return "-";
+        }
+        return DEBUG_TIME_FORMATTER.format(Instant.ofEpochMilli(timestampMs)) + " (" + timestampMs + ")";
+    }
+
     private static ResearchDefinition instantDefinition(String key, String title, String description) {
         return ResearchDefinition.builder(key)
                 .title(title)
@@ -546,5 +876,20 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 .description(description)
                 .studyType(ResearchStudyType.TABLE)
                 .build();
+    }
+
+    private enum OverlaySection {
+        OVERVIEW("Overview"),
+        NAVIGATION("Navigation"),
+        NODE_STYLES("Node Styles"),
+        RESEARCH_DATA("Research Data"),
+        UNLOCK_ANIMATION("Unlock Animation"),
+        UNLOCK_PRESENTATION("Unlock Presentation");
+
+        private final String title;
+
+        OverlaySection(String title) {
+            this.title = title;
+        }
     }
 }

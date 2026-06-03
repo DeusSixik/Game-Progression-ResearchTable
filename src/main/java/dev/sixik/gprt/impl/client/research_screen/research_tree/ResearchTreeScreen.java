@@ -658,6 +658,54 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         queuedUnlockAnimationNodeIdSet.clear();
     }
 
+    /**
+     * Queues a custom set of nodes for unlock animation without changing progression state.
+     * <p>
+     * This is used by higher-level presentation systems that want to replay or delay unlock
+     * animations, for example when the tree is reopened after the player unlocked researches
+     * somewhere else.
+     * </p>
+     */
+    protected final void queueUnlockAnimationNodeIds(IntArrayList nodeIds) {
+        if (nodeIds == null || nodeIds.isEmpty()) {
+            return;
+        }
+
+        Set<Integer> alreadyQueued = new HashSet<>();
+        for (int i = 0, size = queuedUnlockAnimationNodeIds.size(); i < size; i++) {
+            alreadyQueued.add(queuedUnlockAnimationNodeIds.getInt(i));
+        }
+        if (activeUnlockAnimation != null) {
+            alreadyQueued.add(activeUnlockAnimation.nodeId());
+        }
+
+        boolean changed = false;
+        for (int i = 0, size = nodeIds.size(); i < size; i++) {
+            int nodeId = nodeIds.getInt(i);
+            ResearchNode node = getNodeById(nodeId);
+            if (node == null || node.isStudied() || !isNodeVisible(node)) {
+                continue;
+            }
+
+            if (alreadyQueued.add(nodeId)) {
+                queuedUnlockAnimationNodeIds.add(nodeId);
+                queuedUnlockAnimationNodeIdSet.add(nodeId);
+                changed = true;
+            }
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        if (activeUnlockAnimation == null) {
+            startNextUnlockAnimation();
+        }
+        syncResearchNodeVisibility();
+        invalidateLinkGeometry();
+        onResearchProgressionUpdated();
+    }
+
     private void startNextUnlockAnimation() {
         if (queuedUnlockAnimationNodeIds.isEmpty()) {
             activeUnlockAnimation = null;
@@ -790,6 +838,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         resetUnlockNodeTransform(activeUnlockAnimation.nodeId());
         if (node != null) {
             onUnlockAnimationEnd(node);
+            afterUnlockAnimationCompleted(node);
         }
         activeUnlockAnimation = null;
         syncResearchNodeVisibility();
@@ -1553,6 +1602,17 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * </p>
      */
     protected void onUnlockAnimationEnd(ResearchNode node) {
+    }
+
+    /**
+     * Secondary unlock-animation completion hook reserved for internal follow-up logic.
+     * <p>
+     * Unlike {@link #onUnlockAnimationEnd(ResearchNode)}, this hook is intended for shared base
+     * classes that need guaranteed post-animation bookkeeping even when concrete demo screens
+     * override the public visual hook.
+     * </p>
+     */
+    protected void afterUnlockAnimationCompleted(ResearchNode node) {
     }
 
     /**
