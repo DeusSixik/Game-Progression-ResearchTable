@@ -1,6 +1,7 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree.info;
 
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
@@ -30,6 +31,14 @@ import java.util.List;
 public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
     private static final float PROGRESS_BAR_HEIGHT = 8f;
     private static final int SCROLL_BACKGROUND_COLOR = 0x22101824;
+    private static final IGuiTexture ACTIVE_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
+            new ColorRectTexture(0xFF355E86),
+            new ColorRectTexture(0x222F4D69)
+    );
+    private static final IGuiTexture DISABLED_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
+            new ColorRectTexture(0xFF2B3138),
+            new ColorRectTexture(0x221A1F25)
+    );
 
     private final Label titleLabel;
     private final Label groupLabel;
@@ -157,6 +166,12 @@ public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
 
         researchButton.setDisplay(content.showResearchButton());
         researchButton.setText(content.researchButtonText());
+        researchButton.setActive(content.researchButtonEnabled());
+        researchButton.style(style -> style.backgroundTexture(
+                content.researchButtonEnabled()
+                        ? ACTIVE_RESEARCH_BUTTON_TEXTURE
+                        : DISABLED_RESEARCH_BUTTON_TEXTURE
+        ));
     }
 
     private void rebuildSections(List<ResearchInfoSection> sections) {

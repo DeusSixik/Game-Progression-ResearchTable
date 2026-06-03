@@ -73,6 +73,26 @@ public final class ResearchTreeBuild {
     }
 
     /**
+     * Registers or replaces a public addon-facing group definition.
+     * <p>
+     * This overload exists as a bridge for script/API registries so callers can
+     * pass {@code dev.sixik.gprt.api.ResearchGroupDefinition} directly without
+     * manually unpacking its fields.
+     * </p>
+     */
+    public ResearchGroup group(dev.sixik.gprt.api.ResearchGroupDefinition groupDefinition) {
+        if (groupDefinition == null) {
+            return ResearchGroup.DEFAULT;
+        }
+        return group(
+                groupDefinition.getId(),
+                groupDefinition.getTitle(),
+                groupDefinition.getPrimaryColor(),
+                groupDefinition.getSecondaryColor()
+        );
+    }
+
+    /**
      * Starts configuring one logical node entry by string key.
      * <p>
      * Repeated calls with the same key reopen the same definition, so different parts of the
@@ -82,6 +102,23 @@ public final class ResearchTreeBuild {
     public NodeBuilder node(String key) {
         NodeDefinition definition = nodeDefinitionsByKey.computeIfAbsent(key, NodeDefinition::new);
         return new NodeBuilder(definition);
+    }
+
+    /**
+     * Starts or reopens one logical node entry directly from the public addon-facing definition.
+     * <p>
+     * Besides copying the title, description, study mode and group, this bridge also transfers
+     * the declared parent dependencies so "regular" research definitions can materialize into a
+     * working tree without extra manual wiring in screen code.
+     * </p>
+     */
+    public NodeBuilder node(dev.sixik.gprt.api.ResearchDefinition researchDefinition) {
+        if (researchDefinition == null) {
+            throw new IllegalArgumentException("researchDefinition cannot be null");
+        }
+        return node(researchDefinition.getKey())
+                .definition(researchDefinition)
+                .dependsOn(researchDefinition.getRequiredResearches().toArray(String[]::new));
     }
 
     /**
@@ -285,6 +322,23 @@ public final class ResearchTreeBuild {
             definition.description = researchDefinition.getDescription();
             definition.studyType = researchDefinition.getStudyType();
             definition.studyDurationMs = researchDefinition.getStudyDurationMs();
+            return this;
+        }
+
+        /**
+         * Copies metadata and study-mode settings from the public addon-facing API definition.
+         * <p>
+         * This overload exists so external code can use {@code dev.sixik.gprt.api} without
+         * depending directly on internal implementation classes.
+         * </p>
+         */
+        public NodeBuilder definition(dev.sixik.gprt.api.ResearchDefinition researchDefinition) {
+            if (researchDefinition == null) {
+                return this;
+            }
+            definition(researchDefinition.toInternalDefinition());
+            definition.groupId = researchDefinition.getGroupId();
+            definition.visibilityMode = researchDefinition.getVisibilityMode().toInternalMode();
             return this;
         }
 

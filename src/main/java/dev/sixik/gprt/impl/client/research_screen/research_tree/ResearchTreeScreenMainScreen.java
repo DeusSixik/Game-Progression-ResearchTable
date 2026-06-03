@@ -91,26 +91,26 @@ import java.util.List;
 public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private static final long DETAILS_PANEL_ANIMATION_DURATION_MS = 240L;
 
-    private final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
-    private final SimpleClientResearchProgressManager researchProgressManager = new SimpleClientResearchProgressManager();
-    private final ResearchProgressController researchProgressController = new ResearchProgressController(researchProgressManager);
+    protected final Int2ObjectOpenHashMap<UIElement> nodeWidgetsById = new Int2ObjectOpenHashMap<>();
+    protected final SimpleClientResearchProgressManager researchProgressManager = new SimpleClientResearchProgressManager();
+    protected final ResearchProgressController researchProgressController = new ResearchProgressController(researchProgressManager);
 
-    private @Nullable UIElement overlayPanel;
-    private @Nullable ResearchInfoPanelWidget detailsPanel;
-    private @Nullable ResearchNodeWidgetFactory nodeWidgetFactory;
-    private @Nullable ResearchNodeThemeResolver nodeThemeResolver;
-    private @Nullable ResearchUnlockPresentationController unlockPresentationController;
+    protected @Nullable UIElement overlayPanel;
+    protected @Nullable ResearchInfoPanelWidget detailsPanel;
+    protected @Nullable ResearchNodeWidgetFactory nodeWidgetFactory;
+    protected @Nullable ResearchNodeThemeResolver nodeThemeResolver;
+    protected @Nullable ResearchUnlockPresentationController unlockPresentationController;
 
-    private @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
-    private int selectedNodeId = -1;
-    private float detailsPanelProgress;
-    private float detailsPanelTargetProgress;
-    private float detailsPanelAnimationStartProgress;
-    private long detailsPanelAnimationStartedAtMs;
+    protected @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
+    protected int selectedNodeId = -1;
+    protected float detailsPanelProgress;
+    protected float detailsPanelTargetProgress;
+    protected float detailsPanelAnimationStartProgress;
+    protected long detailsPanelAnimationStartedAtMs;
     private DetailsPanelAnimationPhase detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSED;
-    private boolean tablePlaceholderVisible;
-    private boolean unlockAnimationOnOpenPrepared;
-    private int rootNodeId = -1;
+    protected boolean tablePlaceholderVisible;
+    protected boolean unlockAnimationOnOpenPrepared;
+    protected int rootNodeId = -1;
 
     /**
      * Creates the root UI container that hosts the graph, overlay controls and shared panels.
@@ -595,6 +595,12 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             return;
         }
 
+        if (!canStartResearch(node)) {
+            refreshDetailsPanel();
+            refreshTablePlaceholderOverlay();
+            return;
+        }
+
         boolean started = researchProgressController.tryStartResearch(node, System.currentTimeMillis());
         if (!started) {
             refreshDetailsPanel();
@@ -612,6 +618,35 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             refreshDetailsPanel();
             refreshTablePlaceholderOverlay();
         }
+    }
+
+    /**
+     * Hook for screen-specific validation before a research may start.
+     * <p>
+     * The default implementation only checks the generic progress state and allows subclasses to
+     * add extra gates such as item conditions, energy costs, table occupancy or server-side
+     * placeholders. Returning {@code false} cancels the start attempt without changing progress.
+     * </p>
+     */
+    protected boolean canStartResearch(ResearchNode node) {
+        return true;
+    }
+
+    /**
+     * Returns whether the current info-panel action button should be interactive.
+     * <p>
+     * In-progress entries stay enabled so table researches can be resumed, while newly available
+     * entries delegate to {@link #canStartResearch(ResearchNode)} for extra screen-specific gates.
+     * </p>
+     */
+    protected boolean isResearchActionEnabled(ResearchNode node, ResearchState state) {
+        if (state == ResearchState.IN_PROGRESS) {
+            return true;
+        }
+        if (state != ResearchState.AVAILABLE) {
+            return false;
+        }
+        return canStartResearch(node);
     }
 
     private void applyCompletedResearchFromManager() {
@@ -1004,13 +1039,20 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         long nowMs = System.currentTimeMillis();
         ClientResearchProgress progress = researchProgressController.getProgress(node);
         ResearchInfoPresentationRules.applyTimedProgress(builder, node, state, progress, nowMs);
-        ResearchInfoPresentationRules.applyResearchButton(builder, node, state, progress, nowMs);
+        ResearchInfoPresentationRules.applyResearchButton(
+                builder,
+                node,
+                state,
+                progress,
+                nowMs,
+                isResearchActionEnabled(node, state)
+        );
         return builder;
     }
 
-    private List<ResearchNode> collectParentNodes(ResearchNode node) {
+    protected List<ResearchNode> collectParentNodes(ResearchNode node) {
         ResearchLink[] parentLinks = getLinksToNode(node.getId());
-        List<ResearchNode> parents = new ArrayList<>(parentLinks.length);
+        List<ResearchNode> parents = new ObjectArrayList<>(parentLinks.length);
         for (ResearchLink parentLink : parentLinks) {
             ResearchNode parent = getNodeById(parentLink.getNodeFrom());
             if (parent != null) {
@@ -1020,9 +1062,9 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return parents;
     }
 
-    private List<ResearchNode> collectVisibleUnlockedChildren(ResearchNode node) {
+    protected List<ResearchNode> collectVisibleUnlockedChildren(ResearchNode node) {
         ResearchLink[] childLinks = getLinksFromNode(node.getId());
-        List<ResearchNode> children = new ArrayList<>(childLinks.length);
+        List<ResearchNode> children = new ObjectArrayList<>(childLinks.length);
         for (ResearchLink childLink : childLinks) {
             ResearchNode child = getNodeById(childLink.getNodeTo());
             if (child == null) {
@@ -1036,7 +1078,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return children;
     }
 
-    private String buildUnlocksFallbackText(ResearchNode node) {
+    protected String buildUnlocksFallbackText(ResearchNode node) {
         ResearchLink[] childLinks = getLinksFromNode(node.getId());
         if (childLinks.length == 0) {
             return "No direct follow-up research";
@@ -1047,7 +1089,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return "No visible follow-up research";
     }
 
-    private boolean shouldRenderInfoJump(String researchKey, boolean visibleTargetOnly) {
+    protected boolean shouldRenderInfoJump(String researchKey, boolean visibleTargetOnly) {
         ResearchNode targetNode = getNodeByResearchKey(researchKey);
         if (targetNode == null) {
             return false;
@@ -1055,7 +1097,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return !visibleTargetOnly || canFocusResearchFromInfoPanel(targetNode);
     }
 
-    private ResearchLinkRenderState toRenderState(ResearchState state) {
+    protected ResearchLinkRenderState toRenderState(ResearchState state) {
         return switch (state) {
             case STUDIED -> ResearchLinkRenderState.STUDIED;
             case AVAILABLE, IN_PROGRESS -> ResearchLinkRenderState.AVAILABLE;
@@ -1063,7 +1105,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         };
     }
 
-    private UIElement createDetailsPanel() {
+    protected UIElement createDetailsPanel() {
         ResearchInfoPanelContext context = new ResearchInfoPanelContext(
                 this::closeDetailsPanel,
                 () -> {
@@ -1081,7 +1123,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return panel;
     }
 
-    private UIElement createTablePlaceholderOverlay() {
+    protected UIElement createTablePlaceholderOverlay() {
         ResearchTablePlaceholderOverlay overlay = new ResearchTablePlaceholderOverlay(
                 this::completeTablePlaceholderResearch,
                 this::cancelTablePlaceholderResearch,

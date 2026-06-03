@@ -89,7 +89,7 @@ public final class ResearchInfoContentPresets {
                                               ResearchNode node,
                                               List<ResearchNode> parents
     ) {
-        builder.section("Conditions", section -> {
+        builder.section("Required Researches", section -> {
             if (parents.isEmpty()) {
                 section.conditionText("No prerequisites", true);
                 return;
@@ -160,7 +160,7 @@ public final class ResearchInfoContentPresets {
         }
 
         if (content.showResearchButton()) {
-            sanitizedBuilder.researchButton(content.researchButtonText(), true);
+            sanitizedBuilder.researchButton(content.researchButtonText(), true, content.researchButtonEnabled());
         } else {
             sanitizedBuilder.hideResearchButton();
         }

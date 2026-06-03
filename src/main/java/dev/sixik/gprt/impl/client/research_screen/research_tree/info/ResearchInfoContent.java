@@ -44,6 +44,7 @@ public final class ResearchInfoContent {
     private final float timedProgress01;
     private final int timedProgressFillColor;
     private final boolean showResearchButton;
+    private final boolean researchButtonEnabled;
     private final String researchButtonText;
     private final List<ResearchInfoSection> sections;
 
@@ -61,6 +62,7 @@ public final class ResearchInfoContent {
         this.timedProgress01 = clamp01(builder.timedProgress01);
         this.timedProgressFillColor = builder.timedProgressFillColor;
         this.showResearchButton = builder.showResearchButton;
+        this.researchButtonEnabled = builder.researchButtonEnabled;
         this.researchButtonText = builder.researchButtonText;
         this.sections = List.copyOf(builder.sections);
     }
@@ -80,7 +82,7 @@ public final class ResearchInfoContent {
                 .description(description)
                 .panelColor(panelColor)
                 .copyTimedProgress(showTimedProgress, timedProgressText, timedProgress01, timedProgressFillColor)
-                .researchButton(researchButtonText, showResearchButton)
+                .researchButton(researchButtonText, showResearchButton, researchButtonEnabled)
                 .addSections(sections);
     }
 
@@ -140,6 +142,10 @@ public final class ResearchInfoContent {
         return researchButtonText;
     }
 
+    public boolean researchButtonEnabled() {
+        return researchButtonEnabled;
+    }
+
     public List<ResearchInfoSection> sections() {
         return sections;
     }
@@ -187,6 +193,7 @@ public final class ResearchInfoContent {
         private float timedProgress01;
         private int timedProgressFillColor = 0xFF67B7FF;
         private boolean showResearchButton;
+        private boolean researchButtonEnabled = true;
         private String researchButtonText = "Research";
         private final List<ResearchInfoSection> sections = new ArrayList<>();
 
@@ -310,8 +317,16 @@ public final class ResearchInfoContent {
          * </p>
          */
         public Builder researchButton(String researchButtonText, boolean showResearchButton) {
+            return researchButton(researchButtonText, showResearchButton, true);
+        }
+
+        /**
+         * Configures the bottom action button visibility and interaction state.
+         */
+        public Builder researchButton(String researchButtonText, boolean showResearchButton, boolean researchButtonEnabled) {
             this.researchButtonText = researchButtonText;
             this.showResearchButton = showResearchButton;
+            this.researchButtonEnabled = researchButtonEnabled;
             return this;
         }
 
@@ -320,6 +335,7 @@ public final class ResearchInfoContent {
          */
         public Builder hideResearchButton() {
             this.showResearchButton = false;
+            this.researchButtonEnabled = false;
             return this;
         }
 

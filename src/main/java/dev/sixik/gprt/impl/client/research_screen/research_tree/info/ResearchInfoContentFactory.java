@@ -99,6 +99,7 @@ public final class ResearchInfoContentFactory {
         private float timedProgress01;
         private int timedProgressFillColor = 0xFF67B7FF;
         private boolean showResearchButton;
+        private boolean researchButtonEnabled = true;
         private String researchButtonText = "Research";
 
         private Builder(ResearchNode node) {
@@ -199,8 +200,16 @@ public final class ResearchInfoContentFactory {
          * Shows the main action button and sets its label.
          */
         public Builder researchButton(String researchButtonText) {
+            return researchButton(researchButtonText, true);
+        }
+
+        /**
+         * Shows the main action button, sets its label and controls whether it can be clicked.
+         */
+        public Builder researchButton(String researchButtonText, boolean enabled) {
             this.showResearchButton = true;
             this.researchButtonText = researchButtonText;
+            this.researchButtonEnabled = enabled;
             return this;
         }
 
@@ -209,6 +218,7 @@ public final class ResearchInfoContentFactory {
          */
         public Builder hideResearchButton() {
             this.showResearchButton = false;
+            this.researchButtonEnabled = false;
             return this;
         }
 
@@ -237,7 +247,7 @@ public final class ResearchInfoContentFactory {
             }
 
             if (showResearchButton) {
-                builder.researchButton(researchButtonText, true);
+                builder.researchButton(researchButtonText, true, researchButtonEnabled);
             } else {
                 builder.hideResearchButton();
             }

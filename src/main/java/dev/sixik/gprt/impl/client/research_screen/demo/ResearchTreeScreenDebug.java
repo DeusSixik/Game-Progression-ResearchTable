@@ -623,7 +623,8 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 node,
                 state,
                 progressController().getProgress(node),
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                true
         );
 
         ResearchInfoContent content = builder.build().toBuilder()

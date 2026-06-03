@@ -26,8 +26,8 @@ import org.jetbrains.annotations.Nullable;
  *     common duration formatting helper.</li>
  *     <li>{@link #applyTimedProgress(ResearchInfoContentFactory.Builder, ResearchNode, ResearchState, ClientResearchProgress, long)} -
  *     fills the timed progress block according to current runtime state.</li>
- *     <li>{@link #applyResearchButton(ResearchInfoContentFactory.Builder, ResearchNode, ResearchState, ClientResearchProgress, long)} -
- *     picks the correct bottom action button state/text.</li>
+     *     <li>{@link #applyResearchButton(ResearchInfoContentFactory.Builder, ResearchNode, ResearchState, ClientResearchProgress, long)} -
+     *     picks the correct bottom action button state/text.</li>
  * </ul>
  *
  * <p><b>When to use this class:</b></p>
@@ -103,7 +103,8 @@ public final class ResearchInfoPresentationRules {
                                            ResearchNode node,
                                            ResearchState state,
                                            @Nullable ClientResearchProgress progress,
-                                           long nowMs
+                                           long nowMs,
+                                           boolean enabled
     ) {
         if (state == ResearchState.STUDIED || state == ResearchState.LOCKED) {
             builder.hideResearchButton();
@@ -111,11 +112,11 @@ public final class ResearchInfoPresentationRules {
         }
 
         if (state == ResearchState.IN_PROGRESS) {
-            builder.researchButton(getInProgressButtonText(node, progress, nowMs));
+            builder.researchButton(getInProgressButtonText(node, progress, nowMs), enabled);
             return;
         }
 
-        builder.researchButton(getAvailableButtonText(node));
+        builder.researchButton(getAvailableButtonText(node), enabled);
     }
 
     public static String formatDuration(long durationMs) {

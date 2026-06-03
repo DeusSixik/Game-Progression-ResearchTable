@@ -1,23 +1,16 @@
-package dev.sixik.gprt.impl.client.research_screen.demo;
+package dev.sixik.gprt.impl.client.research_screen.research_table.info;
 
+import com.lowdragmc.lowdraglib2.gui.texture.ColorBorderTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.GuiTextureGroup;
+import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
-import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
-import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
-import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Tooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.data.*;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.AdaptiveResearchInfoPanelWidget;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchDisplayValue;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContentFactory;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoEntry;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoSection;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.*;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
@@ -26,23 +19,19 @@ import net.minecraft.world.item.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Standalone demo implementation of a fully custom research info panel widget.
- * <p>
- * This class exists as a concrete example for mod authors who want their own
- * panel layout while still reusing the shared {@link ResearchInfoContent} model,
- * panel context callbacks and adaptive slide-in behavior.
- * </p>
- */
-public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget {
+public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
+
     private static final float PROGRESS_BAR_HEIGHT = 10f;
-    private static final com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture ACTIVE_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
+    private static final float ENTRY_TEXT_INFO_TOP_OFFSET = 2f;
+    private static final float ENTRY_TEXT_CONDITION_TOP_OFFSET = 3f;
+    private static final float ENTRY_TEXT_REWARD_TOP_OFFSET = 4f;
+    private static final IGuiTexture ACTIVE_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
             new ColorRectTexture(0xFF2D5E84),
-            new ColorRectTexture(0x222F4D69)
+            new ColorBorderTexture(-1, 0xFF73C2FF)
     );
-    private static final com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture DISABLED_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
+    private static final IGuiTexture DISABLED_RESEARCH_BUTTON_TEXTURE = GuiTextureGroup.of(
             new ColorRectTexture(0xFF252A31),
-            new ColorRectTexture(0x221A1F25)
+            new ColorBorderTexture(-1, 0xFF4A5560)
     );
 
     private final Label titleLabel;
@@ -57,7 +46,7 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
     private final Button closeButton;
     private float progressBarWidth = 220f;
 
-    public DebugCustomInfoPanel(ResearchInfoPanelContext context) {
+    public TableInfoPanelWidget(ResearchInfoPanelContext context) {
         super(context);
 
         layout(layout -> layout
@@ -166,7 +155,10 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
 
         metaLabel.setText(content.groupText() + " | " + content.modeText() + " | " + content.stateText());
         descriptionLabel.setText(content.description());
-        style(style -> style.backgroundTexture(new ColorRectTexture(content.panelColor())));
+        style(style -> style.backgroundTexture(IGuiTexture.group(
+                new ColorRectTexture(0xD0221820),
+                new ColorBorderTexture(-2, content.panelColor())
+        )));
 
         timedProgressLabel.setDisplay(content.showTimedProgress());
         timedProgressBar.setDisplay(content.showTimedProgress());
@@ -235,19 +227,36 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
                         .gapAll(4)
                         .flexDirection(FlexDirection.ROW));
 
-        Label text = new Label();
-        text.layout(layout -> layout.flex(1));
-        text.setText(formatEntryText(entry));
-        text.textStyle(style -> style
-                .textWrap(TextWrap.WRAP)
-                .adaptiveHeight(true)
-                .textColor(resolveEntryColor(entry)));
-
         List<Component> tooltips = buildEntryTooltips(entry);
-        if (!tooltips.isEmpty()) {
-            text.style(style -> style.tooltips(Tooltips.of(tooltips)));
+
+        if (entry.display() != null) {
+            row.addChild(createDisplayElement(entry.display(), tooltips));
         }
-        row.addChild(text);
+
+        String formattedText = formatEntryText(entry);
+        if (!formattedText.isBlank()) {
+            UIElement textWrapper = new UIElement()
+                    .layout(layout -> layout.flex(1).gapAll(0));
+
+            if (entry.display() != null) {
+                textWrapper.addChild(new UIElement()
+                        .layout(layout -> layout.widthPercent(100).height(resolveEntryTextTopOffset(entry))));
+            }
+
+            Label text = new Label();
+            text.layout(layout -> layout.widthPercent(100));
+            text.setText(formattedText);
+            text.textStyle(style -> style
+                    .textWrap(TextWrap.WRAP)
+                    .adaptiveHeight(true)
+                    .textColor(resolveEntryColor(entry)));
+
+            if (!tooltips.isEmpty()) {
+                text.style(style -> style.tooltips(Tooltips.of(tooltips)));
+            }
+            textWrapper.addChild(text);
+            row.addChild(textWrapper);
+        }
 
         if (entry.showJumpButton() && entry.jumpToResearchKey() != null && !entry.jumpToResearchKey().isBlank()) {
             Button jumpButton = new Button()
@@ -260,6 +269,28 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
         }
 
         return row;
+    }
+
+    private UIElement createDisplayElement(ResearchDisplayValue displayValue, List<Component> tooltips) {
+        UIElement display = new UIElement()
+                .layout(layout -> layout.width(18).height(18))
+                .style(style -> style.backgroundTexture(resolveDisplayTexture(displayValue)));
+
+        if (!tooltips.isEmpty()) {
+            display.style(style -> style.tooltips(Tooltips.of(tooltips)));
+        }
+        return display;
+    }
+
+    private IGuiTexture resolveDisplayTexture(ResearchDisplayValue displayValue) {
+        if (displayValue.kind() == ResearchDisplayValue.Kind.ITEM_STACKS) {
+            ItemStack[] stacks = displayValue.itemStacks();
+            if (stacks.length == 0) {
+                return new ItemStackTexture();
+            }
+            return new ItemStackTexture(stacks);
+        }
+        return displayValue.texture() != null ? displayValue.texture() : new ColorRectTexture(0x66FFFFFF);
     }
 
     private String formatEntryText(ResearchInfoEntry entry) {
@@ -279,6 +310,14 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
         };
     }
 
+    private float resolveEntryTextTopOffset(ResearchInfoEntry entry) {
+        return switch (entry.kind()) {
+            case INFO -> ENTRY_TEXT_INFO_TOP_OFFSET;
+            case CONDITION -> ENTRY_TEXT_CONDITION_TOP_OFFSET;
+            case REWARD -> ENTRY_TEXT_REWARD_TOP_OFFSET;
+        };
+    }
+
     private List<Component> buildEntryTooltips(ResearchInfoEntry entry) {
         List<Component> tooltips = new ArrayList<>(entry.tooltips());
         if (entry.display() != null && entry.display().kind() == ResearchDisplayValue.Kind.ITEM_STACKS) {
@@ -290,4 +329,5 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
         }
         return tooltips;
     }
+
 }
