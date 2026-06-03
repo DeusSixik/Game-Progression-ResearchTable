@@ -29,7 +29,7 @@ public class GprtTests {
         ResearchGroupDefinition energy = group("energy", "Energy", 0xFFF0C94A, 0xFFFFE08A);
         ResearchGroupDefinition alchemy = group("alchemy", "Alchemy", 0xFF9C6BE8, 0xFFC7A8FF);
 
-        List<ResearchDefinition> definitions = new ObjectArrayList<>(6);
+        List<ResearchDefinition> definitions = new ObjectArrayList<>(7);
 
         definitions.add(research("primitive_tools", "Primitive Tools", root)
                 .description("Study this root node to unlock a compact set of branches, each configured with its own reveal animation style.")
@@ -81,6 +81,15 @@ public class GprtTests {
                 .revealAnimation(ResearchRevealAnimationType.ARC_DROP)
                 .reward(Items.AMETHYST_SHARD)
                 .table()
+                .build());
+
+        definitions.add(research("tempered_tools", "Tempered Tools", metallurgy)
+                .description("Second-wave reveal example. Study Forge Notes to trigger another unlock and better see the under-node glow on a non-root branch.")
+                .required("forge_notes")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.DROP_BOUNCE)
+                .reward(Items.IRON_PICKAXE)
+                .timed(4_000L)
                 .build());
 
         return new BuildData(

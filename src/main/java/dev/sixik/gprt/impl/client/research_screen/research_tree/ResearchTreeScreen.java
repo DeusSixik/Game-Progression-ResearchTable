@@ -1,5 +1,11 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.data.Transform2D;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
@@ -22,6 +28,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import org.jetbrains.annotations.Nullable;
 
@@ -544,6 +551,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         updateUnlockAnimationState();
         super.drawBackgroundAdditional(guiContext);
         drawActiveUnlockAnimationLinks(guiContext);
+        drawActiveUnlockNodeEffects(guiContext);
         drawHighlightedGroupBounds(guiContext);
     }
 
@@ -955,6 +963,51 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return resolveUnlockNodeTransform(node, progress);
     }
 
+    private void drawActiveUnlockNodeEffects(GUIContext guiContext) {
+        if (activeUnlockAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
+        if (node == null || !isNodeVisible(node)) {
+            return;
+        }
+
+        float progress01 = getUnlockNodeAnimationProgress01(node, System.currentTimeMillis());
+        if (progress01 <= 0f) {
+            return;
+        }
+
+        EnhancedPoseStack pose = guiContext.pose;
+        pose.pushPose();
+        pose.translate(getContentX(), getContentY(), 0f);
+        pose.scale(getScale(), getScale(), 1f);
+        pose.translate(-getOffsetX(), -getOffsetY(), 0f);
+
+        drawUnlockNodeUnderGlow(guiContext, node, progress01);
+
+        pose.popPose();
+    }
+
+    protected void drawUnlockNodeUnderGlow(GUIContext guiContext, ResearchNode node, float progress01) {
+        UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        float intensity = getUnlockNodeGlowIntensity(progress01);
+        if (intensity <= 0.001f) {
+            return;
+        }
+
+        float scale = Math.max(0.65f, transform.scale());
+        float centerX = node.centerX() + transform.translateX();
+        // Keep the glow slightly below the card center so it still reads as "light under the node",
+        // but let it fill most of the widget footprint instead of collapsing into a thin strip.
+        float centerY = node.centerY() + transform.translateY() + node.getHeight() * scale * 0.04f;
+        float radiusX = getUnlockNodeGlowRadiusX(node, progress01, scale);
+        float radiusY = getUnlockNodeGlowRadiusY(node, progress01, scale);
+        int glowColor = getUnlockNodeGlowColor(node);
+
+        drawEllipseGlow(guiContext, centerX, centerY, radiusX, radiusY, glowColor, intensity);
+    }
+
     private void drawActiveUnlockAnimationLinks(GUIContext guiContext) {
         if (activeUnlockAnimation == null) {
             return;
@@ -1258,8 +1311,88 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return (clampedAlpha << 24) | (color & 0x00FFFFFF);
     }
 
+    protected int getUnlockNodeGlowColor(ResearchNode node) {
+        return mixColors(getNodeGroupPrimaryColor(node), getNodeGroupSecondaryColor(node), 0.46f);
+    }
+
+    protected float getUnlockNodeGlowRadiusX(ResearchNode node, float progress01, float currentScale) {
+        float radiusProgress = easeOutCubic(clamp01((progress01 - 0.06f) / 0.74f));
+        return node.getWidth() * currentScale * lerp(0.58f, 0.96f, radiusProgress);
+    }
+
+    protected float getUnlockNodeGlowRadiusY(ResearchNode node, float progress01, float currentScale) {
+        float radiusProgress = easeOutCubic(clamp01((progress01 - 0.06f) / 0.74f));
+        return Math.max(18f, node.getHeight() * currentScale * lerp(0.62f, 1.02f, radiusProgress));
+    }
+
+    protected float getUnlockNodeGlowIntensity(float progress01) {
+        float intro = easeOutCubic(clamp01(progress01 / 0.14f));
+        float body = easeOutCubic(clamp01((progress01 - 0.04f) / 0.58f));
+        float outro = 1f - clamp01((progress01 - 0.82f) / 0.18f);
+        float pulse = 0.92f + 0.08f * (float) Math.sin(progress01 * Math.PI * 3.0d);
+        return clamp01(intro * (0.48f + 0.52f * body) * outro * pulse);
+    }
+
     protected int interpolateColor(int startColor, int endColor, float progress) {
         return mixColors(startColor, endColor, clamp01(progress));
+    }
+
+    private void drawEllipseGlow(GUIContext guiContext,
+                                 float centerX,
+                                 float centerY,
+                                 float radiusX,
+                                 float radiusY,
+                                 int color,
+                                 float intensity
+    ) {
+        if (radiusX <= 0.5f || radiusY <= 0.5f || intensity <= 0f) {
+            return;
+        }
+
+        guiContext.graphics.flush();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+
+        int outerCenterColor = withAlpha(color, Math.round(90f * intensity));
+        int midCenterColor = withAlpha(color, Math.round(138f * intensity));
+        int innerCenterColor = withAlpha(mixColors(color, 0xFFFFFFFF, 0.18f), Math.round(188f * intensity));
+        int edgeColor = withAlpha(color, 0);
+
+        drawEllipsePass(guiContext, centerX, centerY, radiusX * 1.14f, radiusY * 1.12f, outerCenterColor, edgeColor, 48);
+        drawEllipsePass(guiContext, centerX, centerY, radiusX, radiusY, midCenterColor, edgeColor, 42);
+        drawEllipsePass(guiContext, centerX, centerY, radiusX * 0.48f, radiusY * 0.56f, innerCenterColor, edgeColor, 36);
+    }
+
+    private void drawEllipsePass(GUIContext guiContext,
+                                 float centerX,
+                                 float centerY,
+                                 float radiusX,
+                                 float radiusY,
+                                 int centerColor,
+                                 int edgeColor,
+                                 int segments
+    ) {
+        var mat = guiContext.pose.last().pose();
+        BufferBuilder buffer = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
+        float centerRed = ((centerColor >>> 16) & 0xFF) / 255f;
+        float centerGreen = ((centerColor >>> 8) & 0xFF) / 255f;
+        float centerBlue = (centerColor & 0xFF) / 255f;
+        float centerAlpha = ((centerColor >>> 24) & 0xFF) / 255f;
+        float edgeRed = ((edgeColor >>> 16) & 0xFF) / 255f;
+        float edgeGreen = ((edgeColor >>> 8) & 0xFF) / 255f;
+        float edgeBlue = (edgeColor & 0xFF) / 255f;
+        float edgeAlpha = ((edgeColor >>> 24) & 0xFF) / 255f;
+
+        buffer.addVertex(mat, centerX, centerY, 0f).setColor(centerRed, centerGreen, centerBlue, centerAlpha);
+        for (int i = 0; i <= segments; i++) {
+            double angle = -Math.PI * 2d * i / segments;
+            float x = centerX + radiusX * (float) Math.cos(angle);
+            float y = centerY + radiusY * (float) Math.sin(angle);
+            buffer.addVertex(mat, x, y, 0f).setColor(edgeRed, edgeGreen, edgeBlue, edgeAlpha);
+        }
+        BufferUploader.drawWithShader(buffer.buildOrThrow());
     }
 
     /**
