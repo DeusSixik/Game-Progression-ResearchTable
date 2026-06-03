@@ -65,6 +65,7 @@ public final class ResearchNodeVisualResolver {
                         : withAlpha(darkenColor(backgroundColor, 0.22f), 0xA8))
                 .iconPath(theme.getIconPath())
                 .badgeText(resolveBadgeText(theme, context, node))
+                .badgeTextShadow(false)
                 .shapeStyle(theme.getShapeStyle())
                 .sizePreset(theme.getSizePreset() != null ? theme.getSizePreset() : fallbackSizePreset)
                 .titleAlignment(theme.getTitleAlignment() != null

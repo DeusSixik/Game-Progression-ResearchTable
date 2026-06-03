@@ -13,6 +13,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.DefaultResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.DefaultResearchNodeThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeRenderContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeTheme;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeThemeResolver;
@@ -244,6 +245,26 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
     protected final ResearchProgressController progressController() {
         return researchProgressController;
+    }
+
+    @Override
+    protected ResearchRevealAnimationStyle resolveUnlockRevealAnimationStyle(ResearchNode node) {
+        if (node != null && node.getRevealAnimationStyle() != null) {
+            return node.getRevealAnimationStyle();
+        }
+        ResearchNodeRenderContext previewContext = ResearchNodeRenderContext.builder()
+                .state(resolveNodeState(node))
+                .visible(isNodeVisible(node.getId()))
+                .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
+                .interactionLocked(isUnlockAnimationActive())
+                .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
+                .hasNewUnlockMarker(false)
+                .nowMs(System.currentTimeMillis())
+                .progress(researchProgressController.getProgress(node))
+                .unlockRevealAnimationStyle(ResearchRevealAnimationStyle.DROP_BOUNCE)
+                .build();
+        ResearchNodeTheme theme = getNodeThemeResolver().resolveTheme(node, previewContext);
+        return theme != null ? theme.getRevealAnimationStyle() : ResearchRevealAnimationStyle.DROP_BOUNCE;
     }
 
     protected final void setRootNodeId(int rootNodeId) {
@@ -1168,7 +1189,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return nodeWidgetFactory;
     }
 
-    private ResearchNodeThemeResolver getNodeThemeResolver() {
+    protected final ResearchNodeThemeResolver getNodeThemeResolver() {
         if (nodeThemeResolver == null) {
             nodeThemeResolver = createNodeThemeResolver();
         }
@@ -1176,6 +1197,13 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node, long nowMs) {
+        boolean unlockAnimating = isUnlockAnimationNode(node);
+        float unlockNodeProgress01 = unlockAnimating ? getUnlockNodeAnimationProgress01(node, nowMs) : 0f;
+        float unlockLinkProgress01 = unlockAnimating ? getUnlockLinkAnimationProgress01(node, nowMs) : 0f;
+        UnlockNodeTransform unlockTransform = unlockAnimating
+                ? getUnlockNodeAnimationTransform(node, unlockNodeProgress01)
+                : new UnlockNodeTransform(1f, 0f, 0f);
+        ResearchRevealAnimationStyle revealAnimationStyle = resolveUnlockRevealAnimationStyle(node);
         return ResearchNodeRenderContext.builder()
                 .state(resolveNodeState(node))
                 .visible(isNodeVisible(node.getId()))
@@ -1185,6 +1213,13 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .hasNewUnlockMarker(false)
                 .nowMs(nowMs)
                 .progress(researchProgressController.getProgress(node))
+                .unlockAnimating(unlockAnimating)
+                .unlockNodeProgress01(unlockNodeProgress01)
+                .unlockLinkProgress01(unlockLinkProgress01)
+                .unlockCurrentScale(unlockTransform.scale())
+                .unlockCurrentTranslateX(unlockTransform.translateX())
+                .unlockCurrentTranslateY(unlockTransform.translateY())
+                .unlockRevealAnimationStyle(revealAnimationStyle)
                 .build();
     }
 

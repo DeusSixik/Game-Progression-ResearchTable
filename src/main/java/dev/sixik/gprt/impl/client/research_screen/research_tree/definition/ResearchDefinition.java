@@ -1,6 +1,8 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree.definition;
 
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -18,18 +20,21 @@ public final class ResearchDefinition {
     private final String title;
     private final String description;
     private final ResearchStudyType studyType;
+    private final @Nullable ResearchRevealAnimationStyle revealAnimationStyle;
     private final long studyDurationMs;
 
     public ResearchDefinition(String key,
                               String title,
                               String description,
                               ResearchStudyType studyType,
+                              @Nullable ResearchRevealAnimationStyle revealAnimationStyle,
                               long studyDurationMs
     ) {
         this.key = Objects.requireNonNull(key, "key");
         this.title = title == null || title.isBlank() ? key : title;
         this.description = description;
         this.studyType = studyType == null ? ResearchStudyType.INSTANT : studyType;
+        this.revealAnimationStyle = revealAnimationStyle;
         this.studyDurationMs = Math.max(0L, studyDurationMs);
     }
 
@@ -53,6 +58,10 @@ public final class ResearchDefinition {
         return studyType;
     }
 
+    public @Nullable ResearchRevealAnimationStyle getRevealAnimationStyle() {
+        return revealAnimationStyle;
+    }
+
     public long getStudyDurationMs() {
         return studyDurationMs;
     }
@@ -74,6 +83,7 @@ public final class ResearchDefinition {
                 .title(title)
                 .description(description)
                 .studyType(studyType)
+                .revealAnimationStyle(revealAnimationStyle)
                 .studyDurationMs(studyDurationMs);
     }
 
@@ -90,6 +100,7 @@ public final class ResearchDefinition {
      *     <li>{@link #title(String)} - human-readable title;</li>
      *     <li>{@link #description(String)} - long description shown in UI;</li>
      *     <li>{@link #studyType(ResearchStudyType)} - explicit study mode;</li>
+     *     <li>{@link #revealAnimationStyle(ResearchRevealAnimationStyle)} - optional per-node reveal override;</li>
      *     <li>{@link #studyDurationMs(long)} - duration payload for timed mode;</li>
      *     <li>{@link #timed(long)} - convenience helper for timed research;</li>
      *     <li>{@link #build()} - create the immutable definition snapshot.</li>
@@ -100,6 +111,7 @@ public final class ResearchDefinition {
         private String title;
         private String description;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
+        private @Nullable ResearchRevealAnimationStyle revealAnimationStyle;
         private long studyDurationMs;
 
         private Builder(String key) {
@@ -133,6 +145,14 @@ public final class ResearchDefinition {
         }
 
         /**
+         * Sets an optional reveal-animation override for this definition.
+         */
+        public Builder revealAnimationStyle(@Nullable ResearchRevealAnimationStyle revealAnimationStyle) {
+            this.revealAnimationStyle = revealAnimationStyle;
+            return this;
+        }
+
+        /**
          * Sets the study duration payload in milliseconds.
          * <p>
          * The value is always clamped to a non-negative number. It matters primarily for
@@ -157,7 +177,7 @@ public final class ResearchDefinition {
          * Builds the immutable definition snapshot.
          */
         public ResearchDefinition build() {
-            return new ResearchDefinition(key, title, description, studyType, studyDurationMs);
+            return new ResearchDefinition(key, title, description, studyType, revealAnimationStyle, studyDurationMs);
         }
     }
 }

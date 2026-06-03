@@ -33,6 +33,13 @@ public final class ResearchNodeRenderContext {
     private final boolean hasNewUnlockMarker;
     private final long nowMs;
     private final @Nullable ClientResearchProgress progress;
+    private final boolean unlockAnimating;
+    private final float unlockNodeProgress01;
+    private final float unlockLinkProgress01;
+    private final float unlockCurrentScale;
+    private final float unlockCurrentTranslateX;
+    private final float unlockCurrentTranslateY;
+    private final ResearchRevealAnimationStyle unlockRevealAnimationStyle;
 
     private ResearchNodeRenderContext(Builder builder) {
         this.state = builder.state;
@@ -43,6 +50,13 @@ public final class ResearchNodeRenderContext {
         this.hasNewUnlockMarker = builder.hasNewUnlockMarker;
         this.nowMs = builder.nowMs;
         this.progress = builder.progress;
+        this.unlockAnimating = builder.unlockAnimating;
+        this.unlockNodeProgress01 = builder.unlockNodeProgress01;
+        this.unlockLinkProgress01 = builder.unlockLinkProgress01;
+        this.unlockCurrentScale = builder.unlockCurrentScale;
+        this.unlockCurrentTranslateX = builder.unlockCurrentTranslateX;
+        this.unlockCurrentTranslateY = builder.unlockCurrentTranslateY;
+        this.unlockRevealAnimationStyle = builder.unlockRevealAnimationStyle;
     }
 
     public static Builder builder() {
@@ -94,6 +108,34 @@ public final class ResearchNodeRenderContext {
         return progress;
     }
 
+    public boolean isUnlockAnimating() {
+        return unlockAnimating;
+    }
+
+    public float getUnlockNodeProgress01() {
+        return unlockNodeProgress01;
+    }
+
+    public float getUnlockLinkProgress01() {
+        return unlockLinkProgress01;
+    }
+
+    public float getUnlockCurrentScale() {
+        return unlockCurrentScale;
+    }
+
+    public float getUnlockCurrentTranslateX() {
+        return unlockCurrentTranslateX;
+    }
+
+    public float getUnlockCurrentTranslateY() {
+        return unlockCurrentTranslateY;
+    }
+
+    public ResearchRevealAnimationStyle getUnlockRevealAnimationStyle() {
+        return unlockRevealAnimationStyle;
+    }
+
     /**
      * Fluent builder for {@link ResearchNodeRenderContext}.
      * <p>
@@ -122,6 +164,13 @@ public final class ResearchNodeRenderContext {
         private boolean hasNewUnlockMarker;
         private long nowMs;
         private @Nullable ClientResearchProgress progress;
+        private boolean unlockAnimating;
+        private float unlockNodeProgress01;
+        private float unlockLinkProgress01;
+        private float unlockCurrentScale = 1f;
+        private float unlockCurrentTranslateX;
+        private float unlockCurrentTranslateY;
+        private ResearchRevealAnimationStyle unlockRevealAnimationStyle = ResearchRevealAnimationStyle.DROP_BOUNCE;
 
         /**
          * Sets the logical progression state of the node.
@@ -190,6 +239,43 @@ public final class ResearchNodeRenderContext {
          */
         public Builder progress(@Nullable ClientResearchProgress progress) {
             this.progress = progress;
+            return this;
+        }
+
+        public Builder unlockAnimating(boolean unlockAnimating) {
+            this.unlockAnimating = unlockAnimating;
+            return this;
+        }
+
+        public Builder unlockNodeProgress01(float unlockNodeProgress01) {
+            this.unlockNodeProgress01 = unlockNodeProgress01;
+            return this;
+        }
+
+        public Builder unlockLinkProgress01(float unlockLinkProgress01) {
+            this.unlockLinkProgress01 = unlockLinkProgress01;
+            return this;
+        }
+
+        public Builder unlockCurrentScale(float unlockCurrentScale) {
+            this.unlockCurrentScale = unlockCurrentScale;
+            return this;
+        }
+
+        public Builder unlockCurrentTranslateX(float unlockCurrentTranslateX) {
+            this.unlockCurrentTranslateX = unlockCurrentTranslateX;
+            return this;
+        }
+
+        public Builder unlockCurrentTranslateY(float unlockCurrentTranslateY) {
+            this.unlockCurrentTranslateY = unlockCurrentTranslateY;
+            return this;
+        }
+
+        public Builder unlockRevealAnimationStyle(ResearchRevealAnimationStyle unlockRevealAnimationStyle) {
+            if (unlockRevealAnimationStyle != null) {
+                this.unlockRevealAnimationStyle = unlockRevealAnimationStyle;
+            }
             return this;
         }
 

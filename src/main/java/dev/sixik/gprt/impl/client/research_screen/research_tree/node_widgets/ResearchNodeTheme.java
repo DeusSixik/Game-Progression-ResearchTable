@@ -26,6 +26,7 @@ public final class ResearchNodeTheme {
     private final @Nullable Integer progressBarBackgroundColor;
     private final String iconPath;
     private final String badgeText;
+    private final ResearchRevealAnimationStyle revealAnimationStyle;
     private final ResearchNodeVisualDefinition.ShapeStyle shapeStyle;
     private final @Nullable ResearchNodeVisualDefinition.SizePreset sizePreset;
     private final @Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment;
@@ -46,6 +47,7 @@ public final class ResearchNodeTheme {
         this.progressBarBackgroundColor = builder.progressBarBackgroundColor;
         this.iconPath = builder.iconPath;
         this.badgeText = builder.badgeText;
+        this.revealAnimationStyle = builder.revealAnimationStyle;
         this.shapeStyle = builder.shapeStyle;
         this.sizePreset = builder.sizePreset;
         this.titleAlignment = builder.titleAlignment;
@@ -72,6 +74,7 @@ public final class ResearchNodeTheme {
                 .progressBarBackgroundColor(progressBarBackgroundColor)
                 .iconPath(iconPath)
                 .badgeText(badgeText)
+                .revealAnimationStyle(revealAnimationStyle)
                 .shapeStyle(shapeStyle)
                 .sizePreset(sizePreset)
                 .titleAlignment(titleAlignment);
@@ -137,6 +140,10 @@ public final class ResearchNodeTheme {
         return badgeText;
     }
 
+    public ResearchRevealAnimationStyle getRevealAnimationStyle() {
+        return revealAnimationStyle;
+    }
+
     public ResearchNodeVisualDefinition.ShapeStyle getShapeStyle() {
         return shapeStyle;
     }
@@ -190,6 +197,7 @@ public final class ResearchNodeTheme {
         private @Nullable Integer progressBarBackgroundColor;
         private String iconPath = "";
         private String badgeText = "";
+        private ResearchRevealAnimationStyle revealAnimationStyle = ResearchRevealAnimationStyle.DROP_BOUNCE;
         private ResearchNodeVisualDefinition.ShapeStyle shapeStyle = ResearchNodeVisualDefinition.ShapeStyle.ROUNDED_RECTANGLE;
         private @Nullable ResearchNodeVisualDefinition.SizePreset sizePreset;
         private @Nullable ResearchNodeVisualDefinition.TitleAlignment titleAlignment;
@@ -378,6 +386,16 @@ public final class ResearchNodeTheme {
         public Builder badge(String badgeText, int badgeColor) {
             this.badgeText = badgeText == null ? "" : badgeText;
             this.badgeColor = badgeColor;
+            return this;
+        }
+
+        /**
+         * Selects how nodes using this theme should appear during unlock reveal.
+         */
+        public Builder revealAnimationStyle(ResearchRevealAnimationStyle revealAnimationStyle) {
+            if (revealAnimationStyle != null) {
+                this.revealAnimationStyle = revealAnimationStyle;
+            }
             return this;
         }
 

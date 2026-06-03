@@ -10,7 +10,10 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScre
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_table.info.TableInfoPanelWidget;
@@ -41,7 +44,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         ResearchTreeBuild build = ResearchTreeBuild.create();
         researchDefinitionsByKey.clear();
 
-        GprtTests.BuildData data = GprtTests.createDebugRecipes();
+        GprtTests.BuildData data = GprtTests.createRevealAnimationDemoRecipes();
 
         for (ResearchGroupDefinition group : data.groups()) {
             build.group(group);
@@ -67,6 +70,50 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
         return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> DebugResearchNodeWidgetShowcase.StyleMode.TECH_CARDS);
     }
+
+    /*@Override
+    protected void configureNodeThemePresets(ResearchNodeGroupThemeResolver.Builder builder) {
+        builder.group("metallurgy", theme -> theme
+                .primaryColor(0xFFE29A47)
+                .secondaryColor(0xFFF0C17C)
+                .accentColor(0xFFFFC766)
+                .badge("FORGE", 0xFFF0C17C)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.DROP_BOUNCE)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+        builder.group("farming", theme -> theme
+                .primaryColor(0xFF54B36B)
+                .secondaryColor(0xFF87D99C)
+                .accentColor(0xFF9BE27F)
+                .badge("GROW", 0xFFA7E3A4)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SOFT_POP)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+        builder.group("logistics", theme -> theme
+                .primaryColor(0xFF4C90E8)
+                .secondaryColor(0xFF81B7FF)
+                .accentColor(0xFF8BC0FF)
+                .badge("FLOW", 0xFFA9CBFF)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SLIDE_FROM_LEFT)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+        builder.group("energy", theme -> theme
+                .primaryColor(0xFFF0C94A)
+                .secondaryColor(0xFFFFE08A)
+                .accentColor(0xFFFFE07A)
+                .badge("SPARK", 0xFFFFEDAE)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.FADE_SCALE)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+        builder.group("alchemy", theme -> theme
+                .primaryColor(0xFF9C6BE8)
+                .secondaryColor(0xFFC7A8FF)
+                .accentColor(0xFFD8B4FF)
+                .badge("MIST", 0xFFE7D4FF)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.ARC_DROP)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+    }*/
 
     @Override
     protected ResearchInfoContent buildInfoContent(ResearchNode node, ResearchState state) {

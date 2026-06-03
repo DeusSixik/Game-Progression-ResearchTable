@@ -5,6 +5,7 @@ import com.lowdragmc.lowdraglib2.gui.texture.ColorRectTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.data.Transform2D;
 import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -12,6 +13,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeRenderContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeTheme;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeThemes;
@@ -38,8 +40,8 @@ import java.util.function.Supplier;
  *
  * <p><b>How to read this file:</b></p>
  * <ul>
- *     <li>{@link #configureThemePresets(ResearchNodeGroupThemeResolver.Builder, ResearchGroup, ResearchGroup, ResearchGroup, ResearchGroup)} -
- *     declares per-group visual presets. This is the "high-level styling" entry point.</li>
+     *     <li>{@link #configureThemePresets(ResearchNodeGroupThemeResolver.Builder, ResearchGroup, ResearchGroup, ResearchGroup, ResearchGroup)} -
+     *     declares per-group visual presets. This is the "high-level styling" entry point.</li>
  *     <li>{@link #createWidgetFactory()} -
  *     quick entry point that returns the default debug factory in {@link StyleMode#BRANCH_SHOWCASE} mode.</li>
  *     <li>{@link #createWidgetFactory(Supplier)} -
@@ -127,6 +129,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(metallurgyGroup.getSecondaryColor())
                 .accentColor(0xFFFFC766)
                 .badge("FORGE", 0xFFF0C17C)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.DROP_BOUNCE)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(farmingGroup, theme -> theme
@@ -134,6 +137,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(farmingGroup.getSecondaryColor())
                 .accentColor(0xFF9BE27F)
                 .badge("GROW", 0xFFA7E3A4)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SOFT_POP)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(logisticsGroup, theme -> theme
@@ -141,6 +145,41 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(logisticsGroup.getSecondaryColor())
                 .accentColor(0xFF8BC0FF)
                 .badge("FLOW", 0xFFA9CBFF)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SLIDE_FROM_LEFT)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+    }
+
+    /**
+     * Extended debug preset registration that also demonstrates the extra reveal-animation styles.
+     * <p>
+     * This overload is useful for compact demo trees where each group is meant to represent one
+     * distinct reveal behavior.
+     * </p>
+     */
+    public static void configureThemePresets(ResearchNodeGroupThemeResolver.Builder builder,
+                                             ResearchGroup rootGroup,
+                                             ResearchGroup metallurgyGroup,
+                                             ResearchGroup farmingGroup,
+                                             ResearchGroup logisticsGroup,
+                                             ResearchGroup energyGroup,
+                                             ResearchGroup alchemyGroup
+    ) {
+        configureThemePresets(builder, rootGroup, metallurgyGroup, farmingGroup, logisticsGroup);
+        builder.group(energyGroup, theme -> theme
+                .primaryColor(energyGroup.getPrimaryColor())
+                .secondaryColor(energyGroup.getSecondaryColor())
+                .accentColor(0xFFFFE07A)
+                .badge("SPARK", 0xFFFFEDAE)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.FADE_SCALE)
+                .badgeTextShadow(false)
+                .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
+        builder.group(alchemyGroup, theme -> theme
+                .primaryColor(alchemyGroup.getPrimaryColor())
+                .secondaryColor(alchemyGroup.getSecondaryColor())
+                .accentColor(0xFFD8B4FF)
+                .badge("MIST", 0xFFE7D4FF)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.ARC_DROP)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
     }
@@ -331,6 +370,7 @@ public final class DebugResearchNodeWidgetShowcase {
             applyTitle(node, context, width, height, variant, visualDefinition, styleMode);
             applyBadge(width, height, variant, visualDefinition, styleMode);
             applyProgress(node, context, width, height, visualDefinition, styleMode);
+            applyRevealAccent(context);
         }
 
         /**
@@ -794,6 +834,68 @@ public final class DebugResearchNodeWidgetShowcase {
             progressFill.style(style -> style.backgroundTexture(new ColorRectTexture(visualDefinition.getProgressBarColor())));
         }
 
+        private void applyRevealAccent(ResearchNodeRenderContext context) {
+            if (!context.isUnlockAnimating()) {
+                resetRevealTransforms();
+                return;
+            }
+
+            float progress01 = Math.max(0f, Math.min(1f, context.getUnlockNodeProgress01()));
+            switch (context.getUnlockRevealAnimationStyle()) {
+                case DROP_BOUNCE -> {
+                    float iconScale = lerp(0.80f, 1.0f, easeOutBack(progress01));
+                    float badgeScale = lerp(0.88f, 1.0f, easeOutBack(progress01));
+                    float stripeOffset = lerp(-8f, 0f, easeOutCubic(progress01));
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, iconScale);
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, badgeScale);
+                    applyTransform(topStripe, 0f, 0f, 0f, stripeOffset, 1f);
+                    applyTransform(leftStripe, 0f, 0f, stripeOffset, 0f, 1f);
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, 1f);
+                }
+                case SOFT_POP -> {
+                    float eased = easeOutCubic(progress01);
+                    float textScale = lerp(0.92f, 1f, eased);
+                    float iconScale = lerp(0.94f, 1f, eased);
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, iconScale);
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, textScale);
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, textScale);
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, lerp(0.95f, 1f, eased));
+                    applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
+                }
+                case SLIDE_FROM_LEFT -> {
+                    float eased = easeOutCubic(progress01);
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, lerp(1.08f, 1f, eased));
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, lerp(1.04f, 1f, eased));
+                    applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
+                }
+                case FADE_SCALE -> {
+                    float eased = easeOutCubic(progress01);
+                    float scale = lerp(0.86f, 1f, eased);
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, lerp(0.90f, 1f, eased));
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, scale);
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, scale);
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, lerp(0.92f, 1f, eased));
+                    applyTransform(topStripe, 0f, 0f, 0f, 0f, lerp(0.75f, 1f, eased));
+                    applyTransform(leftStripe, 0f, 0f, 0f, 0f, lerp(0.75f, 1f, eased));
+                }
+                case ARC_DROP -> {
+                    float eased = easeOutCubic(progress01);
+                    float bounce = easeOutBack(progress01);
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, lerp(1.16f, 1f, bounce));
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, lerp(1.08f, 1f, eased));
+                    applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
+                }
+            }
+        }
+
         /**
          * Chooses which internal composition to use for the current node.
          * <p>
@@ -841,10 +943,15 @@ public final class DebugResearchNodeWidgetShowcase {
                 case "greenhouses" -> new ItemStack(Items.GLASS);
                 case "food_processing" -> new ItemStack(Items.BREAD);
                 case "logistics" -> new ItemStack(Items.CHEST);
+                case "forge_notes" -> new ItemStack(Items.COPPER_INGOT);
+                case "seed_sorting" -> new ItemStack(Items.WHEAT_SEEDS);
                 case "carts" -> new ItemStack(Items.MINECART);
                 case "storage" -> new ItemStack(Items.BARREL);
                 case "rail" -> new ItemStack(Items.RAIL);
                 case "warehouse" -> new ItemStack(Items.CHEST_MINECART);
+                case "rope_making" -> new ItemStack(Items.LEAD);
+                case "spark_ignition" -> new ItemStack(Items.REDSTONE_TORCH);
+                case "crystal_solvent" -> new ItemStack(Items.AMETHYST_SHARD);
                 default -> new ItemStack(Items.BOOK);
             };
         }
@@ -904,6 +1011,45 @@ public final class DebugResearchNodeWidgetShowcase {
             int green = Math.max(0, Math.round(((color >>> 8) & 0xFF) * factor));
             int blue = Math.max(0, Math.round((color & 0xFF) * factor));
             return (alpha << 24) | (red << 16) | (green << 8) | blue;
+        }
+
+        private void resetRevealTransforms() {
+            applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, 1f);
+            applyTransform(titleLabel, 0f, 0f, 0f, 0f, 1f);
+            applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, 1f);
+            applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, 1f);
+            applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
+            applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
+        }
+
+        private static void applyTransform(UIElement element,
+                                           float pivotX,
+                                           float pivotY,
+                                           float translateX,
+                                           float translateY,
+                                           float scale
+        ) {
+            element.style(style -> style.transform2D(new Transform2D()
+                    .pivot(pivotX, pivotY)
+                    .translate(translateX, translateY)
+                    .scale(scale)));
+        }
+
+        private static float lerp(float start, float end, float delta) {
+            return start + (end - start) * delta;
+        }
+
+        private static float easeOutCubic(float t) {
+            float clamped = Math.max(0f, Math.min(1f, t));
+            return 1f - (float) Math.pow(1f - clamped, 3);
+        }
+
+        private static float easeOutBack(float t) {
+            float clamped = Math.max(0f, Math.min(1f, t));
+            float c1 = 1.70158f;
+            float c3 = c1 + 1f;
+            float shifted = clamped - 1f;
+            return 1f + c3 * shifted * shifted * shifted + c1 * shifted * shifted;
         }
     }
 }

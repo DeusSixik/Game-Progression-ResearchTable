@@ -54,6 +54,7 @@ public final class ResearchNodeGroupThemeResolver implements ResearchNodeThemeRe
                 .badgeTextShadow(explicitTheme.hasBadgeTextShadow())
                 .primaryColor(explicitTheme.getPrimaryColor())
                 .secondaryColor(explicitTheme.getSecondaryColor())
+                .revealAnimationStyle(explicitTheme.getRevealAnimationStyle())
                 .shapeStyle(explicitTheme.getShapeStyle())
                 .iconPath(explicitTheme.getIconPath())
                 .badgeText(explicitTheme.getBadgeText());

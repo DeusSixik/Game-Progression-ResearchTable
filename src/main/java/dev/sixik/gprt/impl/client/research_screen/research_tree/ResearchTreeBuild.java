@@ -1,6 +1,7 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree;
 
 import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
@@ -241,6 +242,7 @@ public final class ResearchTreeBuild {
         private String groupId;
         private boolean studied;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
+        private ResearchRevealAnimationStyle revealAnimationStyle;
         private long studyDurationMs;
         private float x;
         private float y;
@@ -259,6 +261,7 @@ public final class ResearchTreeBuild {
                     title,
                     description,
                     studyType,
+                    revealAnimationStyle,
                     studyDurationMs
             );
         }
@@ -321,6 +324,7 @@ public final class ResearchTreeBuild {
             definition.title = researchDefinition.getTitle();
             definition.description = researchDefinition.getDescription();
             definition.studyType = researchDefinition.getStudyType();
+            definition.revealAnimationStyle = researchDefinition.getRevealAnimationStyle();
             definition.studyDurationMs = researchDefinition.getStudyDurationMs();
             return this;
         }

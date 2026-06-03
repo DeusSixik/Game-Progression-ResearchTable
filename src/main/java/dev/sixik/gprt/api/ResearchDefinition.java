@@ -1,5 +1,6 @@
 package dev.sixik.gprt.api;
 
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
@@ -40,6 +41,7 @@ public final class ResearchDefinition {
     private final String title;
     private final String description;
     private final ResearchStudyType studyType;
+    private final ResearchRevealAnimationType revealAnimationType;
     private final long studyDurationMs;
     private final List<String> requiredResearches;
     private final List<ResearchCondition> conditions;
@@ -51,6 +53,7 @@ public final class ResearchDefinition {
                                String title,
                                String description,
                                ResearchStudyType studyType,
+                               ResearchRevealAnimationType revealAnimationType,
                                long studyDurationMs,
                                List<String> requiredResearches,
                                List<ResearchCondition> conditions,
@@ -62,6 +65,7 @@ public final class ResearchDefinition {
         this.title = title == null || title.isBlank() ? key : title;
         this.description = description == null ? "" : description;
         this.studyType = studyType == null ? ResearchStudyType.INSTANT : studyType;
+        this.revealAnimationType = revealAnimationType;
         this.studyDurationMs = Math.max(0L, studyDurationMs);
         this.requiredResearches = List.copyOf(requiredResearches == null ? List.of() : requiredResearches);
         this.conditions = List.copyOf(conditions == null ? List.of() : conditions);
@@ -112,6 +116,17 @@ public final class ResearchDefinition {
         return studyType;
     }
 
+    /**
+     * Returns the optional per-research reveal animation override.
+     * <p>
+     * When {@code null}, screens may fall back to group presets or their own default reveal
+     * behavior.
+     * </p>
+     */
+    public ResearchRevealAnimationType getRevealAnimationType() {
+        return revealAnimationType;
+    }
+
     public long getStudyDurationMs() {
         return studyDurationMs;
     }
@@ -153,6 +168,7 @@ public final class ResearchDefinition {
                 title,
                 description,
                 studyType.toInternalType(),
+                revealAnimationType == null ? null : revealAnimationType.toInternalType(),
                 studyDurationMs
         );
     }
@@ -171,6 +187,7 @@ public final class ResearchDefinition {
         private String title;
         private String description;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
+        private ResearchRevealAnimationType revealAnimationType;
         private long studyDurationMs;
         private final List<String> requiredResearches = new ArrayList<>();
         private final List<ResearchCondition> conditions = new ArrayList<>();
@@ -359,6 +376,18 @@ public final class ResearchDefinition {
         }
 
         /**
+         * Sets an optional reveal-animation override for this exact research.
+         * <p>
+         * This is useful when one specific node should appear differently from the rest of its
+         * group. If omitted, group/theme defaults remain in control.
+         * </p>
+         */
+        public Builder revealAnimation(ResearchRevealAnimationType revealAnimationType) {
+            this.revealAnimationType = revealAnimationType;
+            return this;
+        }
+
+        /**
          * Stores the duration payload in milliseconds.
          */
         public Builder studyDurationMs(long studyDurationMs) {
@@ -402,6 +431,7 @@ public final class ResearchDefinition {
                     title,
                     description,
                     studyType,
+                    revealAnimationType,
                     studyDurationMs,
                     requiredResearches,
                     conditions,

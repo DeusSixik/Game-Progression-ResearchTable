@@ -2,6 +2,7 @@ package dev.sixik.gprt.test;
 
 import dev.sixik.gprt.api.ResearchDefinition;
 import dev.sixik.gprt.api.ResearchGroupDefinition;
+import dev.sixik.gprt.api.ResearchRevealAnimationType;
 import dev.sixik.gprt.api.ResearchVisibilityMode;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.world.item.Items;
@@ -10,6 +11,83 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class GprtTests {
+
+    /**
+     * Compact demo focused on unlock/reveal animation previews.
+     * <p>
+     * This dataset is intentionally tiny:
+     * once the player studies the root node, three follow-up researches become
+     * available at the same time and each branch uses its own reveal style from
+     * the debug showcase theme presets.
+     * </p>
+     */
+    public static BuildData createRevealAnimationDemoRecipes() {
+        ResearchGroupDefinition root = group("root", "Root", 0xFFD0D5DD, 0xFFF4F6F8);
+        ResearchGroupDefinition metallurgy = group("metallurgy", "Metallurgy", 0xFFE29A47, 0xFFF0C17C);
+        ResearchGroupDefinition farming = group("farming", "Farming", 0xFF54B36B, 0xFF87D99C);
+        ResearchGroupDefinition logistics = group("logistics", "Logistics", 0xFF4C90E8, 0xFF81B7FF);
+        ResearchGroupDefinition energy = group("energy", "Energy", 0xFFF0C94A, 0xFFFFE08A);
+        ResearchGroupDefinition alchemy = group("alchemy", "Alchemy", 0xFF9C6BE8, 0xFFC7A8FF);
+
+        List<ResearchDefinition> definitions = new ObjectArrayList<>(6);
+
+        definitions.add(research("primitive_tools", "Primitive Tools", root)
+                .description("Study this root node to unlock a compact set of branches, each configured with its own reveal animation style.")
+                .reward(Items.STONE_PICKAXE)
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .instant()
+                .build());
+
+        definitions.add(research("forge_notes", "Forge Notes", metallurgy)
+                .description("Metallurgy example. This branch uses the heavier drop/bounce reveal style.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.DROP_BOUNCE)
+                .reward(Items.COPPER_INGOT)
+                .timed(5_000L)
+                .build());
+
+        definitions.add(research("seed_sorting", "Seed Sorting", farming)
+                .description("Farming example. This branch uses the softer pop-in reveal style.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.SOFT_POP)
+                .reward(Items.WHEAT_SEEDS)
+                .instant()
+                .build());
+
+        definitions.add(research("rope_making", "Rope Making", logistics)
+                .description("Logistics example. This branch enters from the left before settling into the graph.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.SLIDE_FROM_LEFT)
+                .reward(Items.LEAD)
+                .instant()
+                .build());
+
+        definitions.add(research("spark_ignition", "Spark Ignition", energy)
+                .description("Energy example. This branch uses the calmer fade/scale style.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.FADE_SCALE)
+                .reward(Items.REDSTONE_TORCH)
+                .timed(6_000L)
+                .build());
+
+        definitions.add(research("crystal_solvent", "Crystal Solvent", alchemy)
+                .description("Alchemy example. This branch reveals with an arcing drop from the upper-left.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.ARC_DROP)
+                .reward(Items.AMETHYST_SHARD)
+                .table()
+                .build());
+
+        return new BuildData(
+                new ResearchGroupDefinition[] { root, metallurgy, farming, logistics, energy, alchemy },
+                definitions.toArray(ResearchDefinition[]::new)
+        );
+    }
 
     public static BuildData createDebugRecipes() {
         ResearchGroupDefinition root = group("root", "Root", 0xFFD0D5DD, 0xFFF4F6F8);

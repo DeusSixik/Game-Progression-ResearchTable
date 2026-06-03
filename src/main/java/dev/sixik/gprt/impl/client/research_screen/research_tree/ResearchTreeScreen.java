@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.sixik.gprt.registry.GPTRSounds;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.layout.DependencyTreeAutoLayout;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeLinkManager;
@@ -858,14 +859,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
-        float easedScale = easeOutBack(progress);
-        float easedDrop = easeOutBounce(progress);
-        float scale = lerp(UNLOCK_NODE_START_SCALE, 1.0f, easedScale);
-        float translateY = lerp(UNLOCK_NODE_START_Y, 0f, easedDrop);
+        UnlockNodeTransform transform = resolveUnlockNodeTransform(node, progress);
+        float scale = transform.scale();
+        float translateY = transform.translateY();
 
         widget.style(style -> style.transform2D(new Transform2D()
                 .pivot(0.5f, 0.5f)
-                .translate(0f, translateY)
+                .translate(transform.translateX(), translateY)
                 .scale(scale)));
 
         onUnlockNodeProgress(node, progress, scale, translateY);
@@ -878,6 +878,81 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         widget.style(style -> style.transform2D(Transform2D.identity()));
+    }
+
+    protected ResearchRevealAnimationStyle resolveUnlockRevealAnimationStyle(ResearchNode node) {
+        return ResearchRevealAnimationStyle.DROP_BOUNCE;
+    }
+
+    protected UnlockNodeTransform resolveUnlockNodeTransform(ResearchNode node, float progress) {
+        return switch (resolveUnlockRevealAnimationStyle(node)) {
+            case DROP_BOUNCE -> {
+                float easedScale = easeOutBack(progress);
+                float easedDrop = easeOutBounce(progress);
+                yield new UnlockNodeTransform(
+                        lerp(UNLOCK_NODE_START_SCALE, 1.0f, easedScale),
+                        0f,
+                        lerp(UNLOCK_NODE_START_Y, 0f, easedDrop)
+                );
+            }
+            case SOFT_POP -> {
+                float eased = easeOutCubic(progress);
+                yield new UnlockNodeTransform(
+                        lerp(1.65f, 1.0f, eased),
+                        0f,
+                        lerp(18f, 0f, eased)
+                );
+            }
+            case SLIDE_FROM_LEFT -> {
+                float eased = easeOutCubic(progress);
+                yield new UnlockNodeTransform(
+                        lerp(1.10f, 1.0f, eased),
+                        lerp(-64f, 0f, eased),
+                        lerp(6f, 0f, eased)
+                );
+            }
+            case FADE_SCALE -> {
+                float eased = easeOutCubic(progress);
+                yield new UnlockNodeTransform(
+                        lerp(0.78f, 1.0f, eased),
+                        0f,
+                        lerp(10f, 0f, eased)
+                );
+            }
+            case ARC_DROP -> {
+                float eased = easeOutCubic(progress);
+                float bounce = easeOutBack(progress);
+                float arcX = lerp(-46f, 0f, eased);
+                float arcY = lerp(-30f, 0f, easeOutBounce(progress));
+                yield new UnlockNodeTransform(
+                        lerp(2.15f, 1.0f, bounce),
+                        arcX,
+                        arcY
+                );
+            }
+        };
+    }
+
+    protected final boolean isUnlockAnimationNode(ResearchNode node) {
+        return node != null && activeUnlockAnimation != null && activeUnlockAnimation.nodeId() == node.getId();
+    }
+
+    protected final float getUnlockNodeAnimationProgress01(ResearchNode node, long nowMs) {
+        if (!isUnlockAnimationNode(node)) {
+            return 0f;
+        }
+        return clamp01((nowMs - activeUnlockAnimation.startedAtMs() - UNLOCK_NODE_DELAY_MS) / (float) UNLOCK_NODE_DURATION_MS);
+    }
+
+    protected final float getUnlockLinkAnimationProgress01(ResearchNode node, long nowMs) {
+        if (!isUnlockAnimationNode(node)) {
+            return 0f;
+        }
+        return clamp01((nowMs - activeUnlockAnimation.startedAtMs() - UNLOCK_LINK_DELAY_MS) / (float) UNLOCK_LINK_DURATION_MS);
+    }
+
+    protected final UnlockNodeTransform getUnlockNodeAnimationTransform(ResearchNode node, float progress) {
+        return resolveUnlockNodeTransform(node, progress);
     }
 
     private void drawActiveUnlockAnimationLinks(GUIContext guiContext) {
@@ -991,6 +1066,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         float c3 = c1 + 1f;
         float p = t - 1f;
         return 1f + c3 * p * p * p + c1 * p * p;
+    }
+
+    private float easeOutCubic(float t) {
+        float inverse = 1f - t;
+        return 1f - inverse * inverse * inverse;
     }
 
     private float easeOutBounce(float t) {
@@ -1613,6 +1693,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * </p>
      */
     protected void afterUnlockAnimationCompleted(ResearchNode node) {
+    }
+
+    protected record UnlockNodeTransform(float scale, float translateX, float translateY) {
     }
 
     /**

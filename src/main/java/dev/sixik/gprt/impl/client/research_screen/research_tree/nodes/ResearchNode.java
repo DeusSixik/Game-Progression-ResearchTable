@@ -2,6 +2,7 @@ package dev.sixik.gprt.impl.client.research_screen.research_tree.nodes;
 
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.Node;
 
@@ -60,6 +61,7 @@ public class ResearchNode extends Node {
                     .title(definition.getTitle())
                     .description(definition.getDescription())
                     .studyType(definition.getStudyType())
+                    .revealAnimationStyle(definition.getRevealAnimationStyle())
                     .studyDurationMs(definition.getStudyDurationMs())
                     .build();
         }
@@ -82,6 +84,15 @@ public class ResearchNode extends Node {
 
     public ResearchStudyType getStudyType() {
         return definition.getStudyType();
+    }
+
+    public ResearchRevealAnimationStyle getRevealAnimationStyle() {
+        return definition.getRevealAnimationStyle();
+    }
+
+    public ResearchNode setRevealAnimationStyle(ResearchRevealAnimationStyle revealAnimationStyle) {
+        updateDefinition(builder -> builder.revealAnimationStyle(revealAnimationStyle));
+        return this;
     }
 
     public ResearchNode setStudyType(ResearchStudyType studyType) {
