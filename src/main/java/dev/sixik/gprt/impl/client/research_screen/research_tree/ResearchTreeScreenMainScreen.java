@@ -1152,7 +1152,8 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         for (ResearchNode node : nodes) {
             if (node.getId() == selectedNodeId
                     || researchProgressController.isInProgress(node)
-                    || node.getStudyType() == ResearchStudyType.TIMED) {
+                    || (node.getStudyType() == ResearchStudyType.TIMED
+                    && !researchProgressController.isStudied(node))) {
                 refreshNodeWidget(node, nowMs);
             }
         }

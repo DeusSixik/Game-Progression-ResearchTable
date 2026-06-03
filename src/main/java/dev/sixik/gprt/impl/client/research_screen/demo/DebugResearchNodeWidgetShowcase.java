@@ -705,13 +705,14 @@ public final class DebugResearchNodeWidgetShowcase {
                     new ColorRectTexture(visualDefinition.getBadgeColor()),
                     new ColorBorderTexture(1, brightenColor(visualDefinition.getBadgeColor(), 0.14f))
             )));
-            badgeLabel.setText(visualDefinition.getBadgeText());
+            badgeLabel.setText(visualDefinition.getBadgeText(), false);
             badgeLabel.layout(layout -> layout
                     .positionType(TaffyPosition.ABSOLUTE)
                     .left(0)
                     .top(1)
                     .width(34)
                     .height(8));
+
             badgeLabel.textStyle(style -> style
                     .fontSize(6.5f)
                     .textAlignHorizontal(Horizontal.CENTER)
