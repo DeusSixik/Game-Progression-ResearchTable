@@ -9,7 +9,10 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeBuil
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScreenMainScreen;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchDisplayValue;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContentFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
@@ -85,6 +88,11 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         );
 
         return panel;
+    }
+
+    @Override
+    protected ResearchInfoPanelWidget createInfoPanelWidget(ResearchInfoPanelContext context) {
+        return new DebugCustomInfoPanel(context);
     }
 
     @Override
@@ -209,10 +217,16 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
 
     @Override
     protected ResearchInfoContent buildInfoContent(ResearchNode node, ResearchState state) {
-        ResearchInfoContent.Builder builder = super.buildInfoContent(node, state).toBuilder();
+        if ("rail".equals(node.getResearchKey())) {
+            return buildFactoryShowcaseContent(node, state);
+        }
+
+        // Example 1: extend the shared standard builder and only append custom sections.
+        ResearchInfoContent.Builder builder = createStandardInfoContentBuilder(node, state).build().toBuilder();
 
         builder.section("Debug Notes", section -> section
                 .infoLine("Branch", node.getGroup() != null ? node.getGroup().getId() : "unknown")
+                .infoText("This node uses createStandardInfoContentBuilder(...) and then appends demo sections.")
         );
 
         if ("steam".equals(node.getResearchKey())) {
@@ -232,7 +246,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                         .text("Requires Storage")
                         .completed(isNodeStudiedByKey("storage"))
                         .tooltip("This row uses icon + text + tooltip + research jump.")
-                        .jumpToResearch("storage")
+                        .jumpToResearchVisibleOnly("storage")
                         .jumpButtonText("Open"));
             });
         }
@@ -246,6 +260,47 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         }
 
         return builder.build();
+    }
+
+    private ResearchInfoContent buildFactoryShowcaseContent(ResearchNode node, ResearchState state) {
+        // Example 2: build a details panel almost fully by hand through ResearchInfoContentFactory.
+        ResearchInfoContentFactory.Builder builder = ResearchInfoContentFactory.forNode(node)
+                .modeText("Mode: " + ResearchInfoPresentationRules.formatStudyType(node))
+                .stateText("Status: " + ResearchInfoPresentationRules.formatStateText(state, node))
+                .visibilityText("Custom factory example")
+                .panelColor(0xD0221820)
+                .noConditions()
+                .noUnlocks();
+
+        ResearchInfoPresentationRules.applyTimedProgress(
+                builder,
+                node,
+                state,
+                progressController().getProgress(node),
+                System.currentTimeMillis()
+        );
+        ResearchInfoPresentationRules.applyResearchButton(
+                builder,
+                node,
+                state,
+                progressController().getProgress(node),
+                System.currentTimeMillis()
+        );
+
+        ResearchInfoContent content = builder.build().toBuilder()
+                .section("Factory Example", section -> {
+                    section.infoText("This node shows a full manual build through ResearchInfoContentFactory.");
+                    section.infoText("Auto Conditions and Auto Unlocks are disabled here on purpose.");
+                    section.conditionResearchVisibleOnly("Optional jump to Carts", isNodeStudiedByKey("carts"), "carts");
+                    section.conditionResearchVisibleOnly("Optional jump to Machines", isNodeStudiedByKey("machines"), "machines");
+                })
+                .section("Custom Unlock Preview", section -> {
+                    section.rewardResearchVisibleOnly("Warehouse", "warehouse");
+                    section.rewardItem(Items.MINECART, "Transport frame reward preview");
+                })
+                .build();
+
+        return content;
     }
 
     private boolean isNodeStudiedByKey(String researchKey) {

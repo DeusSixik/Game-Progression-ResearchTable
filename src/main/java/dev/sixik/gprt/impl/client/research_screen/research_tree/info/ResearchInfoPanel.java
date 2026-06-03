@@ -9,7 +9,6 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollDisplay;
 import com.lowdragmc.lowdraglib2.gui.ui.data.ScrollerMode;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.data.Tooltips;
-import com.lowdragmc.lowdraglib2.gui.ui.data.Transform2D;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
@@ -20,7 +19,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Reusable details panel for a selected research node.
@@ -29,15 +27,7 @@ import java.util.function.Consumer;
  * title, dynamic rows, item/icon displays, tooltips and optional jump buttons.
  * </p>
  */
-public final class ResearchInfoPanel extends UIElement {
-    public static final float DEFAULT_WIDTH = 300f;
-    public static final float DEFAULT_HEIGHT = 430f;
-    public static final float OPEN_TRANSLATE_X = 0f;
-
-    private static final float MIN_WIDTH = 210f;
-    private static final float MIN_HEIGHT = 220f;
-    private static final float PANEL_MARGIN = 8f;
-    private static final float PREFERRED_TOP = 118f;
+public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
     private static final float PROGRESS_BAR_HEIGHT = 8f;
     private static final int SCROLL_BACKGROUND_COLOR = 0x22101824;
 
@@ -53,27 +43,16 @@ public final class ResearchInfoPanel extends UIElement {
     private final UIElement sectionsContainer;
     private final Button closeButton;
     private final Button researchButton;
-    private final Consumer<String> onResearchJump;
-    private float currentPanelWidth = DEFAULT_WIDTH;
-    private float currentPanelHeight = DEFAULT_HEIGHT;
-    private float currentProgressBarWidth = DEFAULT_WIDTH - 16f;
+    private float currentProgressBarWidth = preferredPanelWidth() - 16f;
 
-    public ResearchInfoPanel(Runnable onClose, Runnable onResearch, Consumer<String> onResearchJump) {
-        this.onResearchJump = onResearchJump;
+    public ResearchInfoPanel(ResearchInfoPanelContext context) {
+        super(context);
 
         layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(PANEL_MARGIN)
-                .top(PREFERRED_TOP)
-                .width(DEFAULT_WIDTH)
-                .height(DEFAULT_HEIGHT)
                 .paddingAll(8)
                 .gapAll(5)
         );
-        style(style -> style
-                .backgroundTexture(new ColorRectTexture(0xE6192432))
-                .transform2D(new Transform2D().translate(hiddenTranslateX(), 0f)));
-        setDisplay(false);
+        style(style -> style.backgroundTexture(new ColorRectTexture(0xE6192432)));
 
         titleLabel = new Label();
         titleLabel.layout(layout -> layout.widthPercent(100));
@@ -121,10 +100,10 @@ public final class ResearchInfoPanel extends UIElement {
         });
         sectionsScroller.addScrollViewChild(sectionsContainer);
 
-        closeButton = new Button().setText("X").setOnClick(event -> onClose.run());
+        closeButton = new Button().setText("X").setOnClick(event -> context().close());
         closeButton.layout(layout -> layout
                 .positionType(TaffyPosition.ABSOLUTE)
-                .left(DEFAULT_WIDTH - 36f)
+                .left(preferredPanelWidth() - 36f)
                 .top(6)
                 .width(24)
                 .height(18)
@@ -132,7 +111,7 @@ public final class ResearchInfoPanel extends UIElement {
 
         researchButton = new Button()
                 .setText("Research")
-                .setOnClick(event -> onResearch.run());
+                .setOnClick(event -> context().startResearch());
 
         addChildren(
                 titleLabel,
@@ -148,7 +127,7 @@ public final class ResearchInfoPanel extends UIElement {
         );
 
         applyContent(ResearchInfoContent.builder().build());
-        applyResponsiveLayout();
+        refreshPanelFrame();
     }
 
     public void applyContent(ResearchInfoContent content) {
@@ -178,16 +157,6 @@ public final class ResearchInfoPanel extends UIElement {
 
         researchButton.setDisplay(content.showResearchButton());
         researchButton.setText(content.researchButtonText());
-    }
-
-    public void setSlideProgress(float progress01) {
-        float clamped = Math.max(0f, Math.min(1f, progress01));
-        float hiddenTranslateX = hiddenTranslateX();
-        float translateX = hiddenTranslateX + (OPEN_TRANSLATE_X - hiddenTranslateX) * clamped;
-        style(style -> style.transform2D(new Transform2D().translate(translateX, 0f)));
-        if (clamped <= 0f) {
-            setDisplay(false);
-        }
     }
 
     private void rebuildSections(List<ResearchInfoSection> sections) {
@@ -241,10 +210,10 @@ public final class ResearchInfoPanel extends UIElement {
             row.addChild(text);
         }
 
-        if (entry.jumpToResearchKey() != null && !entry.jumpToResearchKey().isBlank()) {
+        if (entry.showJumpButton() && entry.jumpToResearchKey() != null && !entry.jumpToResearchKey().isBlank()) {
             Button jumpButton = new Button()
                     .setText(entry.jumpButtonText() != null ? entry.jumpButtonText() : "Open")
-                    .setOnClick(event -> onResearchJump.accept(entry.jumpToResearchKey()));
+                    .setOnClick(event -> context().jumpToResearch(entry.jumpToResearchKey()));
             if (!tooltips.isEmpty()) {
                 jumpButton.style(style -> style.tooltips(Tooltips.of(tooltips)));
             }
@@ -329,64 +298,15 @@ public final class ResearchInfoPanel extends UIElement {
     }
 
     @Override
-    protected void onLayoutChanged() {
-        super.onLayoutChanged();
-        applyResponsiveLayout();
-    }
-
-    private void applyResponsiveLayout() {
-        UIElement parent = getParent();
-        if (parent == null) {
-            return;
-        }
-
-        float parentWidth = parent.getContentWidth();
-        float parentHeight = parent.getContentHeight();
-        if (parentWidth <= 0f || parentHeight <= 0f) {
-            return;
-        }
-
-        float availableWidth = Math.max(0f, parentWidth - PANEL_MARGIN * 2f);
-        float availableHeight = Math.max(0f, parentHeight - PANEL_MARGIN * 2f);
-
-        float responsiveWidth = Math.min(DEFAULT_WIDTH, availableWidth * 0.46f);
-        float newWidth = availableWidth <= MIN_WIDTH
-                ? availableWidth
-                : Math.max(MIN_WIDTH, responsiveWidth);
-        newWidth = Math.min(newWidth, DEFAULT_WIDTH);
-
-        float top = Math.min(PREFERRED_TOP, Math.max(18f, parentHeight * 0.10f));
-        float maxHeight = Math.max(0f, parentHeight - top - PANEL_MARGIN);
-        float newHeight = maxHeight <= MIN_HEIGHT
-                ? maxHeight
-                : Math.max(MIN_HEIGHT, Math.min(DEFAULT_HEIGHT, maxHeight));
-
-        if (Math.abs(newWidth - currentPanelWidth) > 0.5f || Math.abs(newHeight - currentPanelHeight) > 0.5f) {
-            currentPanelWidth = newWidth;
-            currentPanelHeight = newHeight;
-            currentProgressBarWidth = Math.max(72f, currentPanelWidth - 16f);
-
-            layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(PANEL_MARGIN)
-                    .top(top)
-                    .width(currentPanelWidth)
-                    .height(currentPanelHeight)
-                    .paddingAll(8)
-                    .gapAll(5)
-            );
-            timedProgressBar.layout(layout -> layout.width(currentProgressBarWidth).height(PROGRESS_BAR_HEIGHT));
-            closeButton.layout(layout -> layout
-                    .positionType(TaffyPosition.ABSOLUTE)
-                    .left(currentPanelWidth - 36f)
-                    .top(6)
-                    .width(24)
-                    .height(18)
-            );
-        }
-    }
-
-    private float hiddenTranslateX() {
-        return -(currentPanelWidth + 18f);
+    protected void onPanelBoundsChanged(float panelWidth, float panelHeight) {
+        currentProgressBarWidth = Math.max(72f, panelWidth - 16f);
+        timedProgressBar.layout(layout -> layout.width(currentProgressBarWidth).height(PROGRESS_BAR_HEIGHT));
+        closeButton.layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(panelWidth - 36f)
+                .top(6)
+                .width(24)
+                .height(18)
+        );
     }
 }

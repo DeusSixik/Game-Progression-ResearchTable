@@ -152,51 +152,88 @@ public final class ResearchInfoContent {
         private String researchButtonText = "Research";
         private final List<ResearchInfoSection> sections = new ArrayList<>();
 
+        /**
+         * Sets the main panel title.
+         */
         public Builder title(String title) {
             this.title = title;
             return this;
         }
 
+        /**
+         * Low-level title alignment setter.
+         * <p>
+         * Prefer {@link #titleCentered()} when the common centered-header layout is desired.
+         * </p>
+         */
         public Builder titleAlign(TitleAlign titleAlign) {
             this.titleAlign = titleAlign;
             return this;
         }
 
+        /**
+         * High-level sugar for the common centered title layout.
+         */
         public Builder titleCentered() {
             this.titleAlign = TitleAlign.CENTER;
             return this;
         }
 
+        /**
+         * Controls whether the title should use the larger heading style.
+         */
         public Builder titleLarge(boolean titleLarge) {
             this.titleLarge = titleLarge;
             return this;
         }
 
+        /**
+         * Sets the short group text shown under the title.
+         */
         public Builder groupText(String groupText) {
             this.groupText = groupText;
             return this;
         }
 
+        /**
+         * Sets the short mode text shown under the title.
+         */
         public Builder modeText(String modeText) {
             this.modeText = modeText;
             return this;
         }
 
+        /**
+         * Sets the short state/status text shown under the title.
+         */
         public Builder stateText(String stateText) {
             this.stateText = stateText;
             return this;
         }
 
+        /**
+         * Sets the free-form description block shown before the sections list.
+         */
         public Builder description(String description) {
             this.description = description;
             return this;
         }
 
+        /**
+         * Sets the panel background tint.
+         */
         public Builder panelColor(int panelColor) {
             this.panelColor = panelColor;
             return this;
         }
 
+        /**
+         * Shows the timed progress area with caller-provided text and fill state.
+         * <p>
+         * This is the high-level way to expose a timed research or any other live progress
+         * block without directly touching panel widgets.
+         * </p>
+         */
         public Builder timedProgress(String timedProgressText, float timedProgress01, int timedProgressFillColor) {
             this.showTimedProgress = true;
             this.timedProgressText = timedProgressText;
@@ -217,6 +254,9 @@ public final class ResearchInfoContent {
             return this;
         }
 
+        /**
+         * Hides the timed progress area completely.
+         */
         public Builder hideTimedProgress() {
             this.showTimedProgress = false;
             this.timedProgressText = "Progress: -";
@@ -224,17 +264,34 @@ public final class ResearchInfoContent {
             return this;
         }
 
+        /**
+         * Configures the bottom action button.
+         * <p>
+         * Use this when the current research state should expose an actionable button such as
+         * start, resume or in-progress state text.
+         * </p>
+         */
         public Builder researchButton(String researchButtonText, boolean showResearchButton) {
             this.researchButtonText = researchButtonText;
             this.showResearchButton = showResearchButton;
             return this;
         }
 
+        /**
+         * Hides the bottom action button completely.
+         */
         public Builder hideResearchButton() {
             this.showResearchButton = false;
             return this;
         }
 
+        /**
+         * Low-level section append API.
+         * <p>
+         * Prefer {@link #section(String, Consumer)} for inline section construction in most cases.
+         * Use this when a section was assembled elsewhere or needs to be reused.
+         * </p>
+         */
         public Builder addSection(ResearchInfoSection section) {
             if (section != null) {
                 this.sections.add(section);
@@ -242,6 +299,9 @@ public final class ResearchInfoContent {
             return this;
         }
 
+        /**
+         * Low-level bulk section append API.
+         */
         public Builder addSections(Iterable<ResearchInfoSection> sections) {
             for (ResearchInfoSection section : sections) {
                 addSection(section);
@@ -249,6 +309,14 @@ public final class ResearchInfoContent {
             return this;
         }
 
+        /**
+         * High-level sugar for inline section construction.
+         * <p>
+         * This is the recommended entry point for most panel content because it keeps the
+         * screen code compact while still exposing the rich {@link ResearchInfoSection.Builder}
+         * helpers inside the callback.
+         * </p>
+         */
         public Builder section(String title, Consumer<ResearchInfoSection.Builder> builderConsumer) {
             ResearchInfoSection.Builder sectionBuilder = ResearchInfoSection.builder().title(title);
             builderConsumer.accept(sectionBuilder);
