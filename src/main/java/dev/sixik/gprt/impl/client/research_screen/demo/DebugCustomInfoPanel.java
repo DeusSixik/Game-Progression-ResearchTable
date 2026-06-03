@@ -182,7 +182,6 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
     }
 
     private void rebuildSections(List<ResearchInfoSection> sections) {
-        sectionScroller.clearAllScrollViewChildren();
         sectionContainer.clearAllChildren();
 
         for (ResearchInfoSection section : sections) {
@@ -191,8 +190,6 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
             }
             sectionContainer.addChild(createSection(section));
         }
-
-        sectionScroller.addScrollViewChild(sectionContainer);
     }
 
     private UIElement createSection(ResearchInfoSection section) {

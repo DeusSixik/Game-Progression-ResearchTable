@@ -144,12 +144,8 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
 
         private void applyFrameStyle(ResearchNodeRenderContext context, ResearchNodeVisualDefinition visualDefinition) {
             int borderSize = context.isSelected() ? 2 : 1;
-            int backgroundColor = context.isRevealLocked()
-                    ? withAlpha(darkenColor(visualDefinition.getBackgroundColor(), 0.18f), 0xC8)
-                    : visualDefinition.getBackgroundColor();
-            int borderColor = context.isRevealLocked()
-                    ? darkenColor(visualDefinition.getBorderColor(), 0.20f)
-                    : visualDefinition.getBorderColor();
+            int backgroundColor = visualDefinition.getBackgroundColor();
+            int borderColor = visualDefinition.getBorderColor();
 
             IGuiTexture base = buildFrameTexture(backgroundColor, borderColor, borderSize);
             IGuiTexture hover = buildFrameTexture(brightenColor(backgroundColor, 0.08f), brightenColor(borderColor, 0.10f), borderSize);

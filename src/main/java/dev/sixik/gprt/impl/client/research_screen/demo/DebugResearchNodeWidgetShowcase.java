@@ -342,14 +342,10 @@ public final class DebugResearchNodeWidgetShowcase {
                                       StyleMode styleMode
         ) {
             int borderSize = context.isSelected() ? 2 : 1;
-            int backgroundColor = context.isRevealLocked()
-                    ? withAlpha(darkenColor(visualDefinition.getBackgroundColor(), 0.18f), 0xD6)
-                    : styleMode == StyleMode.TECH_CARDS
+            int backgroundColor = styleMode == StyleMode.TECH_CARDS
                     ? withAlpha(darkenColor(visualDefinition.getBackgroundColor(), 0.48f), 0xF0)
                     : visualDefinition.getBackgroundColor();
-            int borderColor = context.isRevealLocked()
-                    ? darkenColor(visualDefinition.getBorderColor(), 0.20f)
-                    : styleMode == StyleMode.TECH_CARDS
+            int borderColor = styleMode == StyleMode.TECH_CARDS
                     ? brightenColor(visualDefinition.getAccentColor(), 0.10f)
                     : visualDefinition.getBorderColor();
 

@@ -160,7 +160,6 @@ public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
     }
 
     private void rebuildSections(List<ResearchInfoSection> sections) {
-        sectionsScroller.clearAllScrollViewChildren();
         sectionsContainer.clearAllChildren();
         for (ResearchInfoSection section : sections) {
             if (section.entries().isEmpty()) {
@@ -168,7 +167,6 @@ public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
             }
             sectionsContainer.addChild(createSectionElement(section));
         }
-        sectionsScroller.addScrollViewChild(sectionsContainer);
     }
 
     private UIElement createSectionElement(ResearchInfoSection section) {
