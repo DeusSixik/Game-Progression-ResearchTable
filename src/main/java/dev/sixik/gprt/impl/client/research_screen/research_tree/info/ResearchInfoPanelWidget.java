@@ -16,6 +16,14 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
  *     <li>Use {@link ResearchInfoPanelContext} to wire close / research / jump actions.</li>
  *     <li>Override {@code createInfoPanelWidget(...)} in the screen and return your widget.</li>
  * </ol>
+ *
+ * <p><b>Animation hooks:</b></p>
+ * <ul>
+ *     <li>{@link #onOpenAnimationStart()} - panel begins opening.</li>
+ *     <li>{@link #onOpenAnimationEnd()} - panel fully opened.</li>
+ *     <li>{@link #onCloseAnimationStart()} - panel begins closing.</li>
+ *     <li>{@link #onCloseAnimationEnd()} - panel fully closed.</li>
+ * </ul>
  */
 public abstract class ResearchInfoPanelWidget extends UIElement {
     private final ResearchInfoPanelContext context;
@@ -37,4 +45,32 @@ public abstract class ResearchInfoPanelWidget extends UIElement {
      * Updates the panel open/close animation progress in range {@code [0..1]}.
      */
     public abstract void setSlideProgress(float progress01);
+
+    /**
+     * Called exactly when the screen starts the opening animation.
+     * <p>
+     * Override this when a custom panel needs to start secondary effects such as
+     * label fades, sound effects or temporary interaction locks.
+     * </p>
+     */
+    public void onOpenAnimationStart() {
+    }
+
+    /**
+     * Called once the panel reaches the fully opened state.
+     */
+    public void onOpenAnimationEnd() {
+    }
+
+    /**
+     * Called exactly when the screen starts the closing animation.
+     */
+    public void onCloseAnimationStart() {
+    }
+
+    /**
+     * Called once the panel reaches the fully closed state.
+     */
+    public void onCloseAnimationEnd() {
+    }
 }

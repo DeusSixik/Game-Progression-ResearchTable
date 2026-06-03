@@ -81,6 +81,12 @@ import org.joml.Vector2f;
  *     {@link #startNextRevealAnimation()},
  *     {@link #updateRevealAnimationState()},
  *     {@link #finishActiveRevealAnimation()},
+ *     {@link #onRevealAnimationStart(ResearchNode)},
+ *     {@link #onRevealNodeAnimationStart(ResearchNode)},
+ *     {@link #onRevealNodeAnimationEnd(ResearchNode)},
+ *     {@link #onRevealLinkAnimationStart(ResearchNode)},
+ *     {@link #onRevealLinkAnimationEnd(ResearchNode)},
+ *     {@link #onRevealAnimationEnd(ResearchNode)},
  *     {@link #drawActiveRevealLinks(GUIContext)},
  *     {@link #drawRevealLinkProgress(GUIContext, ResearchLink, ResearchNode, ResearchNode, float)}</li>
  *     <li><b>Visibility / unlock logic:</b>
@@ -675,9 +681,14 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 targetOffsetY,
                 false,
                 false,
+                false,
+                false,
+                false,
+                false,
                 false
         );
 
+        onRevealAnimationStart(node);
         playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 0.85f);
         applyNodeRevealTransform(nodeId, 0f);
         syncResearchNodeVisibility();
@@ -711,14 +722,35 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         float nodeProgress = clamp01((elapsed - REVEAL_NODE_DELAY_MS) / (float) REVEAL_NODE_DURATION_MS);
         applyNodeRevealTransform(node.getId(), nodeProgress);
 
+        if (!activeRevealAnimation.nodeAnimationStarted() && elapsed >= REVEAL_NODE_DELAY_MS) {
+            onRevealNodeAnimationStart(node);
+            activeRevealAnimation = activeRevealAnimation.withNodeAnimationStarted();
+        }
+
         if (!activeRevealAnimation.nodeDropSoundPlayed() && elapsed >= REVEAL_NODE_DELAY_MS) {
             playRevealSound(GPTRSounds.SPIT_OUT.get(), 1.0f, 1.05f);
             activeRevealAnimation = activeRevealAnimation.withNodeDropSoundPlayed();
         }
 
+        if (!activeRevealAnimation.linkAnimationStarted() && elapsed >= REVEAL_LINK_DELAY_MS) {
+            onRevealLinkAnimationStart(node);
+            activeRevealAnimation = activeRevealAnimation.withLinkAnimationStarted();
+        }
+
         if (!activeRevealAnimation.linkConnectSoundPlayed() && elapsed >= REVEAL_LINK_DELAY_MS) {
             playRevealSound(GPTRSounds.SUCK_IN.get(), 1.0f, 1.18f);
             activeRevealAnimation = activeRevealAnimation.withLinkConnectSoundPlayed();
+        }
+
+        if (!activeRevealAnimation.nodeAnimationFinished() && nodeProgress >= 1f) {
+            onRevealNodeAnimationEnd(node);
+            activeRevealAnimation = activeRevealAnimation.withNodeAnimationFinished();
+        }
+
+        float lineProgress = clamp01((elapsed - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
+        if (!activeRevealAnimation.linkAnimationFinished() && lineProgress >= 1f) {
+            onRevealLinkAnimationEnd(node);
+            activeRevealAnimation = activeRevealAnimation.withLinkAnimationFinished();
         }
 
         if (elapsed >= REVEAL_STEP_DURATION_MS) {
@@ -731,7 +763,26 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
+        ResearchNode node = getNodeById(activeRevealAnimation.nodeId());
+        if (node != null) {
+            if (!activeRevealAnimation.nodeAnimationStarted()) {
+                onRevealNodeAnimationStart(node);
+            }
+            if (!activeRevealAnimation.nodeAnimationFinished()) {
+                onRevealNodeAnimationEnd(node);
+            }
+            if (!activeRevealAnimation.linkAnimationStarted()) {
+                onRevealLinkAnimationStart(node);
+            }
+            if (!activeRevealAnimation.linkAnimationFinished()) {
+                onRevealLinkAnimationEnd(node);
+            }
+        }
+
         resetNodeRevealTransform(activeRevealAnimation.nodeId());
+        if (node != null) {
+            onRevealAnimationEnd(node);
+        }
         activeRevealAnimation = null;
         syncResearchNodeVisibility();
         invalidateLinkGeometry();
@@ -1426,6 +1477,50 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     /**
+     * Called once when a newly unlocked research starts its full reveal sequence.
+     * <p>
+     * This is the earliest hook in the cinematic lifecycle: the node is selected for reveal,
+     * the camera target is chosen and the widget becomes managed by the temporary reveal state.
+     * </p>
+     */
+    protected void onRevealAnimationStart(ResearchNode node) {
+    }
+
+    /**
+     * Called when the node "drop / scale" part of the reveal begins.
+     */
+    protected void onRevealNodeAnimationStart(ResearchNode node) {
+    }
+
+    /**
+     * Called when the node "drop / scale" part reaches its final transform.
+     */
+    protected void onRevealNodeAnimationEnd(ResearchNode node) {
+    }
+
+    /**
+     * Called when the animated dependency-line connection starts.
+     */
+    protected void onRevealLinkAnimationStart(ResearchNode node) {
+    }
+
+    /**
+     * Called when the animated dependency-line connection finishes.
+     */
+    protected void onRevealLinkAnimationEnd(ResearchNode node) {
+    }
+
+    /**
+     * Called once when the full reveal step ends for the current node.
+     * <p>
+     * At this point the node transform is reset to identity and the screen is ready to continue
+     * with the next queued reveal, if any.
+     * </p>
+     */
+    protected void onRevealAnimationEnd(ResearchNode node) {
+    }
+
+    /**
      * Hook for subclasses to refresh their own widgets or auxiliary UI after progression changes.
      */
     protected void onResearchProgressionUpdated() {
@@ -1573,7 +1668,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                                    float cameraTargetOffsetY,
                                    boolean nodeEnterSoundPlayed,
                                    boolean nodeDropSoundPlayed,
-                                   boolean linkConnectSoundPlayed) {
+                                   boolean linkConnectSoundPlayed,
+                                   boolean nodeAnimationStarted,
+                                   boolean nodeAnimationFinished,
+                                   boolean linkAnimationStarted,
+                                   boolean linkAnimationFinished) {
         private RevealAnimation withNodeDropSoundPlayed() {
             return new RevealAnimation(
                     nodeId,
@@ -1584,7 +1683,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                     cameraTargetOffsetY,
                     nodeEnterSoundPlayed,
                     true,
-                    linkConnectSoundPlayed
+                    linkConnectSoundPlayed,
+                    nodeAnimationStarted,
+                    nodeAnimationFinished,
+                    linkAnimationStarted,
+                    linkAnimationFinished
             );
         }
 
@@ -1598,6 +1701,82 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                     cameraTargetOffsetY,
                     nodeEnterSoundPlayed,
                     nodeDropSoundPlayed,
+                    true,
+                    nodeAnimationStarted,
+                    nodeAnimationFinished,
+                    linkAnimationStarted,
+                    linkAnimationFinished
+            );
+        }
+
+        private RevealAnimation withNodeAnimationStarted() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    nodeDropSoundPlayed,
+                    linkConnectSoundPlayed,
+                    true,
+                    nodeAnimationFinished,
+                    linkAnimationStarted,
+                    linkAnimationFinished
+            );
+        }
+
+        private RevealAnimation withNodeAnimationFinished() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    nodeDropSoundPlayed,
+                    linkConnectSoundPlayed,
+                    nodeAnimationStarted,
+                    true,
+                    linkAnimationStarted,
+                    linkAnimationFinished
+            );
+        }
+
+        private RevealAnimation withLinkAnimationStarted() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    nodeDropSoundPlayed,
+                    linkConnectSoundPlayed,
+                    nodeAnimationStarted,
+                    nodeAnimationFinished,
+                    true,
+                    linkAnimationFinished
+            );
+        }
+
+        private RevealAnimation withLinkAnimationFinished() {
+            return new RevealAnimation(
+                    nodeId,
+                    startedAtMs,
+                    cameraStartOffsetX,
+                    cameraStartOffsetY,
+                    cameraTargetOffsetX,
+                    cameraTargetOffsetY,
+                    nodeEnterSoundPlayed,
+                    nodeDropSoundPlayed,
+                    linkConnectSoundPlayed,
+                    nodeAnimationStarted,
+                    nodeAnimationFinished,
+                    linkAnimationStarted,
                     true
             );
         }

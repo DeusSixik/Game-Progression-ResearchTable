@@ -92,6 +92,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private float detailsPanelTargetProgress;
     private float detailsPanelAnimationStartProgress;
     private long detailsPanelAnimationStartedAtMs;
+    private DetailsPanelAnimationPhase detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSED;
     private boolean tablePlaceholderVisible;
     private int rootNodeId = -1;
 
@@ -390,6 +391,11 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private void closeDetailsPanel() {
+        if (overlayPanel != null) {
+            // Show the helper overlay immediately under the sliding panel so it is already
+            // present by the time the close animation finishes.
+            overlayPanel.setDisplay(true);
+        }
         startDetailsPanelAnimation(0f);
     }
 
@@ -497,10 +503,22 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
         detailsPanel.setSlideProgress(detailsPanelProgress);
 
+        if (detailsPanelTargetProgress >= 1f && detailsPanelProgress >= 1f) {
+            if (detailsPanelAnimationPhase != DetailsPanelAnimationPhase.OPEN) {
+                detailsPanelAnimationPhase = DetailsPanelAnimationPhase.OPEN;
+                detailsPanel.onOpenAnimationEnd();
+            }
+            return;
+        }
+
         if (detailsPanelTargetProgress <= 0f && detailsPanelProgress <= 0f) {
             detailsPanel.setDisplay(false);
             if (overlayPanel != null) {
                 overlayPanel.setDisplay(true);
+            }
+            if (detailsPanelAnimationPhase != DetailsPanelAnimationPhase.CLOSED) {
+                detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSED;
+                detailsPanel.onCloseAnimationEnd();
             }
         }
     }
@@ -508,21 +526,51 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     private void startDetailsPanelAnimation(float targetProgress) {
         float clampedTarget = clamp01(targetProgress);
         long nowMs = System.currentTimeMillis();
+        boolean opening = clampedTarget > detailsPanelProgress;
+        boolean closing = clampedTarget < detailsPanelProgress;
 
-        if (detailsPanel != null && clampedTarget > 0f) {
-            detailsPanel.setDisplay(true);
-        }
-        if (overlayPanel != null && clampedTarget > 0f) {
-            overlayPanel.setDisplay(false);
-        }
-
-        updateDetailsPanelAnimation(nowMs);
         detailsPanelAnimationStartProgress = detailsPanelProgress;
         detailsPanelTargetProgress = clampedTarget;
         detailsPanelAnimationStartedAtMs = nowMs;
 
+        if (detailsPanel != null && clampedTarget > 0f) {
+            detailsPanel.setDisplay(true);
+            // A tiny non-zero progress keeps the first opening frame visible instead of
+            // instantly hiding the widget again when the previous state was fully closed.
+            detailsPanel.setSlideProgress(Math.max(detailsPanelProgress, 0.001f));
+            if (opening && detailsPanelAnimationPhase != DetailsPanelAnimationPhase.OPENING) {
+                detailsPanelAnimationPhase = DetailsPanelAnimationPhase.OPENING;
+                detailsPanel.onOpenAnimationStart();
+            }
+        }
+        if (overlayPanel != null && clampedTarget > 0f) {
+            overlayPanel.setDisplay(false);
+        }
+        if (detailsPanel != null && closing && detailsPanelAnimationPhase != DetailsPanelAnimationPhase.CLOSING) {
+            detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSING;
+            detailsPanel.onCloseAnimationStart();
+        }
+
         if (Math.abs(detailsPanelAnimationStartProgress - detailsPanelTargetProgress) < 0.0001f) {
             detailsPanelProgress = detailsPanelTargetProgress;
+            if (detailsPanel != null) {
+                detailsPanel.setSlideProgress(detailsPanelProgress);
+                if (detailsPanelProgress <= 0f) {
+                    detailsPanel.setDisplay(false);
+                }
+            }
+            if (overlayPanel != null && detailsPanelProgress <= 0f) {
+                overlayPanel.setDisplay(true);
+            }
+            if (detailsPanel != null) {
+                if (detailsPanelProgress >= 1f && detailsPanelAnimationPhase != DetailsPanelAnimationPhase.OPEN) {
+                    detailsPanelAnimationPhase = DetailsPanelAnimationPhase.OPEN;
+                    detailsPanel.onOpenAnimationEnd();
+                } else if (detailsPanelProgress <= 0f && detailsPanelAnimationPhase != DetailsPanelAnimationPhase.CLOSED) {
+                    detailsPanelAnimationPhase = DetailsPanelAnimationPhase.CLOSED;
+                    detailsPanel.onCloseAnimationEnd();
+                }
+            }
         }
     }
 
@@ -721,5 +769,12 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
 
             addChildren(screen.createDetailsPanel(), screen.createTablePlaceholderOverlay());
         }
+    }
+
+    private enum DetailsPanelAnimationPhase {
+        CLOSED,
+        OPENING,
+        OPEN,
+        CLOSING
     }
 }

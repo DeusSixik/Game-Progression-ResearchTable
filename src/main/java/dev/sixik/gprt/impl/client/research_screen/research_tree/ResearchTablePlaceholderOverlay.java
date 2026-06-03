@@ -8,6 +8,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
+import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,8 +64,10 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
 
         completeButton = new Button().setText("Complete Placeholder")
                 .setOnClick(event -> onComplete.run());
+        completeButton.layout(layout -> layout.flex(1));
         cancelButton = new Button().setText("Cancel Session")
                 .setOnClick(event -> onCancel.run());
+        cancelButton.layout(layout -> layout.flex(1));
         Button closeButton = new Button().setText("X")
                 .setOnClick(event -> onClose.run());
         closeButton.layout(layout -> layout
@@ -75,7 +78,14 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
                 .height(18)
         );
 
-        panel.addChildren(titleLabel, descriptionLabel, completeButton, cancelButton, closeButton);
+        UIElement footer = new UIElement()
+                .layout(layout -> layout
+                        .widthPercent(100)
+                        .gapAll(6)
+                        .flexDirection(FlexDirection.ROW));
+
+        footer.addChildren(completeButton, cancelButton);
+        panel.addChildren(titleLabel, descriptionLabel, footer, closeButton);
         addChildren(panel);
     }
 
