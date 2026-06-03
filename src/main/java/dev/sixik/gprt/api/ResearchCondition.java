@@ -15,6 +15,7 @@ import java.util.Objects;
 public final class ResearchCondition {
     public enum Kind {
         CUSTOM,
+        STAGE,
         ITEM,
         INGREDIENT
     }
@@ -51,6 +52,10 @@ public final class ResearchCondition {
 
     public static ResearchCondition ingredient(Ingredient ingredient) {
         return new ResearchCondition(Kind.INGREDIENT, "", "", ItemStack.EMPTY, ingredient);
+    }
+
+    public static ResearchCondition stage(String stage) {
+        return new ResearchCondition(Kind.STAGE, "", stage, ItemStack.EMPTY, Ingredient.EMPTY);
     }
 
     public Kind getKind() {

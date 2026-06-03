@@ -269,6 +269,13 @@ public final class ResearchDefinition {
         }
 
         /**
+         * Adds one stage condition value.
+         */
+        public Builder stage(String stage) {
+            return condition(ResearchCondition.stage(stage));
+        }
+
+        /**
          * Adds an item-backed condition.
          */
         public Builder condition(ItemStack stack) {

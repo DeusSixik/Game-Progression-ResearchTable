@@ -1,6 +1,5 @@
 package dev.sixik.gprt.impl.client.research_screen.research_table;
 
-import com.lowdragmc.lowdraglib2.registry.annotation.LDLRegisterClient;
 import dev.sixik.gprt.api.ResearchCondition;
 import dev.sixik.gprt.api.ResearchDefinition;
 import dev.sixik.gprt.api.ResearchGroupDefinition;
@@ -14,15 +13,11 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.sixik.gprt.impl.client.research_screen.research_table.info.TableInfoPanelWidget;
+import dev.sixik.gprt.impl.utils.ResearchUtils;
 import dev.sixik.gprt.test.GprtTests;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.level.block.Blocks;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,17 +68,6 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> DebugResearchNodeWidgetShowcase.StyleMode.TECH_CARDS);
     }
 
-    /*@Override
-    protected void configureNodeThemePresets(ResearchNodeGroupThemeResolver.Builder builder) {
-        DebugResearchNodeWidgetShowcase.configureThemePresets(
-                builder,
-                ROOT_GROUP,
-                METALLURGY_GROUP,
-                FARMING_GROUP,
-                LOGISTICS_GROUP
-        );
-    }*/
-
     @Override
     protected ResearchInfoContent buildInfoContent(ResearchNode node, ResearchState state) {
         ResearchInfoContent.Builder builder = createStandardInfoContentBuilder(node, state).build().toBuilder();
@@ -95,16 +79,18 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
             List<ResearchCondition> conditions = data.getConditions();
             if(conditions != null && !conditions.isEmpty()) {
 
-                //TODO: Conditions complete detected
                 builder.section("Conditions", section -> {
                     for (ResearchCondition condition : conditions) {
-                        boolean isCompleted = false;
-
                         switch (condition.getKind()) {
-                            case ITEM -> section.conditionItem(condition.getStack().getDisplayName().getString(), condition.getStack(), isCompleted);
+                            case ITEM -> section.conditionItem(condition.getStack().getDisplayName().getString(), condition.getStack(),
+                                    ResearchUtils.hasPlayerItem(Minecraft.getInstance().player, condition.getStack()));
                             case INGREDIENT -> section.condition(entry -> entry
                                     .ingredient(condition.getIngredient())
-                                    .completed(isCompleted)
+                                    .completed(ResearchUtils.hasPlayerIngredient(Minecraft.getInstance().player, condition.getIngredient()))
+                            );
+                            case STAGE -> section.condition(entry -> entry
+                                    .text("Stage: '" + condition.getValue() + "'")
+                                    .completed(ResearchUtils.hasStage(condition.getValue()))
                             );
                             case CUSTOM -> section.condition(entry -> entry
                                     .text(condition.getKey())
@@ -142,16 +128,11 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return areResearchConditionsMet(node);
     }
 
-    private boolean isNodeStudiedByKey(String researchKey) {
-        for (ResearchNode node : nodes) {
-            if (researchKey.equals(node.getResearchKey())) {
-                return node.isStudied();
-            }
-        }
-        return false;
-    }
-
     private boolean areResearchConditionsMet(ResearchNode node) {
+        if (!areParentResearchRequirementsMet(node)) {
+            return false;
+        }
+
         dev.sixik.gprt.api.ResearchDefinition definition = researchDefinitionsByKey.get(node.getResearchKey());
         if (definition == null || definition.getConditions().isEmpty()) {
             return true;
@@ -170,47 +151,47 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return true;
     }
 
+    private boolean areParentResearchRequirementsMet(ResearchNode node) {
+        var parents = collectParentNodes(node);
+        if (parents.isEmpty()) {
+            return true;
+        }
+
+        return switch (node.getVisibilityMode()) {
+            case ALWAYS_VISIBLE, REQUIRE_ALL_PARENTS_STUDIED -> areAllParentsStudied(parents);
+            case REQUIRE_ANY_PARENT_STUDIED -> hasAnyStudiedParent(parents);
+        };
+    }
+
+    private boolean hasAnyStudiedParent(Iterable<ResearchNode> parents) {
+        for (ResearchNode parent : parents) {
+            if (parent != null && parent.isStudied()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean areAllParentsStudied(Iterable<ResearchNode> parents) {
+        for (ResearchNode parent : parents) {
+            if (parent == null || !parent.isStudied()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean isConditionMet(LocalPlayer player, ResearchCondition condition) {
         if (condition == null) {
             return true;
         }
 
         return switch (condition.getKind()) {
-            case ITEM -> inventoryContainsExactStack(player, condition.getStack());
-            case INGREDIENT -> inventoryContainsIngredient(player, condition.getIngredient());
+            case ITEM -> ResearchUtils.hasPlayerItem(player, condition.getStack());
+            case INGREDIENT -> ResearchUtils.hasPlayerIngredient(player, condition.getIngredient());
+            case STAGE -> ResearchUtils.hasStage(condition.getValue());
             case CUSTOM -> true;
         };
-    }
-
-    private boolean inventoryContainsExactStack(LocalPlayer player, ItemStack requiredStack) {
-        if (requiredStack.isEmpty()) {
-            return true;
-        }
-
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            if (ItemStack.isSameItemSameComponents(stack, requiredStack) && stack.getCount() >= requiredStack.getCount()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean inventoryContainsIngredient(LocalPlayer player, Ingredient ingredient) {
-        if (ingredient == null || ingredient.isEmpty()) {
-            return true;
-        }
-
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (!stack.isEmpty() && ingredient.test(stack)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean containsResearch(GprtTests.BuildData data, String researchKey) {

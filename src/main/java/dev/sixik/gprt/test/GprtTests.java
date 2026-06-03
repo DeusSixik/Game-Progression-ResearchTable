@@ -39,8 +39,9 @@ public class GprtTests {
                 .description("Controlled fire opens the way to cooking, heat and chemistry.")
                 .required("primitive_tools")
                 .condition(Items.FLINT)
+                .stage("my_stage")
                 .reward(Items.FLINT_AND_STEEL)
-                .table()
+                .timed(4_000)
                 .build());
 
         definitions.add(research("observation", "Observation", root)
