@@ -15,6 +15,9 @@ public final class ResearchNodeTheme {
     private final boolean subtitleVisible;
     private final boolean iconVisible;
     private final boolean progressVisible;
+    private final boolean titleTextShadow;
+    private final boolean subtitleTextShadow;
+    private final boolean badgeTextShadow;
     private final int primaryColor;
     private final int secondaryColor;
     private final @Nullable Integer accentColor;
@@ -32,6 +35,9 @@ public final class ResearchNodeTheme {
         this.subtitleVisible = builder.subtitleVisible;
         this.iconVisible = builder.iconVisible;
         this.progressVisible = builder.progressVisible;
+        this.titleTextShadow = builder.titleTextShadow;
+        this.subtitleTextShadow = builder.subtitleTextShadow;
+        this.badgeTextShadow = builder.badgeTextShadow;
         this.primaryColor = builder.primaryColor;
         this.secondaryColor = builder.secondaryColor;
         this.accentColor = builder.accentColor;
@@ -55,6 +61,9 @@ public final class ResearchNodeTheme {
                 .subtitleVisible(subtitleVisible)
                 .iconVisible(iconVisible)
                 .progressVisible(progressVisible)
+                .titleTextShadow(titleTextShadow)
+                .subtitleTextShadow(subtitleTextShadow)
+                .badgeTextShadow(badgeTextShadow)
                 .primaryColor(primaryColor)
                 .secondaryColor(secondaryColor)
                 .accentColor(accentColor)
@@ -82,6 +91,18 @@ public final class ResearchNodeTheme {
 
     public boolean isProgressVisible() {
         return progressVisible;
+    }
+
+    public boolean hasTitleTextShadow() {
+        return titleTextShadow;
+    }
+
+    public boolean hasSubtitleTextShadow() {
+        return subtitleTextShadow;
+    }
+
+    public boolean hasBadgeTextShadow() {
+        return badgeTextShadow;
     }
 
     public int getPrimaryColor() {
@@ -140,6 +161,9 @@ public final class ResearchNodeTheme {
      * <ul>
      *     <li>{@link #titleVisible(boolean)}, {@link #subtitleVisible(boolean)}, {@link #iconVisible(boolean)} -
      *     content visibility defaults;</li>
+     *     <li>{@link #textShadow(boolean)}, {@link #titleTextShadow(boolean)},
+     *     {@link #subtitleTextShadow(boolean)}, {@link #badgeTextShadow(boolean)} -
+     *     text-shadow controls;</li>
      *     <li>{@link #primaryColor(int)}, {@link #secondaryColor(int)}, {@link #accentColor(Integer)} -
      *     semantic palette;</li>
      *     <li>{@link #iconPath(String)}, {@link #badgeText(String)}, {@link #badge(String, int)} -
@@ -155,6 +179,9 @@ public final class ResearchNodeTheme {
         private boolean subtitleVisible = true;
         private boolean iconVisible;
         private boolean progressVisible = true;
+        private boolean titleTextShadow = true;
+        private boolean subtitleTextShadow = true;
+        private boolean badgeTextShadow = true;
         private int primaryColor = 0xFF67B7FF;
         private int secondaryColor = 0xFF67B7FF;
         private @Nullable Integer accentColor;
@@ -213,6 +240,50 @@ public final class ResearchNodeTheme {
 
         public Builder showProgress(boolean progressVisible) {
             return progressVisible(progressVisible);
+        }
+
+        /**
+         * Convenience helper that applies one shadow flag to title, subtitle and badge text.
+         * <p>
+         * Use the more specific setters when you want fine-grained control per text role.
+         * </p>
+         */
+        public Builder textShadow(boolean textShadow) {
+            this.titleTextShadow = textShadow;
+            this.subtitleTextShadow = textShadow;
+            this.badgeTextShadow = textShadow;
+            return this;
+        }
+
+        /**
+         * Friendly alias for {@link #textShadow(boolean)} that disables the shadow in one call.
+         */
+        public Builder noTextShadow() {
+            return textShadow(false);
+        }
+
+        /**
+         * Controls whether the title should use LDLib's drop shadow.
+         */
+        public Builder titleTextShadow(boolean titleTextShadow) {
+            this.titleTextShadow = titleTextShadow;
+            return this;
+        }
+
+        /**
+         * Controls whether the subtitle should use LDLib's drop shadow.
+         */
+        public Builder subtitleTextShadow(boolean subtitleTextShadow) {
+            this.subtitleTextShadow = subtitleTextShadow;
+            return this;
+        }
+
+        /**
+         * Controls whether the badge text should use LDLib's drop shadow.
+         */
+        public Builder badgeTextShadow(boolean badgeTextShadow) {
+            this.badgeTextShadow = badgeTextShadow;
+            return this;
         }
 
         /**

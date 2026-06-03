@@ -551,12 +551,14 @@ public final class DebugResearchNodeWidgetShowcase {
                         .textAlignHorizontal(Horizontal.LEFT)
                         .textWrap(TextWrap.WRAP)
                         .adaptiveHeight(true)
+                        .textShadow(visualDefinition.hasTitleTextShadow())
                         .textColor(0xFFEFF7FF));
                 subtitleLabel.textStyle(style -> style
                         .fontSize(7f)
                         .textAlignHorizontal(Horizontal.LEFT)
                         .textWrap(TextWrap.WRAP)
                         .adaptiveHeight(true)
+                        .textShadow(visualDefinition.hasSubtitleTextShadow())
                         .textColor(0xFF8FA6C4));
                 return;
             }
@@ -580,12 +582,14 @@ public final class DebugResearchNodeWidgetShowcase {
                             .textAlignHorizontal(Horizontal.CENTER)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasTitleTextShadow())
                             .textColor(0xFFF7FBFF));
                     subtitleLabel.textStyle(style -> style
                             .fontSize(7f)
                             .textAlignHorizontal(Horizontal.CENTER)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasSubtitleTextShadow())
                             .textColor(0xFFDDEBFF));
                 }
                 case METALLURGY_LEFT -> {
@@ -606,12 +610,14 @@ public final class DebugResearchNodeWidgetShowcase {
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasTitleTextShadow())
                             .textColor(0xFFFFF6E8));
                     subtitleLabel.textStyle(style -> style
                             .fontSize(7f)
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasSubtitleTextShadow())
                             .textColor(0xFFFFD9A7));
                 }
                 case FARMING_BOTTOM_BANNER -> {
@@ -632,12 +638,14 @@ public final class DebugResearchNodeWidgetShowcase {
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasTitleTextShadow())
                             .textColor(0xFF0E2313));
                     subtitleLabel.textStyle(style -> style
                             .fontSize(7f)
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasSubtitleTextShadow())
                             .textColor(0xFFE5F8DD));
                 }
                 case LOGISTICS_SPLIT -> {
@@ -658,13 +666,15 @@ public final class DebugResearchNodeWidgetShowcase {
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
+                            .textShadow(visualDefinition.hasTitleTextShadow())
                             .textColor(0xFFEFF7FF));
                     subtitleLabel.textStyle(style -> style
                             .fontSize(7f)
                             .textAlignHorizontal(Horizontal.LEFT)
                             .textWrap(TextWrap.WRAP)
                             .adaptiveHeight(true)
-                    .textColor(0xFFB9D8FF));
+                            .textShadow(visualDefinition.hasSubtitleTextShadow())
+                            .textColor(0xFFB9D8FF));
                 }
             }
         }
@@ -703,6 +713,7 @@ public final class DebugResearchNodeWidgetShowcase {
                     .fontSize(6.5f)
                     .textAlignHorizontal(Horizontal.CENTER)
                     .adaptiveHeight(true)
+                    .textShadow(visualDefinition.hasBadgeTextShadow())
                     .textColor(0xFF11161D));
 
             if (styleMode == StyleMode.TECH_CARDS) {

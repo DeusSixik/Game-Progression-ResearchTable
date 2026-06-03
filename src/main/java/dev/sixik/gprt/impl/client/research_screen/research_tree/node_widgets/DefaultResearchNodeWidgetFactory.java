@@ -175,6 +175,7 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
                     .fontSize(resolveTitleFontSize(visualDefinition.getSizePreset()))
                     .textWrap(TextWrap.WRAP)
                     .adaptiveHeight(true)
+                    .textShadow(visualDefinition.hasTitleTextShadow())
                     .textAlignHorizontal(visualDefinition.getTitleAlignment() == ResearchNodeVisualDefinition.TitleAlignment.CENTER
                             ? Horizontal.CENTER
                             : Horizontal.LEFT)
@@ -186,6 +187,12 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
             badgeLabel.setDisplay(showBadge);
             if (showBadge) {
                 badgeLabel.setText(visualDefinition.getBadgeText());
+                badgeLabel.textStyle(style -> style
+                        .fontSize(7f)
+                        .textAlignHorizontal(Horizontal.CENTER)
+                        .adaptiveHeight(true)
+                        .textShadow(visualDefinition.hasBadgeTextShadow())
+                        .textColor(0xFF091018));
                 badgeLabel.style(style -> style.backgroundTexture(
                         GuiTextureGroup.of(
                                 new ColorRectTexture(visualDefinition.getBadgeColor()),
@@ -208,6 +215,7 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
                     .fontSize(resolveSubtitleFontSize(visualDefinition.getSizePreset()))
                     .textWrap(TextWrap.WRAP)
                     .adaptiveHeight(true)
+                    .textShadow(visualDefinition.hasSubtitleTextShadow())
                     .textColor(resolveSubtitleColor(context.getState())));
         }
 
