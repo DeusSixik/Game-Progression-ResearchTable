@@ -23,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2f;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -222,10 +223,7 @@ public class AdvancedGraphView<
      */
     protected void drawCachedLineBatches(GUIContext guiContext) {
         ObjectArrayList<LineBatch> orderedBatches = new ObjectArrayList<>(lineBatchesByStyle.values());
-        orderedBatches.sort((left, right) -> Integer.compare(
-                left.renderPriority,
-                right.renderPriority
-        ));
+        orderedBatches.sort(Comparator.comparingInt(left -> left.renderPriority));
 
         for (LineBatch batch : orderedBatches) {
             drawLineBatch(guiContext, batch);

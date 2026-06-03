@@ -37,6 +37,11 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private static final String FARMING_GROUP_ID = "farming";
     private static final String LOGISTICS_GROUP_ID = "logistics";
 
+    private Label revealStageLabel;
+    private Label revealNodeLabel;
+    private Label revealNodeProgressLabel;
+    private Label revealLinkProgressLabel;
+
     public ResearchTreeScreenDebug() {
         autoLayoutConfig()
                 .origin(0f, 0f)
@@ -62,11 +67,17 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
         UIElement groupButtons = new UIElement()
                 .layout(layout -> layout.widthPercent(100).gapAll(4));
+        UIElement revealDebugPanel = new UIElement()
+                .layout(layout -> layout.widthPercent(100).paddingAll(6).gapAll(2))
+                .style(style -> style.backgroundTexture(new ColorRectTexture(0x66253446)));
 
         cameraButtons.addChildren(
                 new Button().setText("Fit").setOnClick(event -> fitToChildren(80f, 0.35f)),
                 new Button().setText("Center Root").setOnClick(event -> centerRootNode()),
-                new Button().setText("Reset Demo").setOnClick(event -> resetProgressState())
+                new Button().setText("Reset Demo").setOnClick(event -> {
+                    resetRevealDebugState();
+                    resetProgressState();
+                })
         );
 
         groupButtons.addChildren(
@@ -77,6 +88,23 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Button().setText("Clear Mark").setOnClick(event -> clearFocusedGroup())
         );
 
+        revealStageLabel = new Label();
+        revealStageLabel.setText("Reveal Stage: idle");
+        revealNodeLabel = new Label();
+        revealNodeLabel.setText("Reveal Node: -");
+        revealNodeProgressLabel = new Label();
+        revealNodeProgressLabel.setText("Node Progress: -");
+        revealLinkProgressLabel = new Label();
+        revealLinkProgressLabel.setText("Link Progress: -");
+        revealDebugPanel.addChildren(
+                new Label().setText("Reveal Hook Debug"),
+                new Label().setText("This block is updated from onReveal... hooks in real time."),
+                revealStageLabel,
+                revealNodeLabel,
+                revealNodeProgressLabel,
+                revealLinkProgressLabel
+        );
+
         panel.addChildren(
                 new Label().setText("ResearchTree progression demo"),
                 new Label().setText("Shared UI now lives in ResearchTreeScreenMainScreen."),
@@ -84,7 +112,8 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 new Label().setText("Table research reuses the built-in placeholder overlay."),
                 new Label().setText("This class now mostly defines data and screen-specific controls."),
                 cameraButtons,
-                groupButtons
+                groupButtons,
+                revealDebugPanel
         );
 
         return panel;
@@ -262,6 +291,59 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         return builder.build();
     }
 
+    @Override
+    protected void onRevealAnimationStart(ResearchNode node) {
+        setRevealDebugStage("sequence-start", node);
+        revealNodeProgressLabel.setText("Node Progress: waiting for node phase");
+        revealLinkProgressLabel.setText("Link Progress: waiting for line phase");
+    }
+
+    @Override
+    protected void onRevealNodeAnimationStart(ResearchNode node) {
+        setRevealDebugStage("node-start", node);
+    }
+
+    @Override
+    protected void onRevealNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
+        setRevealNodeLabel(node);
+        revealNodeProgressLabel.setText(
+                "Node Progress: "
+                        + formatPercent(progress01)
+                        + " | scale "
+                        + formatNumber(currentScale)
+                        + " | y "
+                        + formatNumber(currentTranslateY)
+        );
+    }
+
+    @Override
+    protected void onRevealNodeAnimationEnd(ResearchNode node) {
+        setRevealDebugStage("node-end", node);
+    }
+
+    @Override
+    protected void onRevealLinkAnimationStart(ResearchNode node) {
+        setRevealDebugStage("links-start", node);
+    }
+
+    @Override
+    protected void onRevealLinkProgress(ResearchNode node, float progress01) {
+        setRevealNodeLabel(node);
+        revealLinkProgressLabel.setText("Link Progress: " + formatPercent(progress01));
+    }
+
+    @Override
+    protected void onRevealLinkAnimationEnd(ResearchNode node) {
+        setRevealDebugStage("links-end", node);
+    }
+
+    @Override
+    protected void onRevealAnimationEnd(ResearchNode node) {
+        setRevealDebugStage("sequence-end", node);
+        revealNodeProgressLabel.setText("Node Progress: complete");
+        revealLinkProgressLabel.setText("Link Progress: complete");
+    }
+
     private ResearchInfoContent buildFactoryShowcaseContent(ResearchNode node, ResearchState state) {
         // Example 2: build a details panel almost fully by hand through ResearchInfoContentFactory.
         ResearchInfoContentFactory.Builder builder = ResearchInfoContentFactory.forNode(node)
@@ -310,6 +392,43 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
             }
         }
         return false;
+    }
+
+    private void resetRevealDebugState() {
+        if (revealStageLabel != null) {
+            revealStageLabel.setText("Reveal Stage: idle");
+        }
+        if (revealNodeLabel != null) {
+            revealNodeLabel.setText("Reveal Node: -");
+        }
+        if (revealNodeProgressLabel != null) {
+            revealNodeProgressLabel.setText("Node Progress: -");
+        }
+        if (revealLinkProgressLabel != null) {
+            revealLinkProgressLabel.setText("Link Progress: -");
+        }
+    }
+
+    private void setRevealDebugStage(String stage, ResearchNode node) {
+        if (revealStageLabel != null) {
+            revealStageLabel.setText("Reveal Stage: " + stage);
+        }
+        setRevealNodeLabel(node);
+    }
+
+    private void setRevealNodeLabel(ResearchNode node) {
+        if (revealNodeLabel != null) {
+            String title = node.getTitle() != null ? node.getTitle() : ("Node " + node.getId());
+            revealNodeLabel.setText("Reveal Node: " + title + " [" + node.getId() + "]");
+        }
+    }
+
+    private String formatPercent(float value) {
+        return Math.round(Math.max(0f, Math.min(1f, value)) * 100f) + "%";
+    }
+
+    private String formatNumber(float value) {
+        return String.format("%.2f", value);
     }
 
     private static ResearchDefinition instantDefinition(String key, String title, String description) {

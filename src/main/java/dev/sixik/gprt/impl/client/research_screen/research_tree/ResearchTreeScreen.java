@@ -83,8 +83,10 @@ import org.joml.Vector2f;
  *     {@link #finishActiveRevealAnimation()},
  *     {@link #onRevealAnimationStart(ResearchNode)},
  *     {@link #onRevealNodeAnimationStart(ResearchNode)},
+ *     {@link #onRevealNodeProgress(ResearchNode, float, float, float)},
  *     {@link #onRevealNodeAnimationEnd(ResearchNode)},
  *     {@link #onRevealLinkAnimationStart(ResearchNode)},
+ *     {@link #onRevealLinkProgress(ResearchNode, float)},
  *     {@link #onRevealLinkAnimationEnd(ResearchNode)},
  *     {@link #onRevealAnimationEnd(ResearchNode)},
  *     {@link #drawActiveRevealLinks(GUIContext)},
@@ -742,12 +744,16 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             activeRevealAnimation = activeRevealAnimation.withLinkConnectSoundPlayed();
         }
 
+        float lineProgress = clamp01((elapsed - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
+        if (elapsed >= REVEAL_LINK_DELAY_MS) {
+            onRevealLinkProgress(node, lineProgress);
+        }
+
         if (!activeRevealAnimation.nodeAnimationFinished() && nodeProgress >= 1f) {
             onRevealNodeAnimationEnd(node);
             activeRevealAnimation = activeRevealAnimation.withNodeAnimationFinished();
         }
 
-        float lineProgress = clamp01((elapsed - REVEAL_LINK_DELAY_MS) / (float) REVEAL_LINK_DURATION_MS);
         if (!activeRevealAnimation.linkAnimationFinished() && lineProgress >= 1f) {
             onRevealLinkAnimationEnd(node);
             activeRevealAnimation = activeRevealAnimation.withLinkAnimationFinished();
@@ -768,12 +774,14 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             if (!activeRevealAnimation.nodeAnimationStarted()) {
                 onRevealNodeAnimationStart(node);
             }
+            onRevealNodeProgress(node, 1f, 1f, 0f);
             if (!activeRevealAnimation.nodeAnimationFinished()) {
                 onRevealNodeAnimationEnd(node);
             }
             if (!activeRevealAnimation.linkAnimationStarted()) {
                 onRevealLinkAnimationStart(node);
             }
+            onRevealLinkProgress(node, 1f);
             if (!activeRevealAnimation.linkAnimationFinished()) {
                 onRevealLinkAnimationEnd(node);
             }
@@ -796,6 +804,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
+        ResearchNode node = getNodeById(nodeId);
+        if (node == null) {
+            return;
+        }
+
         float easedScale = easeOutBack(progress);
         float easedDrop = easeOutBounce(progress);
         float scale = lerp(REVEAL_NODE_START_SCALE, 1.0f, easedScale);
@@ -805,6 +818,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 .pivot(0.5f, 0.5f)
                 .translate(0f, translateY)
                 .scale(scale)));
+
+        onRevealNodeProgress(node, progress, scale, translateY);
     }
 
     private void resetNodeRevealTransform(int nodeId) {
@@ -1493,6 +1508,17 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     /**
+     * Called on reveal updates while the node drop / scale animation is active.
+     * <p>
+     * {@code progress01} is the raw normalized stage progress in range {@code [0..1]}.
+     * {@code currentScale} and {@code currentTranslateY} are the final values that were just
+     * applied to the widget transform for this frame/update.
+     * </p>
+     */
+    protected void onRevealNodeProgress(ResearchNode node, float progress01, float currentScale, float currentTranslateY) {
+    }
+
+    /**
      * Called when the node "drop / scale" part reaches its final transform.
      */
     protected void onRevealNodeAnimationEnd(ResearchNode node) {
@@ -1502,6 +1528,15 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * Called when the animated dependency-line connection starts.
      */
     protected void onRevealLinkAnimationStart(ResearchNode node) {
+    }
+
+    /**
+     * Called on reveal updates while dependency lines are being drawn towards the node.
+     * <p>
+     * {@code progress01} is the current normalized line-draw progress in range {@code [0..1]}.
+     * </p>
+     */
+    protected void onRevealLinkProgress(ResearchNode node, float progress01) {
     }
 
     /**
