@@ -15,10 +15,12 @@ import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.sixik.gprt.registry.GPTRSounds;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.layout.DependencyTreeAutoLayout;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeManager;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.SplitFuseRevealRenderer;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.AdvancedGraphView;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
@@ -188,6 +190,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private final IntArrayList queuedUnlockAnimationNodeIds = new IntArrayList();
     private final IntOpenHashSet queuedUnlockAnimationNodeIdSet = new IntOpenHashSet();
     private @Nullable UnlockAnimation activeUnlockAnimation;
+    private final SplitFuseRevealRenderer splitFuseRevealRenderer = new SplitFuseRevealRenderer();
 
     public ResearchTreeScreen() {
         this(new ResearchNodeManager(), new ResearchNodeLinkManager());
@@ -549,9 +552,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
         updateUnlockAnimationState();
+        scheduleUnlockRevealSnapshotCapture(guiContext);
         super.drawBackgroundAdditional(guiContext);
         drawActiveUnlockAnimationLinks(guiContext);
         drawActiveUnlockNodeEffects(guiContext);
+        drawActiveUnlockNodeRevealLayer(guiContext);
         drawHighlightedGroupBounds(guiContext);
     }
 
@@ -662,6 +667,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         if (activeUnlockAnimation != null) {
             resetUnlockNodeTransform(activeUnlockAnimation.nodeId());
         }
+        releaseUnlockRevealSnapshot();
         activeUnlockAnimation = null;
         queuedUnlockAnimationNodeIds.clear();
         queuedUnlockAnimationNodeIdSet.clear();
@@ -718,6 +724,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private void startNextUnlockAnimation() {
         if (queuedUnlockAnimationNodeIds.isEmpty()) {
             activeUnlockAnimation = null;
+            releaseUnlockRevealSnapshot();
             return;
         }
 
@@ -729,6 +736,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
+        releaseUnlockRevealSnapshot();
         float targetOffsetX = computeCenteredOffsetX(node.centerX());
         float targetOffsetY = computeCenteredOffsetY(node.centerY());
         activeUnlockAnimation = new UnlockAnimation(
@@ -868,6 +876,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         UnlockNodeTransform transform = resolveUnlockNodeTransform(node, progress);
+        if (shouldHideLiveWidgetDuringUnlock(node)) {
+            widget.style(style -> style.transform2D(Transform2D.identity()));
+            onUnlockNodeProgress(node, progress, transform.scale(), transform.translateY());
+            return;
+        }
+
         float scale = transform.scale();
         float translateY = transform.translateY();
 
@@ -936,6 +950,15 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                         lerp(2.15f, 1.0f, bounce),
                         arcX,
                         arcY
+                );
+            }
+            case SPLIT_FUSE -> {
+                float eased = easeOutCubic(progress);
+                float settle = easeOutBack(progress);
+                yield new UnlockNodeTransform(
+                        lerp(1.18f, 1.0f, settle),
+                        0f,
+                        lerp(10f, 0f, eased)
                 );
             }
         };
@@ -1008,6 +1031,73 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         drawEllipseGlow(guiContext, centerX, centerY, radiusX, radiusY, glowColor, intensity);
     }
 
+    private void drawActiveUnlockNodeRevealLayer(GUIContext guiContext) {
+        if (activeUnlockAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
+        if (node == null || !isNodeVisible(node) || !shouldHideLiveWidgetDuringUnlock(node)) {
+            return;
+        }
+
+        long nowMs = System.currentTimeMillis();
+        float progress01 = getUnlockNodeAnimationProgress01(node, nowMs);
+        if (progress01 <= 0f) {
+            return;
+        }
+
+        ResearchNodeVisualDefinition visualDefinition = resolveRevealVisualDefinition(node, nowMs);
+
+        EnhancedPoseStack pose = guiContext.pose;
+        pose.pushPose();
+        pose.translate(getContentX(), getContentY(), 0f);
+        pose.scale(getScale(), getScale(), 1f);
+        pose.translate(-getOffsetX(), -getOffsetY(), 0f);
+
+        drawDetachedUnlockNodeReveal(guiContext, node, progress01, visualDefinition);
+
+        pose.popPose();
+    }
+
+    protected void drawDetachedUnlockNodeReveal(GUIContext guiContext,
+                                                ResearchNode node,
+                                                float progress01,
+                                                @Nullable ResearchNodeVisualDefinition visualDefinition
+    ) {
+        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
+        if (style == ResearchRevealAnimationStyle.SPLIT_FUSE) {
+            drawSplitFuseReveal(guiContext, node, progress01, visualDefinition);
+        }
+    }
+
+    protected void drawSplitFuseReveal(GUIContext guiContext,
+                                       ResearchNode node,
+                                       float progress01,
+                                       @Nullable ResearchNodeVisualDefinition visualDefinition
+    ) {
+        if (!splitFuseRevealRenderer.hasSnapshot(node.getId())) {
+            return;
+        }
+
+        UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        splitFuseRevealRenderer.draw(
+                guiContext,
+                node.getId(),
+                node.centerX(),
+                node.centerY(),
+                node.getWidth(),
+                node.getHeight(),
+                transform.scale(),
+                transform.translateX(),
+                transform.translateY(),
+                progress01,
+                resolveSplitFuseBackgroundColor(node, visualDefinition),
+                resolveSplitFuseBorderColor(node, visualDefinition),
+                resolveSplitFuseAccentColor(node, visualDefinition)
+        );
+    }
+
     private void drawActiveUnlockAnimationLinks(GUIContext guiContext) {
         if (activeUnlockAnimation == null) {
             return;
@@ -1067,6 +1157,52 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             );
             remaining -= consumed;
         }
+    }
+
+    private void scheduleUnlockRevealSnapshotCapture(GUIContext guiContext) {
+        if (splitFuseRevealRenderer.isCaptureScheduled() || activeUnlockAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
+        if (node == null || !isNodeVisible(node)) {
+            return;
+        }
+        if (resolveUnlockRevealAnimationStyle(node) != ResearchRevealAnimationStyle.SPLIT_FUSE) {
+            return;
+        }
+        if (hasUnlockRevealSnapshot(node.getId())) {
+            return;
+        }
+
+        splitFuseRevealRenderer.scheduleCapture(guiContext, () -> captureActiveUnlockRevealSnapshot(node));
+    }
+
+    private void captureActiveUnlockRevealSnapshot(ResearchNode node) {
+        if (activeUnlockAnimation == null || activeUnlockAnimation.nodeId() != node.getId()) {
+            return;
+        }
+        if (resolveUnlockRevealAnimationStyle(node) != ResearchRevealAnimationStyle.SPLIT_FUSE) {
+            return;
+        }
+        if (hasUnlockRevealSnapshot(node.getId())) {
+            return;
+        }
+
+        UIElement widget = getNodeWidget(node.getId());
+        float screenX = getContentX() + (node.getX() - getOffsetX()) * getScale();
+        float screenY = getContentY() + (node.getY() - getOffsetY()) * getScale();
+        float screenWidth = node.getWidth() * getScale();
+        float screenHeight = node.getHeight() * getScale();
+        splitFuseRevealRenderer.captureSnapshot(node, widget, screenX, screenY, screenWidth, screenHeight);
+    }
+
+    private boolean hasUnlockRevealSnapshot(int nodeId) {
+        return splitFuseRevealRenderer.hasSnapshot(nodeId);
+    }
+
+    private void releaseUnlockRevealSnapshot() {
+        splitFuseRevealRenderer.release();
     }
 
     private boolean isNodeWaitingForUnlockAnimation(int nodeId) {
@@ -1315,6 +1451,38 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return mixColors(getNodeGroupPrimaryColor(node), getNodeGroupSecondaryColor(node), 0.46f);
     }
 
+    protected boolean shouldHideLiveWidgetDuringUnlock(ResearchNode node) {
+        return node != null
+                && isUnlockAnimationNode(node)
+                && resolveUnlockRevealAnimationStyle(node) == ResearchRevealAnimationStyle.SPLIT_FUSE
+                && hasUnlockRevealSnapshot(node.getId());
+    }
+
+    protected @Nullable ResearchNodeVisualDefinition resolveRevealVisualDefinition(ResearchNode node, long nowMs) {
+        return null;
+    }
+
+    protected int resolveSplitFuseBackgroundColor(ResearchNode node, @Nullable ResearchNodeVisualDefinition visualDefinition) {
+        if (visualDefinition != null) {
+            return visualDefinition.getBackgroundColor();
+        }
+        return multiplyColor(getNodeGroupPrimaryColor(node), 0.96f);
+    }
+
+    protected int resolveSplitFuseBorderColor(ResearchNode node, @Nullable ResearchNodeVisualDefinition visualDefinition) {
+        if (visualDefinition != null) {
+            return visualDefinition.getBorderColor();
+        }
+        return mixColors(getNodeGroupPrimaryColor(node), 0xFFFFFFFF, 0.18f);
+    }
+
+    protected int resolveSplitFuseAccentColor(ResearchNode node, @Nullable ResearchNodeVisualDefinition visualDefinition) {
+        if (visualDefinition != null) {
+            return visualDefinition.getAccentColor();
+        }
+        return getUnlockNodeGlowColor(node);
+    }
+
     protected float getUnlockNodeGlowRadiusX(ResearchNode node, float progress01, float currentScale) {
         float radiusProgress = easeOutCubic(clamp01((progress01 - 0.06f) / 0.74f));
         return node.getWidth() * currentScale * lerp(0.58f, 0.96f, radiusProgress);
@@ -1363,6 +1531,19 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         drawEllipsePass(guiContext, centerX, centerY, radiusX * 1.14f, radiusY * 1.12f, outerCenterColor, edgeColor, 48);
         drawEllipsePass(guiContext, centerX, centerY, radiusX, radiusY, midCenterColor, edgeColor, 42);
         drawEllipsePass(guiContext, centerX, centerY, radiusX * 0.48f, radiusY * 0.56f, innerCenterColor, edgeColor, 36);
+    }
+
+    private void fillRect(GUIContext guiContext, float x, float y, float width, float height, int color) {
+        if (width <= 0.5f || height <= 0.5f || ((color >>> 24) & 0xFF) <= 0) {
+            return;
+        }
+        guiContext.graphics.fill(
+                Math.round(x),
+                Math.round(y),
+                Math.round(x + width),
+                Math.round(y + height),
+                color
+        );
     }
 
     private void drawEllipsePass(GUIContext guiContext,
@@ -1826,6 +2007,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * </p>
      */
     protected void afterUnlockAnimationCompleted(ResearchNode node) {
+    }
+
+    @Override
+    protected void onRemoved() {
+        releaseUnlockRevealSnapshot();
+        super.onRemoved();
     }
 
     protected record UnlockNodeTransform(float scale, float translateX, float translateY) {

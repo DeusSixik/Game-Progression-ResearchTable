@@ -36,7 +36,12 @@ public enum ResearchRevealAnimationType {
     /**
      * Curved drop that approaches from the upper-left.
      */
-    ARC_DROP;
+    ARC_DROP,
+
+    /**
+     * Cinematic reveal where the node assembles from two halves.
+     */
+    SPLIT_FUSE;
 
     /**
      * Converts the public API enum into the current internal client enum.
@@ -48,6 +53,7 @@ public enum ResearchRevealAnimationType {
             case SLIDE_FROM_LEFT -> dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle.SLIDE_FROM_LEFT;
             case FADE_SCALE -> dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle.FADE_SCALE;
             case ARC_DROP -> dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle.ARC_DROP;
+            case SPLIT_FUSE -> dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle.SPLIT_FUSE;
         };
     }
 }

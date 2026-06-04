@@ -1204,9 +1204,10 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 ? getUnlockNodeAnimationTransform(node, unlockNodeProgress01)
                 : new UnlockNodeTransform(1f, 0f, 0f);
         ResearchRevealAnimationStyle revealAnimationStyle = resolveUnlockRevealAnimationStyle(node);
+        boolean liveWidgetVisible = isNodeVisible(node.getId()) && !shouldHideLiveWidgetDuringUnlock(node);
         return ResearchNodeRenderContext.builder()
                 .state(resolveNodeState(node))
-                .visible(isNodeVisible(node.getId()))
+                .visible(liveWidgetVisible)
                 .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
                 .interactionLocked(isUnlockAnimationActive())
                 .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
@@ -1221,6 +1222,28 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .unlockCurrentTranslateY(unlockTransform.translateY())
                 .unlockRevealAnimationStyle(revealAnimationStyle)
                 .build();
+    }
+
+    @Override
+    protected @Nullable ResearchNodeVisualDefinition resolveRevealVisualDefinition(ResearchNode node, long nowMs) {
+        ResearchNodeRenderContext context = ResearchNodeRenderContext.builder()
+                .state(resolveNodeState(node))
+                .visible(true)
+                .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
+                .interactionLocked(true)
+                .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
+                .hasNewUnlockMarker(false)
+                .nowMs(nowMs)
+                .progress(researchProgressController.getProgress(node))
+                .unlockAnimating(true)
+                .unlockNodeProgress01(getUnlockNodeAnimationProgress01(node, nowMs))
+                .unlockLinkProgress01(getUnlockLinkAnimationProgress01(node, nowMs))
+                .unlockCurrentScale(1f)
+                .unlockCurrentTranslateX(0f)
+                .unlockCurrentTranslateY(0f)
+                .unlockRevealAnimationStyle(resolveUnlockRevealAnimationStyle(node))
+                .build();
+        return buildNodeVisualDefinition(node, context);
     }
 
     private void refreshAllNodeWidgets(long nowMs) {

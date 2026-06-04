@@ -32,5 +32,14 @@ public enum ResearchRevealAnimationStyle {
      * Curved drop that approaches from the upper-left and lands with a smooth
      * arc before connecting its links.
      */
-    ARC_DROP
+    ARC_DROP,
+
+    /**
+     * Cinematic reveal where the node is assembled from two halves.
+     * <p>
+     * The first implementation may use a simplified custom reveal layer, while
+     * future versions are expected to switch to snapshot/FBO-based rendering.
+     * </p>
+     */
+    SPLIT_FUSE
 }

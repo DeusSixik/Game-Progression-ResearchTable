@@ -893,6 +893,15 @@ public final class DebugResearchNodeWidgetShowcase {
                     applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
                     applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
                 }
+                case SPLIT_FUSE -> {
+                    float eased = easeOutCubic(progress01);
+                    applyTransform(iconFrame, 0.5f, 0.5f, 0f, 0f, lerp(0.96f, 1f, eased));
+                    applyTransform(titleLabel, 0f, 0f, 0f, 0f, lerp(0.94f, 1f, eased));
+                    applyTransform(subtitleLabel, 0f, 0f, 0f, 0f, lerp(0.94f, 1f, eased));
+                    applyTransform(badgeChip, 0.5f, 0.5f, 0f, 0f, lerp(0.96f, 1f, eased));
+                    applyTransform(topStripe, 0f, 0f, 0f, 0f, 1f);
+                    applyTransform(leftStripe, 0f, 0f, 0f, 0f, 1f);
+                }
             }
         }
 

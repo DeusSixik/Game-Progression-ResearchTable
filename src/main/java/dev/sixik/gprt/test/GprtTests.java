@@ -16,7 +16,7 @@ public class GprtTests {
      * Compact demo focused on unlock/reveal animation previews.
      * <p>
      * This dataset is intentionally tiny:
-     * once the player studies the root node, three follow-up researches become
+     * once the player studies the root node, several follow-up researches become
      * available at the same time and each branch uses its own reveal style from
      * the debug showcase theme presets.
      * </p>
@@ -29,7 +29,7 @@ public class GprtTests {
         ResearchGroupDefinition energy = group("energy", "Energy", 0xFFF0C94A, 0xFFFFE08A);
         ResearchGroupDefinition alchemy = group("alchemy", "Alchemy", 0xFF9C6BE8, 0xFFC7A8FF);
 
-        List<ResearchDefinition> definitions = new ObjectArrayList<>(7);
+        List<ResearchDefinition> definitions = new ObjectArrayList<>(8);
 
         definitions.add(research("primitive_tools", "Primitive Tools", root)
                 .description("Study this root node to unlock a compact set of branches, each configured with its own reveal animation style.")
@@ -81,6 +81,15 @@ public class GprtTests {
                 .revealAnimation(ResearchRevealAnimationType.ARC_DROP)
                 .reward(Items.AMETHYST_SHARD)
                 .table()
+                .build());
+
+        definitions.add(research("assembly_patterns", "Assembly Patterns", logistics)
+                .description("SplitFuse example. This branch is the first prototype for the new two-halves assembly reveal pipeline.")
+                .required("primitive_tools")
+                .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
+                .reward(Items.ITEM_FRAME)
+                .instant()
                 .build());
 
         definitions.add(research("tempered_tools", "Tempered Tools", metallurgy)
