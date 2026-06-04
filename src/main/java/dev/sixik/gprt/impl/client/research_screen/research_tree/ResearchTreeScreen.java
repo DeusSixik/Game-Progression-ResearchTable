@@ -20,7 +20,8 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLi
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeManager;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.SplitFuseRevealRenderer;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.DefaultResearchRevealEffectResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.ResearchRevealOrchestrator;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.AdvancedGraphView;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
@@ -190,7 +191,8 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private final IntArrayList queuedUnlockAnimationNodeIds = new IntArrayList();
     private final IntOpenHashSet queuedUnlockAnimationNodeIdSet = new IntOpenHashSet();
     private @Nullable UnlockAnimation activeUnlockAnimation;
-    private final SplitFuseRevealRenderer splitFuseRevealRenderer = new SplitFuseRevealRenderer();
+    private final ResearchRevealOrchestrator revealOrchestrator =
+            new ResearchRevealOrchestrator(new DefaultResearchRevealEffectResolver());
 
     public ResearchTreeScreen() {
         this(new ResearchNodeManager(), new ResearchNodeLinkManager());
@@ -1065,36 +1067,32 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                                                 float progress01,
                                                 @Nullable ResearchNodeVisualDefinition visualDefinition
     ) {
-        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
-        if (style == ResearchRevealAnimationStyle.SPLIT_FUSE) {
-            drawSplitFuseReveal(guiContext, node, progress01, visualDefinition);
-        }
+        drawResolvedUnlockReveal(guiContext, node, progress01, visualDefinition);
     }
 
-    protected void drawSplitFuseReveal(GUIContext guiContext,
-                                       ResearchNode node,
-                                       float progress01,
-                                       @Nullable ResearchNodeVisualDefinition visualDefinition
+    protected void drawResolvedUnlockReveal(GUIContext guiContext,
+                                            ResearchNode node,
+                                            float progress01,
+                                            @Nullable ResearchNodeVisualDefinition visualDefinition
     ) {
-        if (!splitFuseRevealRenderer.hasSnapshot(node.getId())) {
+        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
+        if (!revealOrchestrator.isSupported(node, style) || !revealOrchestrator.hasActiveSnapshot(node.getId())) {
             return;
         }
 
         UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
-        splitFuseRevealRenderer.draw(
+        revealOrchestrator.render(
                 guiContext,
-                node.getId(),
-                node.centerX(),
-                node.centerY(),
-                node.getWidth(),
-                node.getHeight(),
+                node,
+                style,
+                progress01,
                 transform.scale(),
                 transform.translateX(),
                 transform.translateY(),
-                progress01,
                 resolveSplitFuseBackgroundColor(node, visualDefinition),
                 resolveSplitFuseBorderColor(node, visualDefinition),
-                resolveSplitFuseAccentColor(node, visualDefinition)
+                resolveSplitFuseAccentColor(node, visualDefinition),
+                visualDefinition
         );
     }
 
@@ -1160,7 +1158,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private void scheduleUnlockRevealSnapshotCapture(GUIContext guiContext) {
-        if (splitFuseRevealRenderer.isCaptureScheduled() || activeUnlockAnimation == null) {
+        if (revealOrchestrator.isCaptureScheduled() || activeUnlockAnimation == null) {
             return;
         }
 
@@ -1168,21 +1166,23 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         if (node == null || !isNodeVisible(node)) {
             return;
         }
-        if (resolveUnlockRevealAnimationStyle(node) != ResearchRevealAnimationStyle.SPLIT_FUSE) {
+        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
+        if (!revealOrchestrator.isSupported(node, style)) {
             return;
         }
         if (hasUnlockRevealSnapshot(node.getId())) {
             return;
         }
 
-        splitFuseRevealRenderer.scheduleCapture(guiContext, () -> captureActiveUnlockRevealSnapshot(node));
+        revealOrchestrator.scheduleCapture(guiContext, () -> captureActiveUnlockRevealSnapshot(node));
     }
 
     private void captureActiveUnlockRevealSnapshot(ResearchNode node) {
         if (activeUnlockAnimation == null || activeUnlockAnimation.nodeId() != node.getId()) {
             return;
         }
-        if (resolveUnlockRevealAnimationStyle(node) != ResearchRevealAnimationStyle.SPLIT_FUSE) {
+        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
+        if (!revealOrchestrator.isSupported(node, style)) {
             return;
         }
         if (hasUnlockRevealSnapshot(node.getId())) {
@@ -1194,15 +1194,34 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         float screenY = getContentY() + (node.getY() - getOffsetY()) * getScale();
         float screenWidth = node.getWidth() * getScale();
         float screenHeight = node.getHeight() * getScale();
-        splitFuseRevealRenderer.captureSnapshot(node, widget, screenX, screenY, screenWidth, screenHeight);
+        boolean captured = revealOrchestrator.captureSnapshot(
+                node,
+                style,
+                widget,
+                screenX,
+                screenY,
+                screenWidth,
+                screenHeight,
+                resolveRevealVisualDefinition(node, System.currentTimeMillis())
+        );
+        if (captured) {
+            onUnlockRevealSnapshotCaptured(node);
+        }
     }
 
     private boolean hasUnlockRevealSnapshot(int nodeId) {
-        return splitFuseRevealRenderer.hasSnapshot(nodeId);
+        return revealOrchestrator.hasActiveSnapshot(nodeId);
     }
 
     private void releaseUnlockRevealSnapshot() {
-        splitFuseRevealRenderer.release();
+        Integer releasedNodeId = revealOrchestrator.getActiveSnapshotNodeId();
+        revealOrchestrator.release();
+        if (releasedNodeId != null) {
+            ResearchNode releasedNode = getNodeById(releasedNodeId);
+            if (releasedNode != null) {
+                onUnlockRevealSnapshotReleased(releasedNode);
+            }
+        }
     }
 
     private boolean isNodeWaitingForUnlockAnimation(int nodeId) {
@@ -1454,7 +1473,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     protected boolean shouldHideLiveWidgetDuringUnlock(ResearchNode node) {
         return node != null
                 && isUnlockAnimationNode(node)
-                && resolveUnlockRevealAnimationStyle(node) == ResearchRevealAnimationStyle.SPLIT_FUSE
+                && revealOrchestrator.isSupported(node, resolveUnlockRevealAnimationStyle(node))
                 && hasUnlockRevealSnapshot(node.getId());
     }
 
@@ -2007,6 +2026,26 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * </p>
      */
     protected void afterUnlockAnimationCompleted(ResearchNode node) {
+    }
+
+    /**
+     * Called right after a reveal snapshot was captured for the current unlock animation node.
+     * <p>
+     * Subclasses can use this to immediately refresh the live widget state so the real widget
+     * disappears while the snapshot-based reveal effect is animating.
+     * </p>
+     */
+    protected void onUnlockRevealSnapshotCaptured(ResearchNode node) {
+    }
+
+    /**
+     * Called after the active reveal snapshot was released.
+     * <p>
+     * Subclasses can use this to refresh any live widget that should become visible again after
+     * the snapshot-based reveal effect finishes or gets cancelled.
+     * </p>
+     */
+    protected void onUnlockRevealSnapshotReleased(ResearchNode node) {
     }
 
     @Override

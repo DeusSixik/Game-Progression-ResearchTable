@@ -66,7 +66,7 @@ public class GprtTests {
                 .build());
 
         definitions.add(research("spark_ignition", "Spark Ignition", energy)
-                .description("Energy example. This branch uses the calmer fade/scale style.")
+                .description("Energy example. This branch now uses the new snapshot-based FadeScale reveal effect, proving the reveal API can host more than SplitFuse.")
                 .required("primitive_tools")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
                 .revealAnimation(ResearchRevealAnimationType.FADE_SCALE)

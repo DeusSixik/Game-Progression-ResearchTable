@@ -585,6 +585,16 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     @Override
+    protected void onUnlockRevealSnapshotCaptured(ResearchNode node) {
+        refreshNodeWidgetById(node.getId(), System.currentTimeMillis());
+    }
+
+    @Override
+    protected void onUnlockRevealSnapshotReleased(ResearchNode node) {
+        refreshNodeWidgetById(node.getId(), System.currentTimeMillis());
+    }
+
+    @Override
     public void drawBackgroundAdditional(GUIContext guiContext) {
         updateDetailsPanelAnimation(System.currentTimeMillis());
         super.drawBackgroundAdditional(guiContext);
@@ -1263,7 +1273,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         }
     }
 
-    private void refreshNodeWidgetById(int nodeId, long nowMs) {
+    protected final void refreshNodeWidgetById(int nodeId, long nowMs) {
         if (nodeId < 0) {
             return;
         }
