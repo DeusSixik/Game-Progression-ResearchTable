@@ -21,6 +21,21 @@ import org.joml.Matrix4f;
  * Captures research node widgets into retained texture snapshots for reveal effects.
  */
 public final class RevealSnapshotCaptureService {
+    private RevealCaptureMode captureMode = RevealCaptureMode.AUTO_OFFSCREEN_FIRST;
+    private @Nullable RevealCaptureDebugData lastDebugData;
+
+    public void setCaptureMode(RevealCaptureMode captureMode) {
+        this.captureMode = captureMode == null ? RevealCaptureMode.AUTO_OFFSCREEN_FIRST : captureMode;
+    }
+
+    public RevealCaptureMode getCaptureMode() {
+        return captureMode;
+    }
+
+    public @Nullable RevealCaptureDebugData getLastDebugData() {
+        return lastDebugData;
+    }
+
     public @Nullable RevealSnapshot capture(ResearchNode node,
                                             UIElement widget,
                                             float screenX,
@@ -32,10 +47,62 @@ public final class RevealSnapshotCaptureService {
             return null;
         }
 
-        // Prefer screen capture for correctness: it preserves the fully composed live widget exactly
-        // as the player sees it, including text, icons and nested child visuals.
-        RevealSnapshot snapshot = captureFromScreen(node, screenX, screenY, screenWidth, screenHeight);
-        return snapshot != null ? snapshot : tryCaptureOffscreen(node, widget);
+        return switch (captureMode) {
+            case FORCE_OFFSCREEN -> captureOffscreen(node, widget);
+            case FORCE_SCREEN -> captureFromScreen(node, screenX, screenY, screenWidth, screenHeight);
+            case AUTO_OFFSCREEN_FIRST -> {
+                RevealSnapshot snapshot = captureOffscreen(node, widget);
+                yield snapshot != null ? snapshot : captureFromScreen(node, screenX, screenY, screenWidth, screenHeight);
+            }
+        };
+    }
+
+    public void captureDebug(ResearchNode node,
+                             UIElement widget,
+                             float screenX,
+                             float screenY,
+                             float screenWidth,
+                             float screenHeight
+    ) {
+        releaseDebugData();
+
+        RevealSnapshot offscreenSnapshot = captureOffscreen(node, widget);
+        ScreenCaptureResult screenResult = captureScreenDetailed(node, screenX, screenY, screenWidth, screenHeight);
+        RevealSnapshot screenSnapshot = screenResult == null ? null : screenResult.snapshot();
+
+        int framebufferWidth = screenResult == null ? 0 : screenResult.framebufferWidth();
+        int framebufferHeight = screenResult == null ? 0 : screenResult.framebufferHeight();
+        int guiWidth = screenResult == null ? 0 : screenResult.guiWidth();
+        int guiHeight = screenResult == null ? 0 : screenResult.guiHeight();
+        float framebufferScaleX = screenResult == null ? 0f : screenResult.framebufferScaleX();
+        float framebufferScaleY = screenResult == null ? 0f : screenResult.framebufferScaleY();
+        int captureX = screenResult == null ? 0 : screenResult.captureX();
+        int captureTop = screenResult == null ? 0 : screenResult.captureTop();
+        int captureRight = screenResult == null ? 0 : screenResult.captureRight();
+        int captureBottom = screenResult == null ? 0 : screenResult.captureBottom();
+        int screenshotCaptureY = screenResult == null ? 0 : screenResult.screenshotCaptureY();
+        boolean usedYFlip = screenResult != null;
+
+        lastDebugData = new RevealCaptureDebugData(
+                offscreenSnapshot,
+                screenSnapshot,
+                screenX,
+                screenY,
+                screenWidth,
+                screenHeight,
+                framebufferWidth,
+                framebufferHeight,
+                guiWidth,
+                guiHeight,
+                framebufferScaleX,
+                framebufferScaleY,
+                captureX,
+                captureTop,
+                captureRight,
+                captureBottom,
+                screenshotCaptureY,
+                usedYFlip
+        );
     }
 
     public void release(@Nullable RevealSnapshot snapshot) {
@@ -51,7 +118,17 @@ public final class RevealSnapshotCaptureService {
         }
     }
 
-    private @Nullable RevealSnapshot tryCaptureOffscreen(ResearchNode node, UIElement widget) {
+    public void releaseDebugData() {
+        if (lastDebugData == null) {
+            return;
+        }
+
+        release(lastDebugData.offscreenSnapshot());
+        release(lastDebugData.screenSnapshot());
+        lastDebugData = null;
+    }
+
+    private @Nullable RevealSnapshot captureOffscreen(ResearchNode node, UIElement widget) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || widget.getModularUI() == null) {
             return null;
@@ -110,6 +187,11 @@ public final class RevealSnapshotCaptureService {
                         offscreenTarget.getColorTextureId(),
                         targetWidth,
                         targetHeight,
+                        0f,
+                        0f,
+                        targetWidth,
+                        targetHeight,
+                        RevealSnapshot.CaptureSource.OFFSCREEN,
                         offscreenTarget,
                         null
                 );
@@ -150,6 +232,16 @@ public final class RevealSnapshotCaptureService {
                                                        float screenWidth,
                                                        float screenHeight
     ) {
+        ScreenCaptureResult result = captureScreenDetailed(node, screenX, screenY, screenWidth, screenHeight);
+        return result == null ? null : result.snapshot();
+    }
+
+    private @Nullable ScreenCaptureResult captureScreenDetailed(ResearchNode node,
+                                                                float screenX,
+                                                                float screenY,
+                                                                float screenWidth,
+                                                                float screenHeight
+    ) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) {
             return null;
@@ -170,13 +262,17 @@ public final class RevealSnapshotCaptureService {
         float framebufferScaleY = renderTarget.height / (float) guiHeight;
 
         int captureX = Math.max(0, (int) Math.floor(screenX * framebufferScaleX));
-        int captureY = Math.max(0, (int) Math.floor(screenY * framebufferScaleY));
+        int captureTop = Math.max(0, (int) Math.floor(screenY * framebufferScaleY));
         int captureRight = Math.min(renderTarget.width, (int) Math.ceil((screenX + screenWidth) * framebufferScaleX));
         int captureBottom = Math.min(renderTarget.height, (int) Math.ceil((screenY + screenHeight) * framebufferScaleY));
         int captureWidth = Math.max(1, captureRight - captureX);
-        int captureHeight = Math.max(1, captureBottom - captureY);
+        int captureHeight = Math.max(1, captureBottom - captureTop);
 
         try (NativeImage screenshot = Screenshot.takeScreenshot(renderTarget)) {
+            // Screenshot pixels come from framebuffer space, which is vertically inverted relative
+            // to top-left GUI coordinates. Convert the GUI crop rect into screenshot image space.
+            int captureY = Math.max(0, screenshot.getHeight() - captureBottom);
+
             if (captureX >= screenshot.getWidth() || captureY >= screenshot.getHeight()) {
                 return null;
             }
@@ -197,16 +293,49 @@ public final class RevealSnapshotCaptureService {
             net.minecraft.client.renderer.texture.DynamicTexture texture = new net.minecraft.client.renderer.texture.DynamicTexture(cropped);
             texture.upload();
             ResourceLocation textureLocation = minecraft.getTextureManager().register("gprt/research_split_fuse_" + node.getId(), texture);
-            return new RevealSnapshot(
+            RevealSnapshot snapshot = new RevealSnapshot(
                     node.getId(),
                     texture.getId(),
                     captureWidth,
                     captureHeight,
+                    screenX,
+                    screenY,
+                    screenWidth,
+                    screenHeight,
+                    RevealSnapshot.CaptureSource.SCREEN,
                     null,
                     textureLocation
+            );
+            return new ScreenCaptureResult(
+                    snapshot,
+                    renderTarget.width,
+                    renderTarget.height,
+                    guiWidth,
+                    guiHeight,
+                    framebufferScaleX,
+                    framebufferScaleY,
+                    captureX,
+                    captureTop,
+                    captureRight,
+                    captureBottom,
+                    captureY
             );
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private record ScreenCaptureResult(RevealSnapshot snapshot,
+                                       int framebufferWidth,
+                                       int framebufferHeight,
+                                       int guiWidth,
+                                       int guiHeight,
+                                       float framebufferScaleX,
+                                       float framebufferScaleY,
+                                       int captureX,
+                                       int captureTop,
+                                       int captureRight,
+                                       int captureBottom,
+                                       int screenshotCaptureY) {
     }
 }

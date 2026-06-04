@@ -19,6 +19,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
 import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.RevealCaptureMode;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -58,6 +59,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private Label unlockAnimationNodeLabel;
     private Label unlockAnimationNodeProgressLabel;
     private Label unlockAnimationLinkProgressLabel;
+    private Label revealCaptureModeLabel;
     private Label unlockPresentationTreeKeyLabel;
     private Label unlockPresentationVisibleCountLabel;
     private Label unlockPresentationSeenCountLabel;
@@ -86,6 +88,16 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 .horizontalGap(130f)
                 .verticalGap(42f);
         initializeMainScreen();
+    }
+
+    @Override
+    protected boolean isRevealDebugOverlayEnabled() {
+        return true;
+    }
+
+    @Override
+    protected boolean isRevealConsoleDebugEnabled() {
+        return true;
     }
 
     @Override
@@ -256,6 +268,17 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 0x66253446
         );
 
+        UIElement revealCaptureButtons = createOverlayButtonRow();
+        revealCaptureModeLabel = new Label();
+        updateRevealCaptureModeLabel();
+        revealCaptureButtons.addChildren(
+                new Button().setText("Capture Mode").setOnClick(event -> {
+                    setRevealCaptureMode(getRevealCaptureMode().next());
+                    updateRevealCaptureModeLabel();
+                }),
+                revealCaptureModeLabel
+        );
+
         unlockAnimationStageLabel = new Label();
         unlockAnimationStageLabel.setText("Animation Stage: idle");
         unlockAnimationNodeLabel = new Label();
@@ -265,6 +288,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         unlockAnimationLinkProgressLabel = new Label();
         unlockAnimationLinkProgressLabel.setText("Link Progress: -");
         unlockAnimationSection.addChildren(
+                revealCaptureButtons,
                 unlockAnimationStageLabel,
                 unlockAnimationNodeLabel,
                 unlockAnimationNodeProgressLabel,
@@ -692,6 +716,13 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private void updateNodeStyleLabel() {
         if (nodeStyleLabel != null) {
             nodeStyleLabel.setText("Node Style: " + currentNodeStyle.displayName());
+        }
+    }
+
+    private void updateRevealCaptureModeLabel() {
+        if (revealCaptureModeLabel != null) {
+            RevealCaptureMode mode = getRevealCaptureMode();
+            revealCaptureModeLabel.setText("Mode: " + mode.debugLabel(), false);
         }
     }
 

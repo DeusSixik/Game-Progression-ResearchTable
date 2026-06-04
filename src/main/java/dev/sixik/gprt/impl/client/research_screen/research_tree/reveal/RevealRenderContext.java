@@ -15,13 +15,13 @@ public final class RevealRenderContext {
     private final @Nullable ResearchNodeVisualDefinition visualDefinition;
     private final RevealRenderBackend backend;
     private final float progress01;
-    private final float centerX;
-    private final float centerY;
     private final float width;
     private final float height;
     private final float scale;
     private final float translateX;
     private final float translateY;
+    private final float screenCenterX;
+    private final float screenCenterY;
     private final int backgroundColor;
     private final int borderColor;
     private final int accentColor;
@@ -32,13 +32,13 @@ public final class RevealRenderContext {
                                @Nullable ResearchNodeVisualDefinition visualDefinition,
                                RevealRenderBackend backend,
                                float progress01,
-                               float centerX,
-                               float centerY,
                                float width,
                                float height,
                                float scale,
                                float translateX,
                                float translateY,
+                               float screenCenterX,
+                               float screenCenterY,
                                int backgroundColor,
                                int borderColor,
                                int accentColor
@@ -49,13 +49,13 @@ public final class RevealRenderContext {
         this.visualDefinition = visualDefinition;
         this.backend = backend;
         this.progress01 = progress01;
-        this.centerX = centerX;
-        this.centerY = centerY;
         this.width = width;
         this.height = height;
         this.scale = scale;
         this.translateX = translateX;
         this.translateY = translateY;
+        this.screenCenterX = screenCenterX;
+        this.screenCenterY = screenCenterY;
         this.backgroundColor = backgroundColor;
         this.borderColor = borderColor;
         this.accentColor = accentColor;
@@ -85,14 +85,6 @@ public final class RevealRenderContext {
         return progress01;
     }
 
-    public float centerX() {
-        return centerX;
-    }
-
-    public float centerY() {
-        return centerY;
-    }
-
     public float width() {
         return width;
     }
@@ -111,6 +103,30 @@ public final class RevealRenderContext {
 
     public float translateY() {
         return translateY;
+    }
+
+    public float screenCenterX() {
+        return screenCenterX;
+    }
+
+    public float screenCenterY() {
+        return screenCenterY;
+    }
+
+    public float snapshotSourceScreenX() {
+        return snapshot.sourceScreenX();
+    }
+
+    public float snapshotSourceScreenY() {
+        return snapshot.sourceScreenY();
+    }
+
+    public float snapshotSourceScreenWidth() {
+        return snapshot.sourceScreenWidth();
+    }
+
+    public float snapshotSourceScreenHeight() {
+        return snapshot.sourceScreenHeight();
     }
 
     public int backgroundColor() {

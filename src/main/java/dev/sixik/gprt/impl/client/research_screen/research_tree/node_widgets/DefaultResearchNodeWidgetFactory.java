@@ -130,7 +130,11 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
                            ResearchNodeRenderContext context,
                            ResearchNodeVisualDefinition visualDefinition
         ) {
-            setDisplay(context.isVisible());
+            // Keep the widget in layout even when the live version should be visually hidden for
+            // reveal playback. Collapsing it with display=false resets absolute bounds to 0x0,
+            // which breaks snapshot/capture alignment for reveal animations.
+            setDisplay(true);
+            style(style -> style.opacity(context.isVisible() ? 1f : 0f));
             setActive(context.isVisible() && !context.isInteractionLocked());
 
             applyFrameStyle(context, visualDefinition);

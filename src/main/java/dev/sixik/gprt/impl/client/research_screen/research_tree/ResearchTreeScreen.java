@@ -21,7 +21,10 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNodeManager;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.DefaultResearchRevealEffectResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.RevealCaptureDebugData;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.RevealCaptureMode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.ResearchRevealOrchestrator;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.reveal.RevealSnapshot;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.AdvancedGraphView;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
@@ -40,6 +43,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -157,13 +161,17 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private static final float GROUP_NODE_HIGHLIGHT_GLOW_WIDTH = 1f;
     private static final long GROUP_HIGHLIGHT_BLINK_DURATION_MS = 4_000L;
     private static final long UNLOCK_CAMERA_DURATION_MS = 480L;
-    private static final long UNLOCK_NODE_DELAY_MS = 180L;
+    private static final long UNLOCK_NODE_DELAY_MS = UNLOCK_CAMERA_DURATION_MS + 60L;
     private static final long UNLOCK_NODE_DURATION_MS = 720L;
-    private static final long UNLOCK_LINK_DELAY_MS = 430L;
+    private static final long UNLOCK_LINK_DELAY_MS = UNLOCK_NODE_DELAY_MS + 320L;
     private static final long UNLOCK_LINK_DURATION_MS = 460L;
-    private static final long UNLOCK_STEP_DURATION_MS = 1_080L;
+    private static final long UNLOCK_STEP_DURATION_MS = UNLOCK_LINK_DELAY_MS + UNLOCK_LINK_DURATION_MS + 80L;
     private static final float UNLOCK_NODE_START_SCALE = 3.0f;
     private static final float UNLOCK_NODE_START_Y = -52f;
+    private static final float SPLIT_FUSE_COMPOSITE_PADDING = 12f;
+    private static final int REVEAL_DEBUG_PANEL_WIDTH = 392;
+    private static final int REVEAL_DEBUG_PANEL_HEIGHT = 188;
+    private static final int REVEAL_DEBUG_PADDING = 8;
 
     protected enum ResearchLinkRenderState {
         LOCKED(0),
@@ -191,6 +199,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private final IntArrayList queuedUnlockAnimationNodeIds = new IntArrayList();
     private final IntOpenHashSet queuedUnlockAnimationNodeIdSet = new IntOpenHashSet();
     private @Nullable UnlockAnimation activeUnlockAnimation;
+    private @Nullable RevealWidgetDebugState lastRevealWidgetDebugState;
+    private long lastRevealDebugLogAtMs;
+    private int lastRevealDebugLogNodeId = Integer.MIN_VALUE;
     private final ResearchRevealOrchestrator revealOrchestrator =
             new ResearchRevealOrchestrator(new DefaultResearchRevealEffectResolver());
 
@@ -555,10 +566,12 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     public void drawBackgroundAdditional(GUIContext guiContext) {
         updateUnlockAnimationState();
         scheduleUnlockRevealSnapshotCapture(guiContext);
+        emitRevealDebugLogIfNeeded();
         super.drawBackgroundAdditional(guiContext);
         drawActiveUnlockAnimationLinks(guiContext);
         drawActiveUnlockNodeEffects(guiContext);
         drawActiveUnlockNodeRevealLayer(guiContext);
+        drawRevealDebugOverlay(guiContext);
         drawHighlightedGroupBounds(guiContext);
     }
 
@@ -1050,16 +1063,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         ResearchNodeVisualDefinition visualDefinition = resolveRevealVisualDefinition(node, nowMs);
-
-        EnhancedPoseStack pose = guiContext.pose;
-        pose.pushPose();
-        pose.translate(getContentX(), getContentY(), 0f);
-        pose.scale(getScale(), getScale(), 1f);
-        pose.translate(-getOffsetX(), -getOffsetY(), 0f);
-
         drawDetachedUnlockNodeReveal(guiContext, node, progress01, visualDefinition);
-
-        pose.popPose();
     }
 
     protected void drawDetachedUnlockNodeReveal(GUIContext guiContext,
@@ -1081,19 +1085,290 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        float graphScale = getScale();
+        float screenCenterX = getContentX() + (node.centerX() - getOffsetX()) * graphScale;
+        float screenCenterY = getContentY() + (node.centerY() - getOffsetY()) * graphScale;
         revealOrchestrator.render(
                 guiContext,
                 node,
                 style,
                 progress01,
+                node.getWidth() * graphScale,
+                node.getHeight() * graphScale,
                 transform.scale(),
-                transform.translateX(),
-                transform.translateY(),
+                transform.translateX() * graphScale,
+                transform.translateY() * graphScale,
+                screenCenterX,
+                screenCenterY,
                 resolveSplitFuseBackgroundColor(node, visualDefinition),
                 resolveSplitFuseBorderColor(node, visualDefinition),
                 resolveSplitFuseAccentColor(node, visualDefinition),
                 visualDefinition
         );
+    }
+
+    protected boolean isRevealDebugOverlayEnabled() {
+        return false;
+    }
+
+    /**
+     * Optional IDEA/console debug hook for reveal geometry.
+     * <p>
+     * Override in debug screens when visual rectangles are not enough and raw numbers are easier
+     * to compare per frame. Production screens keep this disabled to avoid noisy logs.
+     * </p>
+     */
+    protected boolean isRevealConsoleDebugEnabled() {
+        return false;
+    }
+
+    protected final void setRevealCaptureMode(RevealCaptureMode captureMode) {
+        revealOrchestrator.setCaptureMode(captureMode);
+    }
+
+    protected final RevealCaptureMode getRevealCaptureMode() {
+        return revealOrchestrator.getCaptureMode();
+    }
+
+    protected void drawRevealDebugOverlay(GUIContext guiContext) {
+        if (!isRevealDebugOverlayEnabled()) {
+            return;
+        }
+
+        RevealSnapshot snapshot = revealOrchestrator.getActiveSnapshot();
+        RevealCaptureDebugData debugData = revealOrchestrator.getLastDebugData();
+        if (snapshot == null && debugData == null) {
+            return;
+        }
+
+        int panelX = Math.max(REVEAL_DEBUG_PADDING, Math.round(getContentX() + getContentWidth() - REVEAL_DEBUG_PANEL_WIDTH - REVEAL_DEBUG_PADDING));
+        int panelY = Math.max(REVEAL_DEBUG_PADDING, Math.round(getContentY() + REVEAL_DEBUG_PADDING));
+
+        guiContext.graphics.fill(panelX, panelY, panelX + REVEAL_DEBUG_PANEL_WIDTH, panelY + REVEAL_DEBUG_PANEL_HEIGHT, 0xD010141C);
+        guiContext.graphics.fill(panelX, panelY, panelX + REVEAL_DEBUG_PANEL_WIDTH, panelY + 1, 0xFF64C8FF);
+        guiContext.graphics.fill(panelX, panelY + REVEAL_DEBUG_PANEL_HEIGHT - 1, panelX + REVEAL_DEBUG_PANEL_WIDTH, panelY + REVEAL_DEBUG_PANEL_HEIGHT, 0xFF64C8FF);
+        guiContext.graphics.fill(panelX, panelY, panelX + 1, panelY + REVEAL_DEBUG_PANEL_HEIGHT, 0xFF64C8FF);
+        guiContext.graphics.fill(panelX + REVEAL_DEBUG_PANEL_WIDTH - 1, panelY, panelX + REVEAL_DEBUG_PANEL_WIDTH, panelY + REVEAL_DEBUG_PANEL_HEIGHT, 0xFF64C8FF);
+
+        int previewY = panelY + 26;
+        int previewMaxWidth = 176;
+        int previewMaxHeight = 92;
+        int leftPreviewX = panelX + 8;
+        int rightPreviewX = panelX + REVEAL_DEBUG_PANEL_WIDTH - previewMaxWidth - 8;
+
+        drawRevealSnapshotPreview(guiContext, "OFFSCREEN", debugData == null ? null : debugData.offscreenSnapshot(), leftPreviewX, previewY, previewMaxWidth, previewMaxHeight);
+        drawRevealSnapshotPreview(guiContext, "SCREEN", debugData == null ? snapshot : debugData.screenSnapshot(), rightPreviewX, previewY, previewMaxWidth, previewMaxHeight);
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null) {
+            guiContext.graphics.drawString(minecraft.font, "Reveal Snapshot", panelX + 8, panelY + 8, 0xFFFFFFFF, false);
+            guiContext.graphics.drawString(minecraft.font, "LEFT = offscreen, RIGHT = screen", panelX + 108, panelY + 8, 0xFFB8C7DA, false);
+            guiContext.graphics.drawString(
+                    minecraft.font,
+                    "Mode: " + getRevealCaptureMode().debugLabel(),
+                    panelX + 8,
+                    panelY + 126,
+                    0xFFB8C7DA,
+                    false
+            );
+            if (debugData != null) {
+                guiContext.graphics.drawString(minecraft.font,
+                        "GUI rect: x=" + Math.round(debugData.screenX()) + " y=" + Math.round(debugData.screenY())
+                                + " w=" + Math.round(debugData.screenWidth()) + " h=" + Math.round(debugData.screenHeight()),
+                        panelX + 8, panelY + 138, 0xFFD0D7E2, false);
+                guiContext.graphics.drawString(minecraft.font,
+                        "FB crop: l=" + debugData.captureX() + " t=" + debugData.captureTop()
+                                + " r=" + debugData.captureRight() + " b=" + debugData.captureBottom(),
+                        panelX + 8, panelY + 148, 0xFFD0D7E2, false);
+                guiContext.graphics.drawString(minecraft.font,
+                        "ShotY=" + debugData.screenshotCaptureY() + " scaleX=" + formatDebugFloat(debugData.framebufferScaleX())
+                                + " scaleY=" + formatDebugFloat(debugData.framebufferScaleY()),
+                        panelX + 8, panelY + 158, 0xFFD0D7E2, false);
+                guiContext.graphics.drawString(minecraft.font,
+                        "FB=" + debugData.framebufferWidth() + "x" + debugData.framebufferHeight()
+                                + " GUI=" + debugData.guiWidth() + "x" + debugData.guiHeight(),
+                        panelX + 8, panelY + 168, 0xFFD0D7E2, false);
+            } else if (snapshot != null) {
+                guiContext.graphics.drawString(minecraft.font,
+                        snapshot.width() + "x" + snapshot.height() + " tex=" + snapshot.textureId(),
+                        panelX + 8, panelY + 168, 0xFFD0D7E2, false);
+            }
+
+            RevealWidgetDebugState widgetDebugState = lastRevealWidgetDebugState;
+            if (widgetDebugState != null) {
+                guiContext.graphics.drawString(minecraft.font,
+                        "Widget a=" + widgetDebugState.attached()
+                                + " d=" + widgetDebugState.displayed()
+                                + " v=" + widgetDebugState.visible()
+                                + " nv=" + widgetDebugState.nodeVisible(),
+                        panelX + 208, panelY + 126, 0xFFD0D7E2, false);
+                guiContext.graphics.drawString(minecraft.font,
+                        "Hidden=" + widgetDebugState.hiddenByUnlockOrQueue()
+                                + " pose=" + widgetDebugState.poseAvailable(),
+                        panelX + 208, panelY + 136, 0xFFD0D7E2, false);
+                if (widgetDebugState.poseAvailable()) {
+                    guiContext.graphics.drawString(minecraft.font,
+                            "Anim: " + Math.round(widgetDebugState.animatedMinX()) + "," + Math.round(widgetDebugState.animatedMinY())
+                                    + " -> " + Math.round(widgetDebugState.animatedMaxX()) + "," + Math.round(widgetDebugState.animatedMaxY()),
+                            panelX + 208, panelY + 146, 0xFFD0D7E2, false);
+                    guiContext.graphics.drawString(minecraft.font,
+                            "Base: " + Math.round(widgetDebugState.settledMinX()) + "," + Math.round(widgetDebugState.settledMinY())
+                                    + " -> " + Math.round(widgetDebugState.settledMaxX()) + "," + Math.round(widgetDebugState.settledMaxY()),
+                            panelX + 208, panelY + 156, 0xFFD0D7E2, false);
+                }
+            }
+        }
+
+        drawRevealDebugCaptureRect(guiContext, debugData);
+    }
+
+    private void drawRevealSnapshotPreview(GUIContext guiContext,
+                                           String title,
+                                           @Nullable RevealSnapshot previewSnapshot,
+                                           int x,
+                                           int y,
+                                           int maxWidth,
+                                           int maxHeight
+    ) {
+        guiContext.graphics.fill(x - 1, y - 12, x + maxWidth + 1, y + maxHeight + 1, 0x90232B36);
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null) {
+            guiContext.graphics.drawString(minecraft.font, title, x, y - 10, 0xFFFFFFFF, false);
+        }
+        if (previewSnapshot == null) {
+            return;
+        }
+
+        float fitScale = Math.min(
+                maxWidth / (float) Math.max(1, previewSnapshot.width()),
+                maxHeight / (float) Math.max(1, previewSnapshot.height())
+        );
+        fitScale = Math.max(0.1f, fitScale);
+        float previewWidth = previewSnapshot.width() * fitScale;
+        float previewHeight = previewSnapshot.height() * fitScale;
+        revealOrchestrator.renderDebugPreview(guiContext, previewSnapshot, x, y, previewWidth, previewHeight);
+
+        if (minecraft != null) {
+            int color = previewSnapshot.source() == RevealSnapshot.CaptureSource.OFFSCREEN ? 0xFF8BE28B : 0xFFE2C98B;
+            guiContext.graphics.drawString(
+                    minecraft.font,
+                    previewSnapshot.source().name() + " " + previewSnapshot.width() + "x" + previewSnapshot.height(),
+                    x,
+                    y + maxHeight + 4,
+                    color,
+                    false
+            );
+        }
+    }
+
+    private void drawRevealDebugCaptureRect(GUIContext guiContext, @Nullable RevealCaptureDebugData debugData) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (debugData != null) {
+            int x1 = Math.round(debugData.screenX());
+            int y1 = Math.round(debugData.screenY());
+            int x2 = Math.round(debugData.screenX() + debugData.screenWidth());
+            int y2 = Math.round(debugData.screenY() + debugData.screenHeight());
+            int border = 0xFFFF6868;
+            int fill = 0x22FF6868;
+
+            guiContext.graphics.fill(x1, y1, x2, y2, fill);
+            guiContext.graphics.fill(x1, y1, x2, y1 + 2, border);
+            guiContext.graphics.fill(x1, y2 - 2, x2, y2, border);
+            guiContext.graphics.fill(x1, y1, x1 + 2, y2, border);
+            guiContext.graphics.fill(x2 - 2, y1, x2, y2, border);
+
+            if (minecraft != null) {
+                guiContext.graphics.fill(x1, y1 - 12, x1 + 116, y1, 0xC0000000);
+                guiContext.graphics.drawString(minecraft.font, "SCREEN CAPTURE RECT", x1 + 3, y1 - 10, 0xFFFF8A8A, false);
+            }
+        }
+
+        RevealWidgetDebugState widgetDebugState = lastRevealWidgetDebugState;
+        if (widgetDebugState != null && widgetDebugState.poseAvailable()) {
+            int bx1 = Math.round(widgetDebugState.settledMinX());
+            int by1 = Math.round(widgetDebugState.settledMinY());
+            int bx2 = Math.round(widgetDebugState.settledMaxX());
+            int by2 = Math.round(widgetDebugState.settledMaxY());
+            int baseBorder = 0xFF67B8FF;
+            int baseFill = 0x1E67B8FF;
+            guiContext.graphics.fill(bx1, by1, bx2, by2, baseFill);
+            guiContext.graphics.fill(bx1, by1, bx2, by1 + 2, baseBorder);
+            guiContext.graphics.fill(bx1, by2 - 2, bx2, by2, baseBorder);
+            guiContext.graphics.fill(bx1, by1, bx1 + 2, by2, baseBorder);
+            guiContext.graphics.fill(bx2 - 2, by1, bx2, by2, baseBorder);
+            if (minecraft != null) {
+                guiContext.graphics.fill(bx1, by1 - 12, bx1 + 102, by1, 0xC0000000);
+                guiContext.graphics.drawString(minecraft.font, "SETTLED RECT", bx1 + 3, by1 - 10, 0xFF8FD3FF, false);
+            }
+
+            int wx1 = Math.round(widgetDebugState.animatedMinX());
+            int wy1 = Math.round(widgetDebugState.animatedMinY());
+            int wx2 = Math.round(widgetDebugState.animatedMaxX());
+            int wy2 = Math.round(widgetDebugState.animatedMaxY());
+            int widgetBorder = 0xFF6DFF8F;
+            int widgetFill = 0x1E6DFF8F;
+            guiContext.graphics.fill(wx1, wy1, wx2, wy2, widgetFill);
+            guiContext.graphics.fill(wx1, wy1, wx2, wy1 + 2, widgetBorder);
+            guiContext.graphics.fill(wx1, wy2 - 2, wx2, wy2, widgetBorder);
+            guiContext.graphics.fill(wx1, wy1, wx1 + 2, wy2, widgetBorder);
+            guiContext.graphics.fill(wx2 - 2, wy1, wx2, wy2, widgetBorder);
+            if (minecraft != null) {
+                guiContext.graphics.fill(wx1, wy2, wx1 + 106, wy2 + 12, 0xC0000000);
+                guiContext.graphics.drawString(minecraft.font, "LIVE WIDGET RECT", wx1 + 3, wy2 + 2, 0xFF8CFFAA, false);
+            }
+        }
+
+        ScreenRect revealRect = computeActiveRevealOutputScreenRect();
+        if (revealRect != null && revealRect.width() > 0.5f && revealRect.height() > 0.5f) {
+            int rx1 = Math.round(revealRect.minX());
+            int ry1 = Math.round(revealRect.minY());
+            int rx2 = Math.round(revealRect.maxX());
+            int ry2 = Math.round(revealRect.maxY());
+            int revealBorder = 0xFFFFDF6A;
+            int revealFill = 0x1EFFE36F;
+            guiContext.graphics.fill(rx1, ry1, rx2, ry2, revealFill);
+            guiContext.graphics.fill(rx1, ry1, rx2, ry1 + 2, revealBorder);
+            guiContext.graphics.fill(rx1, ry2 - 2, rx2, ry2, revealBorder);
+            guiContext.graphics.fill(rx1, ry1, rx1 + 2, ry2, revealBorder);
+            guiContext.graphics.fill(rx2 - 2, ry1, rx2, ry2, revealBorder);
+            if (minecraft != null) {
+                guiContext.graphics.fill(rx1, ry1 - 12, rx1 + 100, ry1, 0xC0000000);
+                guiContext.graphics.drawString(minecraft.font, "REVEAL RECT", rx1 + 3, ry1 - 10, 0xFFFFE37F, false);
+            }
+        }
+    }
+
+    private String formatDebugFloat(float value) {
+        return String.format("%.2f", value);
+    }
+
+    private record RevealWidgetDebugState(boolean widgetPresent,
+                                          boolean attached,
+                                          boolean displayed,
+                                          boolean visible,
+                                          boolean nodeVisible,
+                                          boolean hiddenByUnlockOrQueue,
+                                          float settledMinX,
+                                          float settledMinY,
+                                          float settledMaxX,
+                                          float settledMaxY,
+                                          float animatedMinX,
+                                          float animatedMinY,
+                                          float animatedMaxX,
+                                          float animatedMaxY) {
+        boolean poseAvailable() {
+            return animatedMaxX > animatedMinX && animatedMaxY > animatedMinY;
+        }
+    }
+
+    private record ScreenRect(float minX, float minY, float maxX, float maxY) {
+        float width() {
+            return maxX - minX;
+        }
+
+        float height() {
+            return maxY - minY;
+        }
     }
 
     private void drawActiveUnlockAnimationLinks(GUIContext guiContext) {
@@ -1166,6 +1441,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         if (node == null || !isNodeVisible(node)) {
             return;
         }
+        if (!isUnlockRevealCaptureReady(node, System.currentTimeMillis())) {
+            return;
+        }
         ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
         if (!revealOrchestrator.isSupported(node, style)) {
             return;
@@ -1175,6 +1453,23 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         revealOrchestrator.scheduleCapture(guiContext, () -> captureActiveUnlockRevealSnapshot(node));
+    }
+
+    /**
+     * Screen-space snapshot capture is only reliable after the cinematic camera finished its move.
+     * <p>
+     * While the camera is still interpolating, the screen crop can sample transient graph content from
+     * the previous frame or from a neighboring node, especially when several unlocks play sequentially.
+     * We therefore delay snapshot capture until the active unlock camera is already centered on the node.
+     * Before that moment the live widget keeps rendering normally.
+     * </p>
+     */
+    private boolean isUnlockRevealCaptureReady(ResearchNode node, long nowMs) {
+        if (!isUnlockAnimationNode(node) || activeUnlockAnimation == null) {
+            return false;
+        }
+        float elapsed = nowMs - activeUnlockAnimation.startedAtMs();
+        return elapsed >= UNLOCK_CAMERA_DURATION_MS;
     }
 
     private void captureActiveUnlockRevealSnapshot(ResearchNode node) {
@@ -1190,23 +1485,267 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         }
 
         UIElement widget = getNodeWidget(node.getId());
-        float screenX = getContentX() + (node.getX() - getOffsetX()) * getScale();
-        float screenY = getContentY() + (node.getY() - getOffsetY()) * getScale();
-        float screenWidth = node.getWidth() * getScale();
-        float screenHeight = node.getHeight() * getScale();
+        captureRevealWidgetDebugState(node, widget);
+        // Screen capture must use GUI/screen coordinates, not the widget's graph-space absolute
+        // layout position. The settled node rect already accounts for camera offset + graph scale.
+        ScreenRect sourceRect = computeSettledNodeScreenRect(node);
         boolean captured = revealOrchestrator.captureSnapshot(
                 node,
                 style,
                 widget,
-                screenX,
-                screenY,
-                screenWidth,
-                screenHeight,
+                sourceRect.minX(),
+                sourceRect.minY(),
+                sourceRect.width(),
+                sourceRect.height(),
                 resolveRevealVisualDefinition(node, System.currentTimeMillis())
         );
         if (captured) {
             onUnlockRevealSnapshotCaptured(node);
         }
+    }
+
+    private void captureRevealWidgetDebugState(ResearchNode node, @Nullable UIElement widget) {
+        if (widget == null) {
+            lastRevealWidgetDebugState = new RevealWidgetDebugState(
+                    false, false, false, false, false, false,
+                    0f, 0f, 0f, 0f,
+                    0f, 0f, 0f, 0f
+            );
+            return;
+        }
+
+        boolean attached = isNodeWidgetAttached(node.getId());
+        boolean displayed = widget.isDisplayed();
+        boolean visible = widget.isVisible();
+        boolean nodeVisible = isNodeVisible(node);
+        boolean waiting = isNodeWaitingForUnlockAnimation(node.getId());
+        boolean hideLive = shouldHideLiveWidgetDuringUnlock(node);
+
+        float settledMinX = 0f;
+        float settledMinY = 0f;
+        float settledMaxX = 0f;
+        float settledMaxY = 0f;
+        float animatedMinX = 0f;
+        float animatedMinY = 0f;
+        float animatedMaxX = 0f;
+        float animatedMaxY = 0f;
+        boolean poseAvailable = false;
+        try {
+            float progress01 = getUnlockNodeAnimationProgress01(node, System.currentTimeMillis());
+            ScreenRect settledRect = computeWidgetAbsoluteScreenRect(widget);
+            if (settledRect == null) {
+                settledRect = computeSettledNodeScreenRect(node);
+            }
+            ScreenRect animatedRect = computeAnimatedNodeScreenRect(node, progress01);
+
+            settledMinX = settledRect.minX();
+            settledMinY = settledRect.minY();
+            settledMaxX = settledRect.maxX();
+            settledMaxY = settledRect.maxY();
+            animatedMinX = animatedRect.minX();
+            animatedMinY = animatedRect.minY();
+            animatedMaxX = animatedRect.maxX();
+            animatedMaxY = animatedRect.maxY();
+            poseAvailable = animatedRect.width() > 0.5f && animatedRect.height() > 0.5f;
+        } catch (Exception ignored) {
+        }
+
+        lastRevealWidgetDebugState = new RevealWidgetDebugState(
+                true,
+                attached,
+                displayed,
+                visible,
+                nodeVisible,
+                waiting || hideLive,
+                poseAvailable ? settledMinX : 0f,
+                poseAvailable ? settledMinY : 0f,
+                poseAvailable ? settledMaxX : 0f,
+                poseAvailable ? settledMaxY : 0f,
+                poseAvailable ? animatedMinX : 0f,
+                poseAvailable ? animatedMinY : 0f,
+                poseAvailable ? animatedMaxX : 0f,
+                poseAvailable ? animatedMaxY : 0f
+        );
+    }
+
+    private @Nullable ScreenRect computeWidgetAbsoluteScreenRect(@Nullable UIElement widget) {
+        if (widget == null) {
+            return null;
+        }
+
+        float x = widget.getPositionX();
+        float y = widget.getPositionY();
+        float width = widget.getSizeWidth();
+        float height = widget.getSizeHeight();
+        if (width <= 0.5f || height <= 0.5f) {
+            return null;
+        }
+
+        if (Float.isNaN(x) || Float.isNaN(y)) {
+            return null;
+        }
+
+        return new ScreenRect(x, y, x + width, y + height);
+    }
+
+    private void emitRevealDebugLogIfNeeded() {
+        if (!isRevealConsoleDebugEnabled() || activeUnlockAnimation == null) {
+            return;
+        }
+
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
+        if (node == null) {
+            return;
+        }
+
+        long nowMs = System.currentTimeMillis();
+        boolean nodeChanged = lastRevealDebugLogNodeId != node.getId();
+        if (!nodeChanged && nowMs - lastRevealDebugLogAtMs < 120L) {
+            return;
+        }
+
+        UIElement widget = getNodeWidget(node.getId());
+        captureRevealWidgetDebugState(node, widget);
+        float progress01 = getUnlockNodeAnimationProgress01(node, nowMs);
+        UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        ScreenRect sourceRect = computeWidgetAbsoluteScreenRect(widget);
+        if (sourceRect == null) {
+            sourceRect = computeSettledNodeScreenRect(node);
+        }
+        ScreenRect settledRect = computeSettledNodeScreenRect(node);
+        ScreenRect animatedRect = computeAnimatedNodeScreenRect(node, progress01);
+        ScreenRect revealRect = computeActiveRevealOutputScreenRect();
+
+        String stage = nowMs - activeUnlockAnimation.startedAtMs() < UNLOCK_NODE_DELAY_MS
+                ? "camera"
+                : (nowMs - activeUnlockAnimation.startedAtMs() < UNLOCK_LINK_DELAY_MS ? "node" : "links");
+
+        System.out.println("[RevealDebug][" + node.getGroup().getId() + "][" + buildRevealDebugNodeLabel(node) + "]"
+                + " stage=" + stage
+                + " style=" + resolveUnlockRevealAnimationStyle(node)
+                + " progress=" + formatRevealDebugFloat(progress01)
+                + " scale=" + formatRevealDebugFloat(transform.scale())
+                + " tx=" + formatRevealDebugFloat(transform.translateX())
+                + " ty=" + formatRevealDebugFloat(transform.translateY()));
+        System.out.println("  nodeBounds=" + formatRevealDebugRect(node.getX(), node.getY(), node.getWidth(), node.getHeight()));
+        System.out.println("  widgetRect=" + formatRevealDebugRect(sourceRect));
+        System.out.println("  settledRect=" + formatRevealDebugRect(settledRect));
+        System.out.println("  animatedRect=" + formatRevealDebugRect(animatedRect));
+        System.out.println("  revealRect=" + formatRevealDebugRect(revealRect));
+        if (widget != null) {
+            System.out.println("  widgetAbs=pos(" + formatRevealDebugFloat(widget.getPositionX()) + ", "
+                    + formatRevealDebugFloat(widget.getPositionY()) + ") size("
+                    + formatRevealDebugFloat(widget.getSizeWidth()) + " x "
+                    + formatRevealDebugFloat(widget.getSizeHeight()) + ")"
+                    + " display=" + widget.isDisplayed()
+                    + " visible=" + widget.isVisible()
+                    + " attached=" + isNodeWidgetAttached(node.getId()));
+        } else {
+            System.out.println("  widgetAbs=<null>");
+        }
+
+        lastRevealDebugLogAtMs = nowMs;
+        lastRevealDebugLogNodeId = node.getId();
+    }
+
+    private String buildRevealDebugNodeLabel(ResearchNode node) {
+        String title = node.getTitle();
+        if (title == null || title.isBlank()) {
+            return "node_" + node.getId();
+        }
+        return title.replace('\n', ' ').replace('\r', ' ');
+    }
+
+    private String formatRevealDebugRect(@Nullable ScreenRect rect) {
+        if (rect == null) {
+            return "<null>";
+        }
+        return formatRevealDebugRect(rect.minX(), rect.minY(), rect.width(), rect.height());
+    }
+
+    private String formatRevealDebugRect(float x, float y, float width, float height) {
+        return "xy(" + formatRevealDebugFloat(x) + ", " + formatRevealDebugFloat(y) + ") wh("
+                + formatRevealDebugFloat(width) + " x " + formatRevealDebugFloat(height) + ")";
+    }
+
+    private String formatRevealDebugFloat(float value) {
+        return String.format(Locale.ROOT, "%.2f", value);
+    }
+
+    private ScreenRect computeSettledNodeScreenRect(ResearchNode node) {
+        float graphScale = getScale();
+        float screenWidth = node.getWidth() * graphScale;
+        float screenHeight = node.getHeight() * graphScale;
+        float screenCenterX = getContentX() + (node.centerX() - getOffsetX()) * graphScale;
+        float screenCenterY = getContentY() + (node.centerY() - getOffsetY()) * graphScale;
+        return new ScreenRect(
+                screenCenterX - screenWidth * 0.5f,
+                screenCenterY - screenHeight * 0.5f,
+                screenCenterX + screenWidth * 0.5f,
+                screenCenterY + screenHeight * 0.5f
+        );
+    }
+
+    private ScreenRect computeAnimatedNodeScreenRect(ResearchNode node, float progress01) {
+        UnlockNodeTransform transform = isUnlockAnimationNode(node)
+                ? getUnlockNodeAnimationTransform(node, progress01)
+                : new UnlockNodeTransform(1f, 0f, 0f);
+        float graphScale = getScale();
+        float screenWidth = node.getWidth() * graphScale * Math.max(0.01f, transform.scale());
+        float screenHeight = node.getHeight() * graphScale * Math.max(0.01f, transform.scale());
+        float screenCenterX = getContentX() + (node.centerX() - getOffsetX() + transform.translateX()) * graphScale;
+        float screenCenterY = getContentY() + (node.centerY() - getOffsetY() + transform.translateY()) * graphScale;
+        return new ScreenRect(
+                screenCenterX - screenWidth * 0.5f,
+                screenCenterY - screenHeight * 0.5f,
+                screenCenterX + screenWidth * 0.5f,
+                screenCenterY + screenHeight * 0.5f
+        );
+    }
+
+    private @Nullable ScreenRect computeActiveRevealOutputScreenRect() {
+        if (activeUnlockAnimation == null) {
+            return null;
+        }
+        ResearchNode node = getNodeById(activeUnlockAnimation.nodeId());
+        if (node == null || !isNodeVisible(node)) {
+            return null;
+        }
+        long nowMs = System.currentTimeMillis();
+        float progress01 = getUnlockNodeAnimationProgress01(node, nowMs);
+        UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        ResearchRevealAnimationStyle style = resolveUnlockRevealAnimationStyle(node);
+        float graphScale = getScale();
+        float width = node.getWidth() * graphScale;
+        float height = node.getHeight() * graphScale;
+        float screenCenterX = getContentX() + (node.centerX() - getOffsetX()) * graphScale;
+        float screenCenterY = getContentY() + (node.centerY() - getOffsetY()) * graphScale;
+
+        return switch (style) {
+            case FADE_SCALE -> {
+                float renderWidth = Math.max(1f, width * Math.max(0.1f, transform.scale()));
+                float renderHeight = Math.max(1f, height * Math.max(0.1f, transform.scale()));
+                float minX = screenCenterX + transform.translateX() * graphScale - renderWidth * 0.5f;
+                float minY = screenCenterY + transform.translateY() * graphScale - renderHeight * 0.5f;
+                yield new ScreenRect(minX, minY, minX + renderWidth, minY + renderHeight);
+            }
+            case SPLIT_FUSE -> {
+                float safeScale = Math.max(0.35f, transform.scale());
+                float renderWidth = width * safeScale;
+                float renderHeight = height * safeScale;
+                float splitDistance = lerp(
+                        renderWidth * 0.46f,
+                        0f,
+                        easeOutCubic(clamp01((progress01 - 0.10f) / 0.58f))
+                );
+                float targetWidth = renderWidth + splitDistance + SPLIT_FUSE_COMPOSITE_PADDING * 2f;
+                float targetHeight = renderHeight + SPLIT_FUSE_COMPOSITE_PADDING * 2f;
+                float minX = screenCenterX + transform.translateX() * graphScale - targetWidth * 0.5f;
+                float minY = screenCenterY + transform.translateY() * graphScale - targetHeight * 0.5f;
+                yield new ScreenRect(minX, minY, minX + targetWidth, minY + targetHeight);
+            }
+            default -> computeAnimatedNodeScreenRect(node, progress01);
+        };
     }
 
     private boolean hasUnlockRevealSnapshot(int nodeId) {

@@ -86,16 +86,20 @@ public final class SplitFuseRevealEffect implements ResearchRevealEffect {
 
         private CompositeFrame buildCompositeFrame(RevealRenderContext context) {
             float safeScale = Math.max(0.35f, context.scale());
-            float renderWidth = context.width() * safeScale;
-            float renderHeight = context.height() * safeScale;
+            float sourceWidth = Math.max(1f, context.snapshotSourceScreenWidth());
+            float sourceHeight = Math.max(1f, context.snapshotSourceScreenHeight());
+            float renderWidth = sourceWidth * safeScale;
+            float renderHeight = sourceHeight * safeScale;
             float halfWidth = renderWidth * 0.5f;
             float splitDistance = lerp(renderWidth * 0.46f, 0f, easeOutCubic(clamp01((context.progress01() - 0.10f) / 0.58f)));
             float targetWidth = renderWidth + splitDistance + COMPOSITE_PADDING * 2f;
             float targetHeight = renderHeight + COMPOSITE_PADDING * 2f;
             float localBaseX = (targetWidth - renderWidth) * 0.5f;
             float localBaseY = (targetHeight - renderHeight) * 0.5f;
-            float screenX = context.centerX() + context.translateX() - targetWidth * 0.5f;
-            float screenY = context.centerY() + context.translateY() - targetHeight * 0.5f;
+            float sourceCenterX = context.snapshotSourceScreenX() + sourceWidth * 0.5f;
+            float sourceCenterY = context.snapshotSourceScreenY() + sourceHeight * 0.5f;
+            float screenX = sourceCenterX + context.translateX() - targetWidth * 0.5f;
+            float screenY = sourceCenterY + context.translateY() - targetHeight * 0.5f;
             return new CompositeFrame(
                     renderWidth,
                     renderHeight,

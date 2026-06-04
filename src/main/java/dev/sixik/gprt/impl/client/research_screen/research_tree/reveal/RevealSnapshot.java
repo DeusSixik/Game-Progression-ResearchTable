@@ -11,7 +11,16 @@ public record RevealSnapshot(int nodeId,
                              int textureId,
                              int width,
                              int height,
+                             float sourceScreenX,
+                             float sourceScreenY,
+                             float sourceScreenWidth,
+                             float sourceScreenHeight,
+                             CaptureSource source,
                              @Nullable TextureTarget target,
                              @Nullable ResourceLocation textureLocation
 ) {
+    public enum CaptureSource {
+        SCREEN,
+        OFFSCREEN
+    }
 }

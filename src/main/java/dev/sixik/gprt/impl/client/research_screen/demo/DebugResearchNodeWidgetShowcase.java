@@ -123,13 +123,15 @@ public final class DebugResearchNodeWidgetShowcase {
                                              ResearchGroup farmingGroup,
                                              ResearchGroup logisticsGroup
     ) {
-        builder.group(rootGroup, ResearchNodeThemes.rootPreset(rootGroup));
+        builder.group(rootGroup, theme -> ResearchNodeThemes.rootPreset(rootGroup).toBuilder()
+                .revealAnimationStyle(ResearchRevealAnimationStyle.FADE_SCALE)
+                .build());
         builder.group(metallurgyGroup, theme -> theme
                 .primaryColor(metallurgyGroup.getPrimaryColor())
                 .secondaryColor(metallurgyGroup.getSecondaryColor())
                 .accentColor(0xFFFFC766)
                 .badge("FORGE", 0xFFF0C17C)
-                .revealAnimationStyle(ResearchRevealAnimationStyle.DROP_BOUNCE)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SPLIT_FUSE)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(farmingGroup, theme -> theme
@@ -137,7 +139,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(farmingGroup.getSecondaryColor())
                 .accentColor(0xFF9BE27F)
                 .badge("GROW", 0xFFA7E3A4)
-                .revealAnimationStyle(ResearchRevealAnimationStyle.SOFT_POP)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.FADE_SCALE)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
         builder.group(logisticsGroup, theme -> theme
@@ -145,7 +147,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(logisticsGroup.getSecondaryColor())
                 .accentColor(0xFF8BC0FF)
                 .badge("FLOW", 0xFFA9CBFF)
-                .revealAnimationStyle(ResearchRevealAnimationStyle.SLIDE_FROM_LEFT)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SPLIT_FUSE)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
     }
@@ -179,7 +181,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 .secondaryColor(alchemyGroup.getSecondaryColor())
                 .accentColor(0xFFD8B4FF)
                 .badge("MIST", 0xFFE7D4FF)
-                .revealAnimationStyle(ResearchRevealAnimationStyle.ARC_DROP)
+                .revealAnimationStyle(ResearchRevealAnimationStyle.SPLIT_FUSE)
                 .badgeTextShadow(false)
                 .titleAlignment(ResearchNodeVisualDefinition.TitleAlignment.LEFT));
     }
@@ -356,7 +358,10 @@ public final class DebugResearchNodeWidgetShowcase {
                            ResearchNodeRenderContext context,
                            ResearchNodeVisualDefinition visualDefinition
         ) {
-            setDisplay(context.isVisible());
+            // Keep tutorial widgets in layout during reveal playback.
+            // Using display=false collapses bounds to 0x0, which breaks snapshot alignment.
+            setDisplay(true);
+            style(style -> style.opacity(context.isVisible() ? 1f : 0f));
             setActive(context.isVisible() && !context.isInteractionLocked());
 
             float width = node.getWidth();

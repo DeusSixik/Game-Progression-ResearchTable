@@ -21,11 +21,14 @@ public final class FadeScaleRevealEffect implements ResearchRevealEffect {
     private static final class Instance implements RevealEffectInstance {
         @Override
         public void render(RevealRenderContext context) {
-            float safeScale = Math.max(0.1f, context.scale());
-            float renderWidth = context.width() * safeScale;
-            float renderHeight = context.height() * safeScale;
-            float baseX = context.centerX() + context.translateX() - renderWidth * 0.5f;
-            float baseY = context.centerY() + context.translateY() - renderHeight * 0.5f;
+            float sourceWidth = Math.max(1f, context.snapshotSourceScreenWidth());
+            float sourceHeight = Math.max(1f, context.snapshotSourceScreenHeight());
+            float renderWidth = Math.max(1f, sourceWidth * Math.max(0.1f, context.scale()));
+            float renderHeight = Math.max(1f, sourceHeight * Math.max(0.1f, context.scale()));
+            float sourceCenterX = context.snapshotSourceScreenX() + sourceWidth * 0.5f;
+            float sourceCenterY = context.snapshotSourceScreenY() + sourceHeight * 0.5f;
+            float baseX = sourceCenterX + context.translateX() - renderWidth * 0.5f;
+            float baseY = sourceCenterY + context.translateY() - renderHeight * 0.5f;
 
             float intro = easeOutCubic(clamp01(context.progress01() / 0.22f));
             float settle = easeOutCubic(clamp01((context.progress01() - 0.08f) / 0.72f));

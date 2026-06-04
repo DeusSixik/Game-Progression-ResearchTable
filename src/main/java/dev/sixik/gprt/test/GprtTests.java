@@ -42,7 +42,7 @@ public class GprtTests {
                 .description("Metallurgy example. This branch uses the heavier drop/bounce reveal style.")
                 .required("primitive_tools")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
-                .revealAnimation(ResearchRevealAnimationType.DROP_BOUNCE)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
                 .reward(Items.COPPER_INGOT)
                 .timed(5_000L)
                 .build());
@@ -51,7 +51,7 @@ public class GprtTests {
                 .description("Farming example. This branch uses the softer pop-in reveal style.")
                 .required("primitive_tools")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
-                .revealAnimation(ResearchRevealAnimationType.SOFT_POP)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
                 .reward(Items.WHEAT_SEEDS)
                 .instant()
                 .build());
@@ -60,7 +60,7 @@ public class GprtTests {
                 .description("Logistics example. This branch enters from the left before settling into the graph.")
                 .required("primitive_tools")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
-                .revealAnimation(ResearchRevealAnimationType.SLIDE_FROM_LEFT)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
                 .reward(Items.LEAD)
                 .instant()
                 .build());
@@ -69,7 +69,7 @@ public class GprtTests {
                 .description("Energy example. This branch now uses the new snapshot-based FadeScale reveal effect, proving the reveal API can host more than SplitFuse.")
                 .required("primitive_tools")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
-                .revealAnimation(ResearchRevealAnimationType.FADE_SCALE)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
                 .reward(Items.REDSTONE_TORCH)
                 .timed(6_000L)
                 .build());
@@ -96,7 +96,7 @@ public class GprtTests {
                 .description("Second-wave reveal example. Study Forge Notes to trigger another unlock and better see the under-node glow on a non-root branch.")
                 .required("forge_notes")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
-                .revealAnimation(ResearchRevealAnimationType.DROP_BOUNCE)
+                .revealAnimation(ResearchRevealAnimationType.SPLIT_FUSE)
                 .reward(Items.IRON_PICKAXE)
                 .timed(4_000L)
                 .build());

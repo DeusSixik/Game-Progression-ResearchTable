@@ -11,6 +11,6 @@ public class ResearchTreeScreenCreator {
     private static final UIElement defaultScreen = new ResearchTableScreen().createView();
 
     public static ModularUI createMainScreen() {
-        return ModularUI.of(UI.of(new ResearchTableScreen().createView()));
+        return ModularUI.of(UI.of(new ResearchTreeScreenDebug().createView()));
     }
 }

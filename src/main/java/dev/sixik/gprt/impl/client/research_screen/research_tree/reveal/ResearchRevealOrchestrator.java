@@ -31,12 +31,28 @@ public final class ResearchRevealOrchestrator {
         return captureScheduled;
     }
 
+    public void setCaptureMode(RevealCaptureMode captureMode) {
+        snapshotCaptureService.setCaptureMode(captureMode);
+    }
+
+    public RevealCaptureMode getCaptureMode() {
+        return snapshotCaptureService.getCaptureMode();
+    }
+
     public boolean hasActiveSnapshot(int nodeId) {
         return activeSnapshot != null && activeSnapshot.nodeId() == nodeId;
     }
 
     public @Nullable Integer getActiveSnapshotNodeId() {
         return activeSnapshot == null ? null : activeSnapshot.nodeId();
+    }
+
+    public @Nullable RevealSnapshot getActiveSnapshot() {
+        return activeSnapshot;
+    }
+
+    public @Nullable RevealCaptureDebugData getLastDebugData() {
+        return snapshotCaptureService.getLastDebugData();
     }
 
     public boolean isSupported(ResearchNode node, dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle style) {
@@ -51,6 +67,11 @@ public final class ResearchRevealOrchestrator {
         captureScheduled = true;
         guiContext.postRendering(ignored -> {
             try {
+                // Make sure all pending GUI draw calls are actually written into the main target
+                // before we read pixels for a screen-space snapshot.
+                if (ignored.graphics != null) {
+                    ignored.graphics.flush();
+                }
                 captureAction.run();
             } finally {
                 captureScheduled = false;
@@ -76,6 +97,7 @@ public final class ResearchRevealOrchestrator {
             return false;
         }
 
+        snapshotCaptureService.captureDebug(node, widget, screenX, screenY, screenWidth, screenHeight);
         RevealSnapshot snapshot = snapshotCaptureService.capture(node, widget, screenX, screenY, screenWidth, screenHeight);
         if (snapshot == null) {
             return false;
@@ -92,9 +114,13 @@ public final class ResearchRevealOrchestrator {
                        ResearchNode node,
                        dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle style,
                        float progress01,
+                       float width,
+                       float height,
                        float scale,
                        float translateX,
                        float translateY,
+                       float screenCenterX,
+                       float screenCenterY,
                        int backgroundColor,
                        int borderColor,
                        int accentColor,
@@ -114,17 +140,37 @@ public final class ResearchRevealOrchestrator {
                 visualDefinition,
                 renderBackend,
                 progress01,
-                node.centerX(),
-                node.centerY(),
-                node.getWidth(),
-                node.getHeight(),
+                width,
+                height,
                 scale,
                 translateX,
                 translateY,
+                screenCenterX,
+                screenCenterY,
                 backgroundColor,
                 borderColor,
                 accentColor
         ));
+    }
+
+    public void renderDebugPreview(GUIContext guiContext, float x, float y, float width, float height) {
+        if (activeSnapshot == null) {
+            return;
+        }
+        renderDebugPreview(guiContext, activeSnapshot, x, y, width, height);
+    }
+
+    public void renderDebugPreview(GUIContext guiContext,
+                                   @Nullable RevealSnapshot snapshot,
+                                   float x,
+                                   float y,
+                                   float width,
+                                   float height
+    ) {
+        if (snapshot == null) {
+            return;
+        }
+        renderBackend.drawScreenQuad(guiContext, snapshot.textureId(), x, y, width, height, 0xFFFFFFFF);
     }
 
     public void release() {
@@ -137,6 +183,7 @@ public final class ResearchRevealOrchestrator {
             snapshotCaptureService.release(activeSnapshot);
             activeSnapshot = null;
         }
+        snapshotCaptureService.releaseDebugData();
         activeEffect = null;
     }
 }
