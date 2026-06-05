@@ -201,7 +201,7 @@ public final class ResearchInfoContent {
          * Sets the main panel title.
          */
         public Builder title(String title) {
-            this.title = title;
+            this.title = ResearchInfoTextResolver.resolveText(title);
             return this;
         }
 
@@ -236,7 +236,7 @@ public final class ResearchInfoContent {
          * Sets the short group text shown under the title.
          */
         public Builder groupText(String groupText) {
-            this.groupText = groupText;
+            this.groupText = ResearchInfoTextResolver.resolveText(groupText);
             return this;
         }
 
@@ -244,7 +244,7 @@ public final class ResearchInfoContent {
          * Sets the short mode text shown under the title.
          */
         public Builder modeText(String modeText) {
-            this.modeText = modeText;
+            this.modeText = ResearchInfoTextResolver.resolveText(modeText);
             return this;
         }
 
@@ -252,7 +252,7 @@ public final class ResearchInfoContent {
          * Sets the short state/status text shown under the title.
          */
         public Builder stateText(String stateText) {
-            this.stateText = stateText;
+            this.stateText = ResearchInfoTextResolver.resolveText(stateText);
             return this;
         }
 
@@ -260,7 +260,7 @@ public final class ResearchInfoContent {
          * Sets the free-form description block shown before the sections list.
          */
         public Builder description(String description) {
-            this.description = description;
+            this.description = ResearchInfoTextResolver.resolveText(description);
             return this;
         }
 
@@ -281,7 +281,7 @@ public final class ResearchInfoContent {
          */
         public Builder timedProgress(String timedProgressText, float timedProgress01, int timedProgressFillColor) {
             this.showTimedProgress = true;
-            this.timedProgressText = timedProgressText;
+            this.timedProgressText = ResearchInfoTextResolver.resolveText(timedProgressText);
             this.timedProgress01 = timedProgress01;
             this.timedProgressFillColor = timedProgressFillColor;
             return this;
@@ -324,7 +324,7 @@ public final class ResearchInfoContent {
          * Configures the bottom action button visibility and interaction state.
          */
         public Builder researchButton(String researchButtonText, boolean showResearchButton, boolean researchButtonEnabled) {
-            this.researchButtonText = researchButtonText;
+            this.researchButtonText = ResearchInfoTextResolver.resolveText(researchButtonText);
             this.showResearchButton = showResearchButton;
             this.researchButtonEnabled = researchButtonEnabled;
             return this;

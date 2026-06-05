@@ -130,6 +130,34 @@ public final class SimpleClientResearchProgressManager implements ClientResearch
     }
 
     @Override
+    public boolean recalculateTimedResearchDuration(String researchId, long totalDurationMs) {
+        return ClientResearchProgressManager.super.recalculateTimedResearchDuration(researchId, totalDurationMs);
+    }
+
+    @Override
+    public boolean recalculateTimedResearchDuration(String researchId, long totalDurationMs, long nowMs) {
+        ClientResearchProgress progress = progressByResearchId.get(researchId);
+        if (progress == null) {
+            return false;
+        }
+        return progress.recalculateTimedDuration(nowMs, totalDurationMs);
+    }
+
+    @Override
+    public boolean recalculateTimedResearchSpeed(String researchId, float speedMultiplier) {
+        return ClientResearchProgressManager.super.recalculateTimedResearchSpeed(researchId, speedMultiplier);
+    }
+
+    @Override
+    public boolean recalculateTimedResearchSpeed(String researchId, float speedMultiplier, long nowMs) {
+        ClientResearchProgress progress = progressByResearchId.get(researchId);
+        if (progress == null) {
+            return false;
+        }
+        return progress.recalculateTimedDurationByMultiplier(nowMs, speedMultiplier);
+    }
+
+    @Override
     public boolean update(long nowMs) {
         boolean changed = false;
         for (ClientResearchProgress progress : progressByResearchId.values()) {

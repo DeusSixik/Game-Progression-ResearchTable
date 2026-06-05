@@ -1,10 +1,17 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree.info;
 
+import net.minecraft.client.resources.language.I18n;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import org.jetbrains.annotations.Nullable;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Shared formatting and state-to-UI rules for research info panels.
@@ -41,36 +48,38 @@ import org.jetbrains.annotations.Nullable;
 public final class ResearchInfoPresentationRules {
     private static final int IDLE_TIMED_PROGRESS_COLOR = 0x664C90E8;
     private static final int ACTIVE_TIMED_PROGRESS_COLOR = 0xFF67B7FF;
+    private static final long ONE_MINUTE_MS = 60_000L;
+    private static final DateTimeFormatter TIME_ONLY_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private ResearchInfoPresentationRules() {
     }
 
     public static String formatStateText(ResearchState state, ResearchNode node) {
         return switch (state) {
-            case STUDIED -> "Studied";
-            case AVAILABLE -> "Available";
-            case LOCKED -> "Locked";
+            case STUDIED -> tr("ui.game_progression_research_table.research_info.state.studied");
+            case AVAILABLE -> tr("ui.game_progression_research_table.research_info.state.available");
+            case LOCKED -> tr("ui.game_progression_research_table.research_info.state.locked");
             case IN_PROGRESS -> switch (node.getStudyType()) {
-                case TIMED -> "Timed research in progress";
-                case TABLE -> "Table research in progress";
-                case INSTANT -> "In progress";
+                case TIMED -> tr("ui.game_progression_research_table.research_info.state.in_progress.timed");
+                case TABLE -> tr("ui.game_progression_research_table.research_info.state.in_progress.table");
+                case INSTANT -> tr("ui.game_progression_research_table.research_info.state.in_progress.instant");
             };
         };
     }
 
     public static String formatStudyType(ResearchNode node) {
         return switch (node.getStudyType()) {
-            case INSTANT -> "Instant";
-            case TIMED -> "Timed (" + formatDuration(node.getStudyDurationMs()) + ")";
-            case TABLE -> "Table";
+            case INSTANT -> tr("ui.game_progression_research_table.research_info.study_type.instant");
+            case TIMED -> tr("ui.game_progression_research_table.research_info.study_type.timed", formatDuration(node.getStudyDurationMs()));
+            case TABLE -> tr("ui.game_progression_research_table.research_info.study_type.table");
         };
     }
 
     public static String formatVisibilityMode(ResearchNode node) {
         return switch (node.getVisibilityMode()) {
-            case ALWAYS_VISIBLE -> "Always visible";
-            case REQUIRE_ANY_PARENT_STUDIED -> "Require any parent studied";
-            case REQUIRE_ALL_PARENTS_STUDIED -> "Require all parents studied";
+            case ALWAYS_VISIBLE -> tr("ui.game_progression_research_table.research_info.visibility.always_visible");
+            case REQUIRE_ANY_PARENT_STUDIED -> tr("ui.game_progression_research_table.research_info.visibility.require_any_parent");
+            case REQUIRE_ALL_PARENTS_STUDIED -> tr("ui.game_progression_research_table.research_info.visibility.require_all_parents");
         };
     }
 
@@ -86,14 +95,15 @@ public final class ResearchInfoPresentationRules {
         }
 
         if (progress == null || state != ResearchState.IN_PROGRESS) {
-            builder.timedProgress("Duration: " + formatDuration(node.getStudyDurationMs()), 0f, IDLE_TIMED_PROGRESS_COLOR);
+            builder.timedProgress(tr("ui.game_progression_research_table.research_info.timed.duration", formatDuration(node.getStudyDurationMs())), 0f, IDLE_TIMED_PROGRESS_COLOR);
             return;
         }
 
         long remainingMs = progress.getRemainingMs(nowMs);
         float progress01 = progress.getProgress01(nowMs);
+        int progressPercent = Math.round(progress01 * 100f);
         builder.timedProgress(
-                "Progress: " + Math.round(progress01 * 100f) + "% | left " + formatDuration(remainingMs),
+                formatTimedProgressText(progressPercent, progress, remainingMs, nowMs),
                 progress01,
                 ACTIVE_TIMED_PROGRESS_COLOR
         );
@@ -136,18 +146,79 @@ public final class ResearchInfoPresentationRules {
         return switch (node.getStudyType()) {
             case TIMED -> {
                 long remainingMs = progress == null ? 0L : progress.getRemainingMs(nowMs);
-                yield "Timed: " + formatDuration(remainingMs);
+                yield tr("ui.game_progression_research_table.research_info.button.in_progress.timed", formatDuration(remainingMs));
             }
-            case TABLE -> "Resume Table Research";
-            case INSTANT -> "In Progress";
+            case TABLE -> tr("ui.game_progression_research_table.research_info.button.in_progress.table");
+            case INSTANT -> tr("ui.game_progression_research_table.research_info.button.in_progress.instant");
         };
+    }
+
+    private static String formatTimedProgressText(int progressPercent,
+                                                  ClientResearchProgress progress,
+                                                  long remainingMs,
+                                                  long nowMs
+    ) {
+        if (remainingMs <= ONE_MINUTE_MS) {
+            return tr("ui.game_progression_research_table.research_info.timed.progress.left",
+                    progressPercent,
+                    formatDuration(remainingMs));
+        }
+
+        long finishesAtMs = nowMs + remainingMs;
+        String progressKey = resolveFinishesProgressKey(finishesAtMs);
+        return tr(progressKey,
+                progressPercent,
+                formatFinishArgument(finishesAtMs, progressKey));
+    }
+
+    private static String formatFinishArgument(long timestampMs, String progressKey) {
+        if (progressKey.endsWith(".today") || progressKey.endsWith(".tomorrow")) {
+            return formatFinishTimeOnly(timestampMs);
+        }
+        return formatFinishTimestamp(timestampMs);
+    }
+
+    private static String formatFinishTimestamp(long timestampMs) {
+        ZonedDateTime dateTime = Instant.ofEpochMilli(timestampMs).atZone(ZoneId.systemDefault());
+        LocalDate targetDate = dateTime.toLocalDate();
+        String day = String.format("%02d", dateTime.getDayOfMonth());
+        return tr("ui.game_progression_research_table.research_info.date.day_month_time",
+                day,
+                localizeMonthShort(dateTime.getMonthValue()),
+                TIME_ONLY_FORMAT.format(dateTime));
+    }
+
+    private static String formatFinishTimeOnly(long timestampMs) {
+        ZonedDateTime dateTime = Instant.ofEpochMilli(timestampMs).atZone(ZoneId.systemDefault());
+        return TIME_ONLY_FORMAT.format(dateTime);
+    }
+
+    private static String resolveFinishesProgressKey(long timestampMs) {
+        ZonedDateTime dateTime = Instant.ofEpochMilli(timestampMs).atZone(ZoneId.systemDefault());
+        LocalDate targetDate = dateTime.toLocalDate();
+        LocalDate today = Instant.now().atZone(ZoneId.systemDefault()).toLocalDate();
+        if (targetDate.equals(today)) {
+            return "ui.game_progression_research_table.research_info.timed.progress.finishes.today";
+        }
+        if (targetDate.equals(today.plusDays(1L))) {
+            return "ui.game_progression_research_table.research_info.timed.progress.finishes.tomorrow";
+        }
+        return "ui.game_progression_research_table.research_info.timed.progress.finishes";
+    }
+
+    private static String localizeMonthShort(int monthValue) {
+        return tr("ui.game_progression_research_table.research_info.month." + monthValue);
     }
 
     private static String getAvailableButtonText(ResearchNode node) {
         return switch (node.getStudyType()) {
-            case INSTANT -> "Research";
-            case TIMED -> "Start Timed Research";
-            case TABLE -> "Open Table Research";
+            case INSTANT -> tr("ui.game_progression_research_table.research_info.button.available.instant");
+            case TIMED -> tr("ui.game_progression_research_table.research_info.button.available.timed");
+            case TABLE -> tr("ui.game_progression_research_table.research_info.button.available.table");
         };
+    }
+
+    private static String tr(String key, Object... args) {
+        return I18n.get(key, args);
     }
 }

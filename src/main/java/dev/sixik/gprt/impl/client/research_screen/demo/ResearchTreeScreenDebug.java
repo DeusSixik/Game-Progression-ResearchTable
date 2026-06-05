@@ -611,8 +611,12 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     private ResearchInfoContent buildFactoryShowcaseContent(ResearchNode node, ResearchState state) {
         // Example 2: build a details panel almost fully by hand through ResearchInfoContentFactory.
         ResearchInfoContentFactory.Builder builder = ResearchInfoContentFactory.forNode(node)
-                .modeText("Mode: " + ResearchInfoPresentationRules.formatStudyType(node))
-                .stateText("Status: " + ResearchInfoPresentationRules.formatStateText(state, node))
+                .modeText(net.minecraft.client.resources.language.I18n.get(
+                        "ui.game_progression_research_table.research_info.meta.mode",
+                        ResearchInfoPresentationRules.formatStudyType(node)))
+                .stateText(net.minecraft.client.resources.language.I18n.get(
+                        "ui.game_progression_research_table.research_info.meta.status",
+                        ResearchInfoPresentationRules.formatStateText(state, node)))
                 .visibilityText("Custom factory example")
                 .panelColor(0xD0221820)
                 .noConditions()

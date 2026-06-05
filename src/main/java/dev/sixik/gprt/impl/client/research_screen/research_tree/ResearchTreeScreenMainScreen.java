@@ -1069,8 +1069,12 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
      */
     protected final ResearchInfoContentFactory.Builder createStandardInfoContentBuilder(ResearchNode node, ResearchState state) {
         ResearchInfoContentFactory.Builder builder = ResearchInfoContentFactory.forNode(node)
-                .modeText("Mode: " + ResearchInfoPresentationRules.formatStudyType(node))
-                .stateText("Status: " + ResearchInfoPresentationRules.formatStateText(state, node))
+                .modeText(net.minecraft.client.resources.language.I18n.get(
+                        "ui.game_progression_research_table.research_info.meta.mode",
+                        ResearchInfoPresentationRules.formatStudyType(node)))
+                .stateText(net.minecraft.client.resources.language.I18n.get(
+                        "ui.game_progression_research_table.research_info.meta.status",
+                        ResearchInfoPresentationRules.formatStateText(state, node)))
                 .visibilityText(ResearchInfoPresentationRules.formatVisibilityMode(node))
                 .panelColor(0xD0000000 | (applyLinkRenderStateColor(node.getGroupColor(), toRenderState(state)) & 0x00FFFFFF));
 

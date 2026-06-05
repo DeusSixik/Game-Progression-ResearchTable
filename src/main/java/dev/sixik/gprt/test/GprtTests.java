@@ -130,7 +130,7 @@ public class GprtTests {
                 .condition(Items.FLINT)
                 .stage("my_stage")
                 .reward(Items.FLINT_AND_STEEL)
-                .timed(4_000)
+                .timed(3600000)
                 .build());
 
         definitions.add(research("observation", "Observation", root)

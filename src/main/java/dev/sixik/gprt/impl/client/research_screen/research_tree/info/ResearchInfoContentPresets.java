@@ -55,14 +55,14 @@ public final class ResearchInfoContentPresets {
         String group = node.getGroup() != null ? node.getGroup().getTitle() : "Unknown";
         String description = node.getDescription();
         if (description == null || description.isBlank()) {
-            description = "No description has been assigned to this research yet.";
+            description = "ui.game_progression_research_table.research_info.description.missing";
         }
 
         return ResearchInfoContent.builder()
                 .title(title)
                 .titleCentered()
                 .titleLarge(true)
-                .groupText("Group: " + group)
+                .groupText(ResearchInfoTextResolver.resolveLabeledValue("ui.game_progression_research_table.research_info.meta.group", group))
                 .modeText(modeText)
                 .stateText(stateText)
                 .description(description)
@@ -76,9 +76,10 @@ public final class ResearchInfoContentPresets {
                                              ResearchNode node,
                                              String visibilityText
     ) {
-        builder.section("Info", section -> {
-            section.infoLine("Key", node.getResearchKey() != null ? node.getResearchKey() : ("node_" + node.getId()));
-            section.infoLine("Visibility", visibilityText);
+        builder.section("ui.game_progression_research_table.research_info.section.info", section -> {
+            section.infoLine("ui.game_progression_research_table.research_info.meta.key",
+                    node.getResearchKey() != null ? node.getResearchKey() : ("node_" + node.getId()));
+            section.infoLine("ui.game_progression_research_table.research_info.meta.visibility", visibilityText);
         });
     }
 
@@ -89,9 +90,9 @@ public final class ResearchInfoContentPresets {
                                               ResearchNode node,
                                               List<ResearchNode> parents
     ) {
-        builder.section("Required Researches", section -> {
+        builder.section("ui.game_progression_research_table.research_info.section.required_researches", section -> {
             if (parents.isEmpty()) {
-                section.conditionText("No prerequisites", true);
+                section.conditionText("ui.game_progression_research_table.research_info.condition.none", true);
                 return;
             }
 
@@ -100,9 +101,9 @@ public final class ResearchInfoContentPresets {
             for (ResearchNode parent : parents) {
                 String parentTitle = parent.getTitle() != null ? parent.getTitle() : ("Node " + parent.getId());
                 section.condition(entry -> {
-                    entry.text("Study " + parentTitle)
+                    entry.text(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.condition.study") + " " + ResearchInfoTextResolver.resolveText(parentTitle))
                             .completed(parent.isStudied())
-                            .tooltip("Required research: " + parentTitle)
+                            .tooltip(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.condition.required_research") + ": " + ResearchInfoTextResolver.resolveText(parentTitle))
                             .icon(new ColorRectTexture(parent.getGroupColor()));
                 });
             }
@@ -116,7 +117,7 @@ public final class ResearchInfoContentPresets {
                                              List<ResearchNode> visibleChildren,
                                              String fallbackText
     ) {
-        builder.section("Unlocks", section -> {
+        builder.section("ui.game_progression_research_table.research_info.section.unlocks", section -> {
             if (visibleChildren.isEmpty()) {
                 section.rewardText(fallbackText);
                 return;
@@ -186,17 +187,17 @@ public final class ResearchInfoContentPresets {
 
         switch (visibilityMode) {
             case REQUIRE_ANY_PARENT_STUDIED -> section.condition(entry -> entry
-                    .text("Study any one of the researches below")
+                    .text("ui.game_progression_research_table.research_info.condition.study_any_parent")
                     .completed(hasAnyStudiedParent(parents))
-                    .tooltip("This research unlocks when at least one parent research is studied."));
+                    .tooltip("ui.game_progression_research_table.research_info.condition.study_any_parent.tooltip"));
             case REQUIRE_ALL_PARENTS_STUDIED -> section.condition(entry -> entry
-                    .text("Study all researches below")
+                    .text("ui.game_progression_research_table.research_info.condition.study_all_parents")
                     .completed(hasAllStudiedParents(parents))
-                    .tooltip("This research unlocks only after every parent research below is studied."));
+                    .tooltip("ui.game_progression_research_table.research_info.condition.study_all_parents.tooltip"));
             case ALWAYS_VISIBLE -> section.condition(entry -> entry
-                    .text("Parents are linked for navigation only")
+                    .text("ui.game_progression_research_table.research_info.condition.parents_navigation_only")
                     .completed(true)
-                    .tooltip("This node stays visible even if none of the linked parent researches are studied."));
+                    .tooltip("ui.game_progression_research_table.research_info.condition.parents_navigation_only.tooltip"));
         }
     }
 

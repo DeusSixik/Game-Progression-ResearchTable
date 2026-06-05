@@ -14,6 +14,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.Tooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
@@ -111,7 +113,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
                 ));
 
         closeButton = new Button()
-                .setText("X")
+                .setText(tr("ui.game_progression_research_table.table_overlay.button.close_short"))
                 .setOnClick(event -> onClose.run());
         closeButton.layout(layout -> layout.positionType(TaffyPosition.ABSOLUTE).width(24).height(18));
 
@@ -174,7 +176,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
                 .layout(layout -> layout.heightPercent(100).gapAll(8));
 
         Label slotTitle = new Label();
-        slotTitle.setText("Investigation Slot");
+        slotTitle.setText(tr("ui.game_progression_research_table.table_overlay.slot.title"));
         slotTitle.textStyle(style -> style.fontSize(10f));
 
         researchSlotButton = new ResearchSlotButton(this::clearResearchInput);
@@ -184,17 +186,17 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
         );
 
         observeButton = new Button()
-                .setText("Observe Reaction")
+                .setText(tr("ui.game_progression_research_table.table_overlay.button.observe"))
                 .setOnClick(event -> handleObserve());
         observeButton.layout(layout -> layout.widthPercent(100));
 
         completeButton = new Button()
-                .setText("Complete Placeholder")
+                .setText(tr("ui.game_progression_research_table.table_overlay.button.complete"))
                 .setOnClick(event -> onComplete.run());
         completeButton.layout(layout -> layout.widthPercent(100));
 
         cancelButton = new Button()
-                .setText("Cancel Session")
+                .setText(tr("ui.game_progression_research_table.table_overlay.button.cancel"))
                 .setOnClick(event -> onCancel.run());
         cancelButton.layout(layout -> layout.widthPercent(100));
 
@@ -204,7 +206,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
                 .layout(layout -> layout.heightPercent(100).gapAll(6));
 
         Label journalTitle = new Label();
-        journalTitle.setText("Research Journal");
+        journalTitle.setText(tr("ui.game_progression_research_table.table_overlay.journal.title"));
         journalTitle.textStyle(style -> style.fontSize(10f));
 
         journalHintLabel = createWrappingLabel();
@@ -241,7 +243,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
                 .layout(layout -> layout.widthPercent(100).height(INVENTORY_SECTION_HEIGHT).gapAll(6));
 
         Label inventoryTitle = new Label();
-        inventoryTitle.setText("Player Inventory Snapshot");
+        inventoryTitle.setText(tr("ui.game_progression_research_table.table_overlay.inventory.title"));
         inventoryTitle.textStyle(style -> style.fontSize(10f));
 
         UIElement inventoryGrid = new UIElement()
@@ -289,8 +291,9 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
             researchInputStack = ItemStack.EMPTY;
             selectedInventorySlot = -1;
             journalEntries.clear();
-            appendJournalLine("A new line of inquiry begins: " + node.getTitle() + ".");
-            appendJournalLine("Select an item from the inventory snapshot and place it into the investigation slot.");
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.begin",
+                    ResearchInfoTextResolver.resolveText(node.getTitle())));
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.begin_hint"));
         }
 
         updateFor(node, state);
@@ -320,7 +323,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
         researchInputStack = ItemStack.EMPTY;
         selectedInventorySlot = -1;
         journalEntries.clear();
-        appendJournalLine("The table is quiet. Start a table research from the tree to open a session here.");
+        appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.empty"));
         refreshHeader();
         refreshDescription();
         refreshButtons();
@@ -391,47 +394,46 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
 
     private void refreshHeader() {
         if (currentNode == null) {
-            titleLabel.setText("Research Table");
-            stateChipLabel.setText("Idle");
+            titleLabel.setText(tr("ui.game_progression_research_table.table_overlay.title.idle"));
+            stateChipLabel.setText(tr("ui.game_progression_research_table.table_overlay.state.idle"));
             stateChipLabel.style(style -> style.backgroundTexture(buildStateChipTexture(0xFF425364)));
             return;
         }
 
-        titleLabel.setText("Research Table - " + currentNode.getTitle());
+        titleLabel.setText(tr("ui.game_progression_research_table.table_overlay.title.active",
+                ResearchInfoTextResolver.resolveText(currentNode.getTitle())));
         stateChipLabel.setText(formatStateText(currentState));
         stateChipLabel.style(style -> style.backgroundTexture(buildStateChipTexture(resolveStateChipColor(currentState))));
     }
 
     private void refreshDescription() {
         if (currentNode == null) {
-            descriptionLabel.setText("Placeholders are gone: this screen is now the base layout for table-style research.");
-            helperLabel.setText("Later the server can feed real steps, validation and branching reactions into the journal.");
-            selectedItemLabel.setText("Selected item: none.");
-            inventoryHintLabel.setText("Inventory actions are client preview only for now.");
-            journalHintLabel.setText("Journal entries persist only while this overlay remains open.");
+            descriptionLabel.setText(tr("ui.game_progression_research_table.table_overlay.description.idle"));
+            helperLabel.setText(tr("ui.game_progression_research_table.table_overlay.helper.idle"));
+            selectedItemLabel.setText(tr("ui.game_progression_research_table.table_overlay.selected.none"));
+            inventoryHintLabel.setText(tr("ui.game_progression_research_table.table_overlay.inventory.hint.idle"));
+            journalHintLabel.setText(tr("ui.game_progression_research_table.table_overlay.journal.hint.idle"));
             return;
         }
 
         String description = currentNode.getDescription();
         if (description == null || description.isBlank()) {
-            description = "No description was provided for this research yet.";
+            description = "ui.game_progression_research_table.research_info.description.missing";
         }
 
-        descriptionLabel.setText(description);
+        descriptionLabel.setText(ResearchInfoTextResolver.resolveText(description));
         helperLabel.setText(
-                "Use the inventory snapshot below to choose one candidate item. "
-                        + "The selected stack is previewed in the central slot and the journal can describe the table's reaction."
+                tr("ui.game_progression_research_table.table_overlay.helper.active")
         );
         selectedItemLabel.setText(researchInputStack.isEmpty()
-                ? "Selected item: none."
-                : "Selected item: " + researchInputStack.getHoverName().getString() + ".");
+                ? tr("ui.game_progression_research_table.table_overlay.selected.none")
+                : tr("ui.game_progression_research_table.table_overlay.selected.item",
+                        ResearchInfoTextResolver.resolveItemName(researchInputStack)));
         inventoryHintLabel.setText(
-                "This prototype does not consume real items yet. "
-                        + "It only mirrors the player's inventory and lets you test the table flow visually."
+                tr("ui.game_progression_research_table.table_overlay.inventory.hint.active")
         );
         journalHintLabel.setText(
-                "Use \"Observe Reaction\" after placing an item to append a new line of reasoning. "
-                        + "Real recipe validation can later replace this placeholder reaction generator."
+                tr("ui.game_progression_research_table.table_overlay.journal.hint.active")
         );
     }
 
@@ -488,12 +490,13 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
         if (stack.isEmpty()) {
             selectedInventorySlot = playerSlot;
             researchInputStack = ItemStack.EMPTY;
-            appendJournalLine("You inspect an empty inventory slot. The table learns nothing from absence alone.");
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.inventory_empty"));
         } else {
             selectedInventorySlot = playerSlot;
             researchInputStack = stack.copy();
             researchInputStack.setCount(1);
-            appendJournalLine("You place " + stack.getHoverName().getString() + " into the investigation slot.");
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.place_item",
+                    ResearchInfoTextResolver.resolveItemName(stack)));
         }
 
         refreshDescription();
@@ -507,7 +510,8 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
             return;
         }
 
-        appendJournalLine("You remove " + researchInputStack.getHoverName().getString() + " from the investigation slot.");
+        appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.remove_item",
+                ResearchInfoTextResolver.resolveItemName(researchInputStack)));
         researchInputStack = ItemStack.EMPTY;
         selectedInventorySlot = -1;
         refreshDescription();
@@ -518,12 +522,14 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
 
     private void handleObserve() {
         if (currentNode == null) {
-            appendJournalLine("No research is currently attached to the table.");
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.no_research"));
         } else if (researchInputStack.isEmpty()) {
-            appendJournalLine("The table remains silent. It needs a material clue before it can react.");
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.no_item"));
         } else {
-            String itemName = researchInputStack.getHoverName().getString();
-            appendJournalLine("The table studies " + itemName + " and compares it against the notes for " + currentNode.getTitle() + ".");
+            String itemName = ResearchInfoTextResolver.resolveItemName(researchInputStack);
+            appendJournalLine(tr("ui.game_progression_research_table.table_overlay.journal.observe",
+                    itemName,
+                    ResearchInfoTextResolver.resolveText(currentNode.getTitle())));
             appendJournalLine(buildObservationLine(currentNode, itemName));
         }
 
@@ -543,10 +549,11 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
     private String buildObservationLine(ResearchNode node, String itemName) {
         int variant = Math.abs((node.getId() * 31) ^ itemName.hashCode()) % 4;
         return switch (variant) {
-            case 0 -> "Its shape does not solve the puzzle yet, but the table highlights a possible relation to impact or pressure.";
-            case 1 -> "The surface markings suggest that " + itemName + " belongs to an earlier step, not the final breakthrough.";
-            case 2 -> "A faint annotation appears: try combining this clue with a more reactive or energetic material.";
-            default -> "The notes around " + node.getTitle() + " grow warmer. This feels closer, but one more correct association is still missing.";
+            case 0 -> tr("ui.game_progression_research_table.table_overlay.observation.0");
+            case 1 -> tr("ui.game_progression_research_table.table_overlay.observation.1", itemName);
+            case 2 -> tr("ui.game_progression_research_table.table_overlay.observation.2");
+            default -> tr("ui.game_progression_research_table.table_overlay.observation.3",
+                    ResearchInfoTextResolver.resolveText(node.getTitle()));
         };
     }
 
@@ -580,14 +587,13 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
 
     private static String formatStateText(@Nullable ResearchState state) {
         if (state == null) {
-            return "Unknown";
+            return tr("ui.game_progression_research_table.table_overlay.state.unknown");
         }
-        return switch (state) {
-            case STUDIED -> "Studied";
-            case AVAILABLE -> "Available";
-            case LOCKED -> "Locked";
-            case IN_PROGRESS -> "In Progress";
-        };
+        return ResearchInfoPresentationRules.formatStateText(state, new ResearchNode(-1, 0, 0, 0, 0).setStudyType(ResearchStudyType.TABLE));
+    }
+
+    private static String tr(String key, Object... args) {
+        return net.minecraft.client.resources.language.I18n.get(key, args);
     }
 
     private static int brightenColor(int color, float amount) {
@@ -670,10 +676,12 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
         private void apply(ItemStack stack) {
             boolean hasItem = !stack.isEmpty();
             iconElement.style(style -> style.backgroundTexture(hasItem ? new ItemStackTexture(stack) : new ColorRectTexture(0x55293A49)));
-            titleLabel.setText(hasItem ? stack.getHoverName().getString() : "No clue inserted");
+            titleLabel.setText(hasItem
+                    ? ResearchInfoTextResolver.resolveItemName(stack)
+                    : tr("ui.game_progression_research_table.table_overlay.slot.empty_title"));
             hintLabel.setText(hasItem
-                    ? "Click to remove the preview item from the table."
-                    : "Pick an item below to test an idea.");
+                    ? tr("ui.game_progression_research_table.table_overlay.slot.hint.remove")
+                    : tr("ui.game_progression_research_table.table_overlay.slot.hint.pick"));
             setActive(hasItem);
             if (hasItem) {
                 style(style -> style.tooltips(Tooltips.of(List.of(stack.getHoverName()))));
@@ -744,7 +752,7 @@ public final class ResearchTablePlaceholderOverlay extends UIElement {
             countLabel.setText(Integer.toString(stack.getCount()));
             style(style -> style.tooltips(Tooltips.of(List.of(
                     stack.getHoverName(),
-                    Component.literal("Inventory slot: " + playerSlot)
+                    Component.literal(tr("ui.game_progression_research_table.table_overlay.inventory.slot", playerSlot))
             ))));
         }
     }

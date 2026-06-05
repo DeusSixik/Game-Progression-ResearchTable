@@ -10,6 +10,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import dev.sixik.gprt.impl.client.research_screen.demo.DebugResearchNodeWidgetShowcase;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeRenderContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
@@ -133,7 +134,7 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
         }
 
         private void applyTitle(ResearchNode node, float titleWidth) {
-            String rawTitle = node.getTitle() == null ? "" : node.getTitle();
+            String rawTitle = node.getTitle() == null ? "" : ResearchInfoTextResolver.resolveText(node.getTitle());
             float fontSize = resolveTitleFontSize(rawTitle, titleWidth);
             boolean needsRollAtMinScale = estimateTextWidth(rawTitle, fontSize) > titleWidth
                     && fontSize <= MIN_TITLE_FONT_SIZE + 0.001f;

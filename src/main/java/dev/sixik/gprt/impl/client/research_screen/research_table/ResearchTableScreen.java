@@ -12,6 +12,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScre
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.*;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
@@ -165,21 +166,22 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
             List<ResearchCondition> conditions = data.getConditions();
             if(conditions != null && !conditions.isEmpty()) {
 
-                builder.section("Conditions", section -> {
+                builder.section("ui.game_progression_research_table.research_info.section.conditions", section -> {
                     for (ResearchCondition condition : conditions) {
                         switch (condition.getKind()) {
-                            case ITEM -> section.conditionItem(condition.getStack().getDisplayName().getString(), condition.getStack(),
+                            case ITEM -> section.conditionItem(ResearchInfoTextResolver.resolveItemName(condition.getStack()), condition.getStack(),
                                     ResearchUtils.hasPlayerItem(Minecraft.getInstance().player, condition.getStack()));
                             case INGREDIENT -> section.condition(entry -> entry
                                     .ingredient(condition.getIngredient())
+                                    .text(ResearchInfoTextResolver.resolveIngredientName(condition.getIngredient()))
                                     .completed(ResearchUtils.hasPlayerIngredient(Minecraft.getInstance().player, condition.getIngredient()))
                             );
                             case STAGE -> section.condition(entry -> entry
-                                    .text("Stage: '" + condition.getValue() + "'")
+                                    .text(ResearchInfoTextResolver.resolveStageText(condition.getValue()))
                                     .completed(ResearchUtils.hasStage(condition.getValue()))
                             );
                             case CUSTOM -> section.condition(entry -> entry
-                                    .text(condition.getKey())
+                                    .text(ResearchInfoTextResolver.resolveText(condition.getKey()))
                             );
                         }
                     }
@@ -188,7 +190,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
 
             List<ResearchReward> rewards = data.getRewards();
             if(rewards != null && !rewards.isEmpty()) {
-                builder.section("Rewards", section -> {
+                builder.section("ui.game_progression_research_table.research_info.section.rewards", section -> {
                     for (ResearchReward reward : rewards) {
                         switch (reward.getKind()) {
                             case ITEM -> section.rewardItem(reward.getStack());

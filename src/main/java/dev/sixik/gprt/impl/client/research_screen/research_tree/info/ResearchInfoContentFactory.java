@@ -53,13 +53,13 @@ public final class ResearchInfoContentFactory {
      */
     public static ResearchInfoContent emptySelection() {
         return ResearchInfoContent.builder()
-                .title("Research")
+                .title("ui.game_progression_research_table.research_info.empty.title")
                 .titleCentered()
                 .titleLarge(true)
-                .groupText("Group: -")
-                .modeText("Mode: -")
-                .stateText("Status: -")
-                .description("Click a research node to open its info panel.")
+                .groupText("ui.game_progression_research_table.research_info.empty.group")
+                .modeText("ui.game_progression_research_table.research_info.empty.mode")
+                .stateText("ui.game_progression_research_table.research_info.empty.state")
+                .description("ui.game_progression_research_table.research_info.empty.description")
                 .hideTimedProgress()
                 .hideResearchButton()
                 .build();
@@ -85,22 +85,22 @@ public final class ResearchInfoContentFactory {
      */
     public static final class Builder {
         private final ResearchNode node;
-        private String modeText = "Mode: -";
-        private String stateText = "Status: -";
-        private String visibilityText = "Always visible";
+        private String modeText = "ui.game_progression_research_table.research_info.empty.mode";
+        private String stateText = "ui.game_progression_research_table.research_info.empty.state";
+        private String visibilityText = "ui.game_progression_research_table.research_info.visibility.always_visible";
         private int panelColor = 0xE6192432;
         private boolean includeConditions;
         private boolean includeUnlocks;
         private List<ResearchNode> parentNodes = List.of();
         private List<ResearchNode> unlockedChildren = List.of();
-        private String unlocksFallbackText = "No direct follow-up research";
+        private String unlocksFallbackText = "ui.game_progression_research_table.research_info.unlocks.none";
         private boolean showTimedProgress;
-        private String timedProgressText = "Progress: -";
+        private String timedProgressText = "ui.game_progression_research_table.research_info.progress.empty";
         private float timedProgress01;
         private int timedProgressFillColor = 0xFF67B7FF;
         private boolean showResearchButton;
         private boolean researchButtonEnabled = true;
-        private String researchButtonText = "Research";
+        private String researchButtonText = "ui.game_progression_research_table.research_info.button.available.instant";
 
         private Builder(ResearchNode node) {
             this.node = node;
@@ -162,7 +162,7 @@ public final class ResearchInfoContentFactory {
         public Builder unlocks(List<ResearchNode> unlockedChildren, String fallbackText) {
             this.includeUnlocks = true;
             this.unlockedChildren = unlockedChildren == null ? List.of() : List.copyOf(unlockedChildren);
-            this.unlocksFallbackText = fallbackText == null ? "No direct follow-up research" : fallbackText;
+            this.unlocksFallbackText = fallbackText == null ? "ui.game_progression_research_table.research_info.unlocks.none" : fallbackText;
             return this;
         }
 
@@ -191,7 +191,7 @@ public final class ResearchInfoContentFactory {
          */
         public Builder hideTimedProgress() {
             this.showTimedProgress = false;
-            this.timedProgressText = "Progress: -";
+            this.timedProgressText = "ui.game_progression_research_table.research_info.progress.empty";
             this.timedProgress01 = 0f;
             return this;
         }

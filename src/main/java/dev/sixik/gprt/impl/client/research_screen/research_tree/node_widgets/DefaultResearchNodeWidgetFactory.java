@@ -10,6 +10,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.Horizontal;
 import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
@@ -173,7 +174,7 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
 
         private void applyTitle(ResearchNode node, ResearchNodeVisualDefinition visualDefinition) {
             titleLabel.setDisplay(visualDefinition.isTitleVisible());
-            titleLabel.setText(node.getTitle());
+            titleLabel.setText(ResearchInfoTextResolver.resolveText(node.getTitle()));
             titleLabel.textStyle(style -> style
                     .fontSize(resolveTitleFontSize(visualDefinition.getSizePreset()))
                     .textWrap(TextWrap.WRAP)

@@ -11,6 +11,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.TextWrap;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
@@ -608,7 +609,7 @@ public final class DebugResearchNodeWidgetShowcase {
                 case LARGE -> 11f;
             };
 
-            titleLabel.setText(node.getTitle());
+            titleLabel.setText(ResearchInfoTextResolver.resolveText(node.getTitle()));
             subtitleLabel.setText(subtitle);
             titleLabel.setDisplay(visualDefinition.isTitleVisible());
             subtitleLabel.setDisplay(visualDefinition.isSubtitleVisible());

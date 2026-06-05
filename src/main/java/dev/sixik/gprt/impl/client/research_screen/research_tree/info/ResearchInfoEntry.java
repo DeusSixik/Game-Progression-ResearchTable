@@ -161,7 +161,7 @@ public final class ResearchInfoEntry {
          * Sets the primary text of the row.
          */
         public Builder text(String text) {
-            this.text = text;
+            this.text = ResearchInfoTextResolver.resolveText(text);
             return this;
         }
 
@@ -233,7 +233,7 @@ public final class ResearchInfoEntry {
          * Adds one tooltip line from plain text.
          */
         public Builder tooltip(String tooltip) {
-            this.tooltips.add(Component.literal(tooltip));
+            this.tooltips.add(ResearchInfoTextResolver.resolveComponent(tooltip));
             return this;
         }
 
@@ -300,7 +300,7 @@ public final class ResearchInfoEntry {
          * Sets the label of the jump button.
          */
         public Builder jumpButtonText(String jumpButtonText) {
-            this.jumpButtonText = jumpButtonText;
+            this.jumpButtonText = ResearchInfoTextResolver.resolveText(jumpButtonText);
             return this;
         }
 

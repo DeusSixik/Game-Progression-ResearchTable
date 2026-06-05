@@ -83,7 +83,7 @@ public final class ResearchInfoSection {
          * Sets the optional section title shown above the rows.
          */
         public Builder title(String title) {
-            this.title = title;
+            this.title = ResearchInfoTextResolver.resolveText(title);
             return this;
         }
 
@@ -153,14 +153,14 @@ public final class ResearchInfoSection {
          * High-level sugar for a plain informational text row.
          */
         public Builder infoText(String text) {
-            return entry(entry -> entry.text(text));
+            return entry(entry -> entry.text(ResearchInfoTextResolver.resolveText(text)));
         }
 
         /**
          * High-level sugar for a simple {@code label: value} informational row.
          */
         public Builder infoLine(String label, String value) {
-            return infoText(label + ": " + value);
+            return infoText(ResearchInfoTextResolver.resolveText(label) + ": " + ResearchInfoTextResolver.resolveText(value));
         }
 
         /**
@@ -168,7 +168,7 @@ public final class ResearchInfoSection {
          */
         public Builder conditionText(String text, boolean completed) {
             return condition(entry -> entry
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .completed(completed));
         }
 
@@ -181,10 +181,10 @@ public final class ResearchInfoSection {
          */
         public Builder conditionResearch(String text, boolean completed, String researchKey) {
             return condition(entry -> entry
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .completed(completed)
                     .jumpToResearch(researchKey)
-                    .jumpButtonText("Go to"));
+                    .jumpButtonText(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.goto")));
         }
 
         /**
@@ -197,10 +197,10 @@ public final class ResearchInfoSection {
          */
         public Builder conditionResearchVisibleOnly(String text, boolean completed, String researchKey) {
             return condition(entry -> entry
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .completed(completed)
                     .jumpToResearchVisibleOnly(researchKey)
-                    .jumpButtonText("Go to"));
+                    .jumpButtonText(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.goto")));
         }
 
         /**
@@ -209,7 +209,7 @@ public final class ResearchInfoSection {
         public Builder conditionItem(String text, ItemStack stack, boolean completed) {
             return condition(entry -> entry
                     .item(stack)
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .completed(completed));
         }
 
@@ -219,7 +219,7 @@ public final class ResearchInfoSection {
         public Builder conditionItem(String text, ItemLike itemLike, boolean completed) {
             return condition(entry -> entry
                     .item(itemLike)
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .completed(completed));
         }
 
@@ -227,7 +227,7 @@ public final class ResearchInfoSection {
          * High-level sugar for a plain reward/unlock text row.
          */
         public Builder rewardText(String text) {
-            return reward(entry -> entry.text(text));
+            return reward(entry -> entry.text(ResearchInfoTextResolver.resolveText(text)));
         }
 
         /**
@@ -245,7 +245,7 @@ public final class ResearchInfoSection {
         public Builder rewardItem(ItemStack stack, String text) {
             return reward(entry -> entry
                     .item(stack)
-                    .text(text));
+                    .text(ResearchInfoTextResolver.resolveText(text)));
         }
 
         /**
@@ -262,7 +262,7 @@ public final class ResearchInfoSection {
         public Builder rewardItem(ItemLike itemLike, String text) {
             return reward(entry -> entry
                     .item(itemLike)
-                    .text(text));
+                    .text(ResearchInfoTextResolver.resolveText(text)));
         }
 
         /**
@@ -271,7 +271,7 @@ public final class ResearchInfoSection {
         public Builder rewardIngredient(String text, Ingredient ingredient) {
             return reward(entry -> entry
                     .ingredient(ingredient)
-                    .text(text));
+                    .text(ResearchInfoTextResolver.resolveText(text)));
         }
 
         /**
@@ -283,9 +283,9 @@ public final class ResearchInfoSection {
          */
         public Builder rewardResearch(String text, String researchKey) {
             return reward(entry -> entry
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .jumpToResearch(researchKey)
-                    .jumpButtonText("View"));
+                    .jumpButtonText(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.view")));
         }
 
         /**
@@ -297,9 +297,9 @@ public final class ResearchInfoSection {
          */
         public Builder rewardResearchVisibleOnly(String text, String researchKey) {
             return reward(entry -> entry
-                    .text(text)
+                    .text(ResearchInfoTextResolver.resolveText(text))
                     .jumpToResearchVisibleOnly(researchKey)
-                    .jumpButtonText("View"));
+                    .jumpButtonText(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.view")));
         }
 
         /**
@@ -336,7 +336,7 @@ public final class ResearchInfoSection {
         }
 
         private static String defaultItemName(ItemStack stack) {
-            return stack.getHoverName().getString();
+            return ResearchInfoTextResolver.resolveItemName(stack);
         }
 
         private static ItemStack resolveItemId(String itemId) {

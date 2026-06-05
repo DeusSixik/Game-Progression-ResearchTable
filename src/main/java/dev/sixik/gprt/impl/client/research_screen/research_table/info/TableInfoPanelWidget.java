@@ -10,6 +10,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.*;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ConditionChipTexture;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.*;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
@@ -22,6 +23,8 @@ import java.util.List;
 public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
 
     private static final float PROGRESS_BAR_HEIGHT = 10f;
+    private static final float CONDITION_CHIP_WIDTH = 48f;
+    private static final float CONDITION_CHIP_HEIGHT = 14f;
     private static final float ENTRY_TEXT_INFO_TOP_OFFSET = 2f;
     private static final float ENTRY_TEXT_CONDITION_TOP_OFFSET = 3f;
     private static final float ENTRY_TEXT_REWARD_TOP_OFFSET = 4f;
@@ -119,7 +122,9 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
         researchButton = new Button().setText("Research").setOnClick(event -> context().startResearch());
         researchButton.layout(layout -> layout.flex(1));
 
-        closeButton = new Button().setText("Close").setOnClick(event -> context().close());
+        closeButton = new Button()
+                .setText(ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.close"))
+                .setOnClick(event -> context().close());
         closeButton.layout(layout -> layout.width(68));
 
         footer.addChildren(researchButton, closeButton);
@@ -146,15 +151,19 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
 
     @Override
     public void applyContent(ResearchInfoContent content) {
-        titleLabel.setText(content.title());
+        titleLabel.setText(ResearchInfoTextResolver.resolveText(content.title()));
         titleLabel.textStyle(style -> style
                 .fontSize(content.titleLarge() ? 15f : 10f)
                 .textAlignHorizontal(content.titleAlign() == ResearchInfoContent.TitleAlign.CENTER ? Horizontal.CENTER : Horizontal.LEFT)
                 .textWrap(TextWrap.WRAP)
                 .adaptiveHeight(true));
 
-        metaLabel.setText(content.groupText() + " | " + content.modeText() + " | " + content.stateText());
-        descriptionLabel.setText(content.description());
+        metaLabel.setText(
+                ResearchInfoTextResolver.resolveText(content.groupText()) + " | "
+                        + ResearchInfoTextResolver.resolveText(content.modeText()) + " | "
+                        + ResearchInfoTextResolver.resolveText(content.stateText())
+        );
+        descriptionLabel.setText(ResearchInfoTextResolver.resolveText(content.description()));
         style(style -> style.backgroundTexture(IGuiTexture.group(
                 new ColorRectTexture(0xD0221820),
                 new ColorBorderTexture(-2, content.panelColor())
@@ -162,13 +171,13 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
 
         timedProgressLabel.setDisplay(content.showTimedProgress());
         timedProgressBar.setDisplay(content.showTimedProgress());
-        timedProgressLabel.setText(content.timedProgressText());
+        timedProgressLabel.setText(ResearchInfoTextResolver.resolveText(content.timedProgressText()));
         updateProgress(content.timedProgress01(), content.timedProgressFillColor());
 
         rebuildSections(content.sections());
 
         researchButton.setDisplay(content.showResearchButton());
-        researchButton.setText(content.researchButtonText());
+        researchButton.setText(ResearchInfoTextResolver.resolveText(content.researchButtonText()));
         researchButton.setActive(content.researchButtonEnabled());
         researchButton.style(style -> style.backgroundTexture(
                 content.researchButtonEnabled()
@@ -206,7 +215,7 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
 
         if (!section.title().isBlank()) {
             Label sectionTitle = new Label();
-            sectionTitle.setText(section.title());
+            sectionTitle.setText(ResearchInfoTextResolver.resolveText(section.title()));
             sectionTitle.textStyle(style -> style
                     .fontSize(10f)
                     .textColor(0xFFFFD27A));
@@ -224,10 +233,14 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
         UIElement row = new UIElement()
                 .layout(layout -> layout
                         .widthPercent(100)
-                        .gapAll(4)
+                        .gapAll(entry.kind() == ResearchInfoEntry.Kind.CONDITION ? 2 : 4)
                         .flexDirection(FlexDirection.ROW));
 
         List<Component> tooltips = buildEntryTooltips(entry);
+
+        if (entry.kind() == ResearchInfoEntry.Kind.CONDITION) {
+            row.addChild(createConditionPrefix(entry, tooltips));
+        }
 
         if (entry.display() != null) {
             row.addChild(createDisplayElement(entry.display(), tooltips));
@@ -238,7 +251,7 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
             UIElement textWrapper = new UIElement()
                     .layout(layout -> layout.flex(1).gapAll(0));
 
-            if (entry.display() != null) {
+            if (entry.kind() == ResearchInfoEntry.Kind.CONDITION || entry.display() != null) {
                 textWrapper.addChild(new UIElement()
                         .layout(layout -> layout.widthPercent(100).height(resolveEntryTextTopOffset(entry))));
             }
@@ -260,7 +273,9 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
 
         if (entry.showJumpButton() && entry.jumpToResearchKey() != null && !entry.jumpToResearchKey().isBlank()) {
             Button jumpButton = new Button()
-                    .setText(entry.jumpButtonText() != null ? entry.jumpButtonText() : "Open")
+                    .setText((String) (entry.jumpButtonText() != null
+                            ? ResearchInfoTextResolver.resolveText(entry.jumpButtonText())
+                            : ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.button.open")))
                     .setOnClick(event -> context().jumpToResearch(entry.jumpToResearchKey()));
             if (!tooltips.isEmpty()) {
                 jumpButton.style(style -> style.tooltips(Tooltips.of(tooltips)));
@@ -269,6 +284,31 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
         }
 
         return row;
+    }
+
+    private UIElement createConditionPrefix(ResearchInfoEntry entry, List<Component> tooltips) {
+        Label prefix = new Label();
+        prefix.layout(layout -> layout
+                .width(CONDITION_CHIP_WIDTH)
+                .height(CONDITION_CHIP_HEIGHT)
+                .top(2));
+        prefix.setText(entry.completed()
+                ? ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.condition.prefix.completed")
+                : ResearchInfoTextResolver.resolveText("ui.game_progression_research_table.research_info.condition.prefix.pending"));
+        prefix.textStyle(style -> style
+                .fontSize(9f)
+                .textAlignHorizontal(Horizontal.CENTER)
+                .textAlignVertical(Vertical.CENTER)
+                .textShadow(false)
+                .textColor(0xFFFFFFFF));
+        prefix.style(style -> style.backgroundTexture(new ConditionChipTexture(
+                entry.completed() ? 0x5595E59A : 0x55FF8E8E,
+                entry.completed() ? 0xFFE0FFE3 : 0xFFFFD6D6
+        )));
+        if (!tooltips.isEmpty()) {
+            prefix.style(style -> style.tooltips(Tooltips.of(tooltips)));
+        }
+        return prefix;
     }
 
     private UIElement createDisplayElement(ResearchDisplayValue displayValue, List<Component> tooltips) {
@@ -296,7 +336,7 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
     private String formatEntryText(ResearchInfoEntry entry) {
         String prefix = switch (entry.kind()) {
             case INFO -> "- ";
-            case CONDITION -> entry.completed() ? "[OK] " : "[WAIT] ";
+            case CONDITION -> "";
             case REWARD -> "+ ";
         };
         return prefix + (entry.text() == null ? "" : entry.text());
