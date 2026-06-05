@@ -1,10 +1,21 @@
 package dev.sixik.gprt.impl.client.research_screen.research_tree.nodes;
 
+import com.lowdragmc.lowdraglib2.editor.resource.BuiltinPath;
+import com.lowdragmc.lowdraglib2.gui.texture.ItemStackTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.TransformTexture;
+import com.lowdragmc.lowdraglib2.gui.texture.UIResourceTexture;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchGroup;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.definition.ResearchDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.Node;
+import lombok.Getter;
+import lombok.Setter;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.ItemLike;
 
 import java.util.function.UnaryOperator;
 
@@ -16,28 +27,43 @@ public class ResearchNode extends Node {
         REQUIRE_ALL_PARENTS_STUDIED
     }
 
+    @Getter
     private boolean studied;
+    @Getter
     private ResearchDefinition definition;
+    @Getter
     private VisibilityMode visibilityMode = VisibilityMode.ALWAYS_VISIBLE;
     private int groupColor = 0xFF87D4FF;
+    @Getter
     private ResearchGroup group = ResearchGroup.DEFAULT;
+
+    @Getter
+    private TransformTexture iconTexture = new ItemStackTexture(ItemStack.EMPTY);
 
     public ResearchNode(int id, float x, float y, float width, float height) {
         super(id, x, y, width, height);
         this.definition = ResearchDefinition.builder("node_" + id).build();
     }
 
-    public boolean isStudied() {
-        return studied;
+    public void setIconTexture(Object obj) {
+        switch (obj) {
+            case ItemStack item -> this.iconTexture = new ItemStackTexture(item);
+            case Item item -> this.iconTexture = new ItemStackTexture(item);
+            case ItemLike item -> this.iconTexture = new ItemStackTexture(item.asItem());
+            case Ingredient item -> this.iconTexture = new ItemStackTexture(item.getItems());
+            case String item -> this.iconTexture = new UIResourceTexture(new BuiltinPath(ResourceLocation.tryParse(item).toString()));
+            case ResourceLocation item -> this.iconTexture = new UIResourceTexture(new BuiltinPath(item.toString()));
+            default -> throw new UnsupportedOperationException("Unsupported icon type: " + obj.getClass().getName());
+        }
     }
 
-    public ResearchDefinition getDefinition() {
-        return definition;
-    }
 
     public ResearchNode setDefinition(ResearchDefinition definition) {
         if (definition != null) {
             this.definition = definition;
+            if (definition.getIconTexture() != null) {
+                setIconTexture(definition.getIconTexture());
+            }
         }
         return this;
     }
@@ -60,6 +86,7 @@ public class ResearchNode extends Node {
             definition = ResearchDefinition.builder(researchKey)
                     .title(definition.getTitle())
                     .description(definition.getDescription())
+                    .iconTexture(definition.getIconTexture())
                     .studyType(definition.getStudyType())
                     .revealAnimationStyle(definition.getRevealAnimationStyle())
                     .studyDurationMs(definition.getStudyDurationMs())
@@ -109,10 +136,6 @@ public class ResearchNode extends Node {
         return this;
     }
 
-    public VisibilityMode getVisibilityMode() {
-        return visibilityMode;
-    }
-
     public ResearchNode setVisibilityMode(VisibilityMode visibilityMode) {
         if (visibilityMode != null) {
             this.visibilityMode = visibilityMode;
@@ -128,10 +151,6 @@ public class ResearchNode extends Node {
         this.groupColor = groupColor;
         this.group = ResearchGroup.colorOnly(groupColor);
         return this;
-    }
-
-    public ResearchGroup getGroup() {
-        return group;
     }
 
     public ResearchNode setGroup(ResearchGroup group) {

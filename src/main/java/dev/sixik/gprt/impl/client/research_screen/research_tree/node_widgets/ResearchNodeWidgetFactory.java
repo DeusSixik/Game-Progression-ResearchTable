@@ -25,8 +25,6 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
  *
  * <p><b>Navigation:</b></p>
  * <ul>
- *     <li>{@link #prepareNodeWrapper(ResearchNode, ResearchNodeRenderContext)} -
- *     optional runtime geometry adjustment before visuals are resolved;</li>
  *     <li>{@link #createNodeWidget(ResearchNode, ResearchNodeRenderContext, ResearchNodeVisualDefinition, Runnable)} -
  *     initial widget assembly;</li>
  *     <li>{@link #updateNodeWidget(UIElement, ResearchNode, ResearchNodeRenderContext, ResearchNodeVisualDefinition)} -
@@ -34,21 +32,6 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
  * </ul>
  */
 public interface ResearchNodeWidgetFactory {
-    /**
-     * Allows the factory to adjust the effective runtime bounds before visuals are resolved.
-     * <p>
-     * This is the hook that lets a style say "my card should be wider/taller/shifted a bit"
-     * while keeping {@link ResearchNode} itself unchanged. The wrapper inside the supplied
-     * context is mutable on purpose.
-     * </p>
-     *
-     * <p>
-     * Default implementation does nothing.
-     * </p>
-     */
-    default void prepareNodeWrapper(ResearchNode node, ResearchNodeRenderContext context) {
-    }
-
     /**
      * Creates a brand-new widget for one logical research node.
      * <p>

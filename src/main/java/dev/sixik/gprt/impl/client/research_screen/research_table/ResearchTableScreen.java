@@ -12,10 +12,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScre
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
-import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.*;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_table.info.TableInfoPanelWidget;
@@ -32,6 +29,8 @@ import java.util.Map;
 public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
 
     private static final String DEFAULT_ROOT_KEY = "primitive_tools";
+    private static final float BASE_NODE_WIDTH = 132f;
+    private static final float BASE_NODE_HEIGHT = 42f;
     private final Map<String, dev.sixik.gprt.api.ResearchDefinition> researchDefinitionsByKey = new LinkedHashMap<>();
 
     public ResearchTableScreen() {
@@ -39,10 +38,9 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
                 .origin(0f, 0f)
                 .horizontalGap(130f)
                 .verticalGap(42f);
+        setAutoLayoutUseNodeWrappersForSpacing(true);
         initializeMainScreen();
     }
-
-
 
     @Override
     protected void buildResearchTree() {
@@ -75,6 +73,42 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
         return new ResearchTableNodeWidgetFactory();
     }
+
+//    @Override
+//    protected ResearchNodeWrapperResolver createNodeWrapperResolver() {
+//        return (node, context) -> {
+//            ResearchNodeWrapper wrapper = context.getNodeWrapper();
+//            dev.sixik.gprt.api.ResearchDefinition definition = researchDefinitionsByKey.get(node.getResearchKey());
+//
+//            float titleUnits = estimateTitleUnits(node.getTitle());
+//            float descriptionUnits = definition == null ? 0f : estimateDescriptionUnits(definition.getDescription());
+//            float rewardsUnits = definition == null ? 0f : definition.getRewards().size() * 14f;
+//            float conditionsUnits = definition == null ? 0f : definition.getConditions().size() * 12f;
+//
+//            // Example dynamic width:
+//            // wider titles and more content reserve more horizontal room up front.
+//            float targetWidth = BASE_NODE_WIDTH
+//                    + Math.min(160f, Math.max(0f, titleUnits - 18f) * 4.4f)
+//                    + Math.min(70f, descriptionUnits * 0.45f);
+//
+//            // Example dynamic height:
+//            // table-style nodes become taller when they contain more data.
+//            float targetHeight = BASE_NODE_HEIGHT
+//                    + Math.min(52f, descriptionUnits * 0.22f)
+//                    + Math.min(34f, rewardsUnits)
+//                    + Math.min(28f, conditionsUnits);
+//
+//            // Center expansion around the original logical node center so the card grows evenly.
+//            float centerX = node.centerX();
+//            float centerY = node.centerY();
+//            wrapper.setBounds(
+//                    centerX - targetWidth * 0.5f,
+//                    centerY - targetHeight * 0.5f,
+//                    targetWidth,
+//                    targetHeight
+//            );
+//        };
+//    }
 
     /*@Override
     protected void configureNodeThemePresets(ResearchNodeGroupThemeResolver.Builder builder) {
@@ -253,5 +287,19 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
             }
         }
         return false;
+    }
+
+    private static float estimateTitleUnits(@Nullable String text) {
+        if (text == null || text.isBlank()) {
+            return 0f;
+        }
+        return text.length();
+    }
+
+    private static float estimateDescriptionUnits(@Nullable String text) {
+        if (text == null || text.isBlank()) {
+            return 0f;
+        }
+        return text.length();
     }
 }

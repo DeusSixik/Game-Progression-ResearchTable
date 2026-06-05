@@ -15,6 +15,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapperResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
@@ -85,6 +86,7 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 .origin(0f, 0f)
                 .horizontalGap(130f)
                 .verticalGap(42f);
+        setAutoLayoutUseNodeWrappersForSpacing(true);
         initializeMainScreen();
     }
 
@@ -348,6 +350,11 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
     @Override
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
         return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> currentNodeStyle);
+    }
+
+    @Override
+    protected ResearchNodeWrapperResolver createNodeWrapperResolver() {
+        return DebugResearchNodeWidgetShowcase.createWrapperResolver(() -> currentNodeStyle);
     }
 
     @Override

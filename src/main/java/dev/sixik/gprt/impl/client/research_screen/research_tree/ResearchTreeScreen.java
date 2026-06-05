@@ -305,7 +305,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private void applyAutoLayout(@Nullable IntOpenHashSet visibleBefore, boolean animateNewNodes) {
-        DependencyTreeAutoLayout.apply(nodes, links, autoLayoutConfig);
+        DependencyTreeAutoLayout.apply(nodes, links, autoLayoutConfig, this::getLayoutWrapperForNode);
         compactAutoLayoutGroups();
         syncAllNodeWidgetBounds();
         prepareUnlockAnimationState(visibleBefore, animateNewNodes);
@@ -316,6 +316,17 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         if (autoLayoutAutoFit && !isUnlockAnimationActive() && getContentWidth() > 0 && getContentHeight() > 0) {
             fitToChildren(80f, 0.35f);
         }
+    }
+
+    /**
+     * Provides effective wrapper bounds for wrapper-aware auto-layout spacing.
+     * <p>
+     * Base implementation falls back to logical node bounds. Higher-level screens may override
+     * this or prefill wrapper caches to let layout react to style-sized cards.
+     * </p>
+     */
+    protected ResearchNodeWrapper getLayoutWrapperForNode(ResearchNode node) {
+        return getNodeWrapper(node);
     }
 
     /**

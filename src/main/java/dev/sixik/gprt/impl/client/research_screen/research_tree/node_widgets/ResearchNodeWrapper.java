@@ -46,12 +46,23 @@ public final class ResearchNodeWrapper {
         return new ResearchNodeWrapper(node, node.getX(), node.getY(), node.getWidth(), node.getHeight());
     }
 
+    /**
+     * Creates a standalone runtime bounds object not tied to a specific {@link ResearchNode}.
+     * <p>
+     * This is mainly useful for generic spacing/layout helpers that want to reuse the same
+     * geometry API shape even when they only know raw rectangle values.
+     * </p>
+     */
+    public static ResearchNodeWrapper ofBounds(float x, float y, float width, float height) {
+        return new ResearchNodeWrapper(null, x, y, width, height);
+    }
+
     public ResearchNode getNode() {
         return node;
     }
 
     public int getNodeId() {
-        return node.getId();
+        return node != null ? node.getId() : -1;
     }
 
     public float getX() {

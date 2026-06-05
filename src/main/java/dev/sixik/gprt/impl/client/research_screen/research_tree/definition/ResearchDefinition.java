@@ -19,6 +19,7 @@ public final class ResearchDefinition {
     private final String key;
     private final String title;
     private final String description;
+    private final @Nullable Object iconTexture;
     private final ResearchStudyType studyType;
     private final @Nullable ResearchRevealAnimationStyle revealAnimationStyle;
     private final long studyDurationMs;
@@ -26,6 +27,7 @@ public final class ResearchDefinition {
     public ResearchDefinition(String key,
                               String title,
                               String description,
+                              @Nullable Object iconTexture,
                               ResearchStudyType studyType,
                               @Nullable ResearchRevealAnimationStyle revealAnimationStyle,
                               long studyDurationMs
@@ -33,6 +35,7 @@ public final class ResearchDefinition {
         this.key = Objects.requireNonNull(key, "key");
         this.title = title == null || title.isBlank() ? key : title;
         this.description = description;
+        this.iconTexture = iconTexture;
         this.studyType = studyType == null ? ResearchStudyType.INSTANT : studyType;
         this.revealAnimationStyle = revealAnimationStyle;
         this.studyDurationMs = Math.max(0L, studyDurationMs);
@@ -52,6 +55,10 @@ public final class ResearchDefinition {
 
     public String getDescription() {
         return description;
+    }
+
+    public @Nullable Object getIconTexture() {
+        return iconTexture;
     }
 
     public ResearchStudyType getStudyType() {
@@ -82,6 +89,7 @@ public final class ResearchDefinition {
         return new Builder(key)
                 .title(title)
                 .description(description)
+                .iconTexture(iconTexture)
                 .studyType(studyType)
                 .revealAnimationStyle(revealAnimationStyle)
                 .studyDurationMs(studyDurationMs);
@@ -99,6 +107,7 @@ public final class ResearchDefinition {
      * <ul>
      *     <li>{@link #title(String)} - human-readable title;</li>
      *     <li>{@link #description(String)} - long description shown in UI;</li>
+     *     <li>{@link #iconTexture(Object)} - optional icon payload later applied to the node widget;</li>
      *     <li>{@link #studyType(ResearchStudyType)} - explicit study mode;</li>
      *     <li>{@link #revealAnimationStyle(ResearchRevealAnimationStyle)} - optional per-node reveal override;</li>
      *     <li>{@link #studyDurationMs(long)} - duration payload for timed mode;</li>
@@ -110,6 +119,7 @@ public final class ResearchDefinition {
         private final String key;
         private String title;
         private String description;
+        private @Nullable Object iconTexture;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
         private @Nullable ResearchRevealAnimationStyle revealAnimationStyle;
         private long studyDurationMs;
@@ -131,6 +141,14 @@ public final class ResearchDefinition {
          */
         public Builder description(String description) {
             this.description = description;
+            return this;
+        }
+
+        /**
+         * Stores an optional icon payload that {@code ResearchNode#setIconTexture(...)} can consume later.
+         */
+        public Builder iconTexture(@Nullable Object iconTexture) {
+            this.iconTexture = iconTexture;
             return this;
         }
 
@@ -177,7 +195,7 @@ public final class ResearchDefinition {
          * Builds the immutable definition snapshot.
          */
         public ResearchDefinition build() {
-            return new ResearchDefinition(key, title, description, studyType, revealAnimationStyle, studyDurationMs);
+            return new ResearchDefinition(key, title, description, iconTexture, studyType, revealAnimationStyle, studyDurationMs);
         }
     }
 }

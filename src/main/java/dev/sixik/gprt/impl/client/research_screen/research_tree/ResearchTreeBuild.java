@@ -239,6 +239,7 @@ public final class ResearchTreeBuild {
         private final String key;
         private String title;
         private String description;
+        private @Nullable Object iconTexture;
         private String groupId;
         private boolean studied;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
@@ -260,6 +261,7 @@ public final class ResearchTreeBuild {
                     key,
                     title,
                     description,
+                    iconTexture,
                     studyType,
                     revealAnimationStyle,
                     studyDurationMs
@@ -310,6 +312,21 @@ public final class ResearchTreeBuild {
         }
 
         /**
+         * Stores the icon payload that will later be applied through `ResearchNode#setIconTexture(...)`.
+         */
+        public NodeBuilder iconTexture(@Nullable Object iconTexture) {
+            definition.iconTexture = iconTexture;
+            return this;
+        }
+
+        /**
+         * Friendly alias for {@link #iconTexture(Object)}.
+         */
+        public NodeBuilder icon(@Nullable Object iconTexture) {
+            return iconTexture(iconTexture);
+        }
+
+        /**
          * Copies metadata and study-mode settings from an existing immutable definition.
          * <p>
          * This is the bridge between registry-like research definitions and the screen-local
@@ -323,6 +340,7 @@ public final class ResearchTreeBuild {
 
             definition.title = researchDefinition.getTitle();
             definition.description = researchDefinition.getDescription();
+            definition.iconTexture = researchDefinition.getIconTexture();
             definition.studyType = researchDefinition.getStudyType();
             definition.revealAnimationStyle = researchDefinition.getRevealAnimationStyle();
             definition.studyDurationMs = researchDefinition.getStudyDurationMs();
@@ -343,6 +361,7 @@ public final class ResearchTreeBuild {
             definition(researchDefinition.toInternalDefinition());
             definition.groupId = researchDefinition.getGroupId();
             definition.visibilityMode = researchDefinition.getVisibilityMode().toInternalMode();
+            definition.iconTexture = researchDefinition.getIconTexture();
             return this;
         }
 

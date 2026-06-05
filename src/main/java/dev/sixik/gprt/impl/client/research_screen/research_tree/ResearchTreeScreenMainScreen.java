@@ -21,6 +21,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapper;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapperResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
@@ -101,6 +102,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     protected @Nullable ResearchInfoPanelWidget detailsPanel;
     protected @Nullable ResearchNodeWidgetFactory nodeWidgetFactory;
     protected @Nullable ResearchNodeThemeResolver nodeThemeResolver;
+    protected @Nullable ResearchNodeWrapperResolver nodeWrapperResolver;
     protected @Nullable ResearchUnlockPresentationController unlockPresentationController;
 
     protected @Nullable ResearchTablePlaceholderOverlay tablePlaceholderOverlay;
@@ -185,6 +187,17 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .fallback(new DefaultResearchNodeThemeResolver());
         configureNodeThemePresets(builder);
         return builder.build();
+    }
+
+    /**
+     * Creates the resolver responsible for effective runtime node bounds.
+     * <p>
+     * Default behavior keeps runtime bounds equal to logical node bounds. Override this when a
+     * screen wants style-specific card geometry without pushing that data into {@link ResearchNode}.
+     * </p>
+     */
+    protected ResearchNodeWrapperResolver createNodeWrapperResolver() {
+        return ResearchNodeWrapperResolver.identity();
     }
 
     /**
@@ -299,6 +312,24 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
      */
     protected final void refreshNodeWidgetsNow() {
         refreshAllNodeWidgets(System.currentTimeMillis());
+    }
+
+    /**
+     * Enables or disables wrapper-aware spacing in auto-layout.
+     * <p>
+     * When enabled, the dependency layout uses resolved runtime wrapper size instead of raw node
+     * size while computing inter-layer and vertical spacing.
+     * </p>
+     */
+    protected final void setAutoLayoutUseNodeWrappersForSpacing(boolean enabled) {
+        autoLayoutConfig().useNodeWrappersForSpacing(enabled);
+    }
+
+    @Override
+    protected ResearchNodeWrapper getLayoutWrapperForNode(ResearchNode node) {
+        ResearchNodeWrapper wrapper = ResearchNodeWrapper.fromNode(node);
+        applyNodeWrapperResolver(node, wrapper, System.currentTimeMillis());
+        return wrapper;
     }
 
     /**
@@ -1193,6 +1224,13 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return nodeThemeResolver;
     }
 
+    protected final ResearchNodeWrapperResolver getNodeWrapperResolver() {
+        if (nodeWrapperResolver == null) {
+            nodeWrapperResolver = createNodeWrapperResolver();
+        }
+        return nodeWrapperResolver;
+    }
+
     private ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node, long nowMs) {
         ResearchNodeWrapper nodeWrapper = buildNodeWrapper(node, nowMs);
         boolean unlockAnimating = isUnlockAnimationNode(node);
@@ -1270,6 +1308,19 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
      */
     protected ResearchNodeWrapper buildNodeWrapper(ResearchNode node, long nowMs) {
         ResearchNodeWrapper wrapper = ResearchNodeWrapper.fromNode(node);
+        applyNodeWrapperResolver(node, wrapper, nowMs);
+        setNodeWrapper(wrapper);
+        return wrapper;
+    }
+
+    /**
+     * Re-applies the current wrapper resolver to an already allocated runtime wrapper.
+     * <p>
+     * This is used both by normal widget refresh and by wrapper-aware auto-layout preview so both
+     * systems see the same effective bounds.
+     * </p>
+     */
+    protected final void applyNodeWrapperResolver(ResearchNode node, ResearchNodeWrapper wrapper, long nowMs) {
         ResearchNodeRenderContext preparationContext = ResearchNodeRenderContext.builder()
                 .nodeWrapper(wrapper)
                 .state(resolveNodeState(node))
@@ -1282,9 +1333,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 .progress(researchProgressController.getProgress(node))
                 .unlockRevealAnimationStyle(resolveUnlockRevealAnimationStyle(node))
                 .build();
-        getNodeWidgetFactory().prepareNodeWrapper(node, preparationContext);
-        setNodeWrapper(wrapper);
-        return wrapper;
+        getNodeWrapperResolver().resolveWrapper(node, preparationContext);
     }
 
     private void applyNodeWidgetLayout(UIElement nodeWidget, ResearchNodeWrapper wrapper) {

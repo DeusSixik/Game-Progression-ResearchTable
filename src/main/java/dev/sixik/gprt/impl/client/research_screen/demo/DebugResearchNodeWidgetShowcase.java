@@ -20,6 +20,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapper;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapperResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
@@ -212,21 +213,14 @@ public final class DebugResearchNodeWidgetShowcase {
     }
 
     /**
-     * Minimal adapter between the graph system and the custom tutorial widget.
+     * Creates a dedicated wrapper resolver for the debug showcase styles.
      * <p>
-     * The graph only knows that it needs a {@link ResearchNodeWidgetFactory}. It does not care
-     * whether the widget is a plain button, a complex card or something heavily animated.
+     * This keeps geometry rules out of the widget factory itself, which makes the architecture
+     * cleaner: bounds are decided here, widget composition stays in the widget code.
      * </p>
      */
-    private static final class ShowcaseNodeWidgetFactory implements ResearchNodeWidgetFactory {
-        private final Supplier<StyleMode> styleModeSupplier;
-
-        private ShowcaseNodeWidgetFactory(Supplier<StyleMode> styleModeSupplier) {
-            this.styleModeSupplier = styleModeSupplier;
-        }
-
-        @Override
-        public void prepareNodeWrapper(ResearchNode node, ResearchNodeRenderContext context) {
+    public static ResearchNodeWrapperResolver createWrapperResolver(Supplier<StyleMode> styleModeSupplier) {
+        return (node, context) -> {
             ResearchNodeWrapper wrapper = context.getNodeWrapper();
             StyleMode styleMode = styleModeSupplier.get();
             if (styleMode == StyleMode.TECH_CARDS) {
@@ -249,6 +243,21 @@ public final class DebugResearchNodeWidgetShowcase {
                 default -> {
                 }
             }
+        };
+    }
+
+    /**
+     * Minimal adapter between the graph system and the custom tutorial widget.
+     * <p>
+     * The graph only knows that it needs a {@link ResearchNodeWidgetFactory}. It does not care
+     * whether the widget is a plain button, a complex card or something heavily animated.
+     * </p>
+     */
+    private static final class ShowcaseNodeWidgetFactory implements ResearchNodeWidgetFactory {
+        private final Supplier<StyleMode> styleModeSupplier;
+
+        private ShowcaseNodeWidgetFactory(Supplier<StyleMode> styleModeSupplier) {
+            this.styleModeSupplier = styleModeSupplier;
         }
 
         @Override

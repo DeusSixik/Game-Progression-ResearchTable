@@ -4,6 +4,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,7 @@ public final class ResearchDefinition {
     private final ResearchVisibilityMode visibilityMode;
     private final String title;
     private final String description;
+    private final @Nullable Object iconTexture;
     private final ResearchStudyType studyType;
     private final ResearchRevealAnimationType revealAnimationType;
     private final long studyDurationMs;
@@ -52,6 +54,7 @@ public final class ResearchDefinition {
                                ResearchVisibilityMode visibilityMode,
                                String title,
                                String description,
+                               @Nullable Object iconTexture,
                                ResearchStudyType studyType,
                                ResearchRevealAnimationType revealAnimationType,
                                long studyDurationMs,
@@ -64,6 +67,7 @@ public final class ResearchDefinition {
         this.visibilityMode = visibilityMode == null ? ResearchVisibilityMode.ALWAYS_VISIBLE : visibilityMode;
         this.title = title == null || title.isBlank() ? key : title;
         this.description = description == null ? "" : description;
+        this.iconTexture = iconTexture;
         this.studyType = studyType == null ? ResearchStudyType.INSTANT : studyType;
         this.revealAnimationType = revealAnimationType;
         this.studyDurationMs = Math.max(0L, studyDurationMs);
@@ -110,6 +114,10 @@ public final class ResearchDefinition {
 
     public String getDescription() {
         return description;
+    }
+
+    public @Nullable Object getIconTexture() {
+        return iconTexture;
     }
 
     public ResearchStudyType getStudyType() {
@@ -167,6 +175,7 @@ public final class ResearchDefinition {
                 key,
                 title,
                 description,
+                iconTexture,
                 studyType.toInternalType(),
                 revealAnimationType == null ? null : revealAnimationType.toInternalType(),
                 studyDurationMs
@@ -186,6 +195,7 @@ public final class ResearchDefinition {
         private ResearchVisibilityMode visibilityMode = ResearchVisibilityMode.ALWAYS_VISIBLE;
         private String title;
         private String description;
+        private @Nullable Object iconTexture;
         private ResearchStudyType studyType = ResearchStudyType.INSTANT;
         private ResearchRevealAnimationType revealAnimationType;
         private long studyDurationMs;
@@ -236,6 +246,21 @@ public final class ResearchDefinition {
         public Builder description(String description) {
             this.description = description;
             return this;
+        }
+
+        /**
+         * Stores an icon payload that can later be consumed by `ResearchNode#setIconTexture(...)`.
+         */
+        public Builder iconTexture(@Nullable Object iconTexture) {
+            this.iconTexture = iconTexture;
+            return this;
+        }
+
+        /**
+         * Friendly alias for {@link #iconTexture(Object)}.
+         */
+        public Builder icon(@Nullable Object iconTexture) {
+            return iconTexture(iconTexture);
         }
 
         /**
@@ -430,6 +455,7 @@ public final class ResearchDefinition {
                     visibilityMode,
                     title,
                     description,
+                    iconTexture,
                     studyType,
                     revealAnimationType,
                     studyDurationMs,
