@@ -1,10 +1,12 @@
 package dev.sixik.gprt.impl.client.research_screen.research_table;
 
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import dev.sixik.gprt.api.ResearchCondition;
 import dev.sixik.gprt.api.ResearchDefinition;
 import dev.sixik.gprt.api.ResearchGroupDefinition;
 import dev.sixik.gprt.api.ResearchReward;
 import dev.sixik.gprt.impl.client.research_screen.demo.DebugResearchNodeWidgetShowcase;
+import dev.sixik.gprt.impl.client.research_screen.research_table.widget_factory.ResearchTableNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeBuild;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.ResearchTreeScreenMainScreen;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoContent;
@@ -21,6 +23,7 @@ import dev.sixik.gprt.impl.utils.ResearchUtils;
 import dev.sixik.gprt.test.GprtTests;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,12 +42,14 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         initializeMainScreen();
     }
 
+
+
     @Override
     protected void buildResearchTree() {
         ResearchTreeBuild build = ResearchTreeBuild.create();
         researchDefinitionsByKey.clear();
 
-        GprtTests.BuildData data = GprtTests.createRevealAnimationDemoRecipes();
+        GprtTests.BuildData data = GprtTests.createDebugRecipes();
 
         for (ResearchGroupDefinition group : data.groups()) {
             build.group(group);
@@ -68,7 +73,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
 
     @Override
     protected ResearchNodeWidgetFactory createNodeWidgetFactory() {
-        return DebugResearchNodeWidgetShowcase.createWidgetFactory(() -> DebugResearchNodeWidgetShowcase.StyleMode.TECH_CARDS);
+        return new ResearchTableNodeWidgetFactory();
     }
 
     /*@Override
@@ -175,7 +180,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return areResearchConditionsMet(node);
     }
 
-    private boolean areResearchConditionsMet(ResearchNode node) {
+    protected final boolean areResearchConditionsMet(ResearchNode node) {
         if (!areParentResearchRequirementsMet(node)) {
             return false;
         }
@@ -198,7 +203,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return true;
     }
 
-    private boolean areParentResearchRequirementsMet(ResearchNode node) {
+    protected final boolean areParentResearchRequirementsMet(ResearchNode node) {
         var parents = collectParentNodes(node);
         if (parents.isEmpty()) {
             return true;
@@ -210,7 +215,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         };
     }
 
-    private boolean hasAnyStudiedParent(Iterable<ResearchNode> parents) {
+    protected final boolean hasAnyStudiedParent(Iterable<ResearchNode> parents) {
         for (ResearchNode parent : parents) {
             if (parent != null && parent.isStudied()) {
                 return true;
@@ -219,7 +224,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return false;
     }
 
-    private boolean areAllParentsStudied(Iterable<ResearchNode> parents) {
+    protected final boolean areAllParentsStudied(Iterable<ResearchNode> parents) {
         for (ResearchNode parent : parents) {
             if (parent == null || !parent.isStudied()) {
                 return false;
@@ -228,7 +233,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         return true;
     }
 
-    private boolean isConditionMet(LocalPlayer player, ResearchCondition condition) {
+    protected final boolean isConditionMet(LocalPlayer player, ResearchCondition condition) {
         if (condition == null) {
             return true;
         }
@@ -241,7 +246,7 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
         };
     }
 
-    private static boolean containsResearch(GprtTests.BuildData data, String researchKey) {
+    protected static boolean containsResearch(GprtTests.BuildData data, String researchKey) {
         for (dev.sixik.gprt.api.ResearchDefinition definition : data.definitions()) {
             if (researchKey.equals(definition.getKey())) {
                 return true;
