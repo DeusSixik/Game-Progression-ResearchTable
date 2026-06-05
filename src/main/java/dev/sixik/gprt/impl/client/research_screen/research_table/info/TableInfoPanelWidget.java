@@ -172,7 +172,20 @@ public class TableInfoPanelWidget extends AdaptiveResearchInfoPanelWidget {
         timedProgressLabel.setDisplay(content.showTimedProgress());
         timedProgressBar.setDisplay(content.showTimedProgress());
         timedProgressLabel.setText(ResearchInfoTextResolver.resolveText(content.timedProgressText()));
-        updateProgress(content.timedProgress01(), content.timedProgressFillColor());
+        TimedProgressStyleHelper.apply(
+                timedProgressLabel,
+                content.timedProgressVisualStyle(),
+                content.timedProgress01(),
+                content.timedProgressFillColor()
+        );
+        updateProgress(
+                content.timedProgress01(),
+                TimedProgressStyleHelper.resolveProgressFillColor(
+                        content.timedProgressVisualStyle(),
+                        content.timedProgress01(),
+                        content.timedProgressFillColor()
+                )
+        );
 
         rebuildSections(content.sections());
 

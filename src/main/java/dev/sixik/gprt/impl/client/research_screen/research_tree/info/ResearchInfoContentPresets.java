@@ -155,7 +155,7 @@ public final class ResearchInfoContentPresets {
                     content.timedProgressText(),
                     content.timedProgress01(),
                     content.timedProgressFillColor()
-            );
+            ).timedProgressStyle(content.timedProgressVisualStyle());
         } else {
             sanitizedBuilder.hideTimedProgress();
         }

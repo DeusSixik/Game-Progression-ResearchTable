@@ -535,7 +535,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         if (node == null || !canFocusResearchFromInfoPanel(node)) {
             return false;
         }
-        openDetailsPanel(node.getId());
+        showDetailsPanelForNode(node.getId());
         centerCameraOn(node.getId());
         onNodeSelected(node);
         return true;
@@ -586,7 +586,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                     if (isUnlockAnimationActive()) {
                         return;
                     }
-                    openDetailsPanel(node.getId());
+                    showDetailsPanelForNode(node.getId());
                     centerCameraOn(node.getId());
                     onNodeSelected(node);
                 }
@@ -742,7 +742,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         return null;
     }
 
-    private void openDetailsPanel(int nodeId) {
+    protected final void showDetailsPanelForNode(int nodeId) {
         int previousSelectedNodeId = selectedNodeId;
         selectedNodeId = nodeId;
         refreshNodeWidgetById(previousSelectedNodeId, System.currentTimeMillis());

@@ -109,22 +109,24 @@ public class GprtTests {
 
         List<ResearchDefinition> definitions = new ObjectArrayList<>(40);
 
-        definitions.add(research("primitive_tools", "Primitive Tools Its very big research name because i need test", root)
+        definitions.add(debugResearch("primitive_tools", "Primitive Tools Its very big research name because i need test", root)
                 .description("Basic stone-age survival knowledge and the first usable hand tools.")
                 .icon(Items.BEDROCK.asItem())
                 .reward(Items.STONE_PICKAXE)
                 .instant()
+                .timed(10_000)
                 .build());
 
-        definitions.add(research("stone_working", "Stone Working", root)
+        definitions.add(debugResearch("stone_working", "Stone Working", root)
                 .description("Learn to shape rough stone into useful parts and foundations.")
                 .required("primitive_tools")
                 .condition(Items.COBBLESTONE)
                 .reward(Items.STONE_AXE)
                 .instant()
+                .timed(5_000)
                 .build());
 
-        definitions.add(research("fire_making", "Fire Making", root)
+        definitions.add(debugResearch("fire_making", "Fire Making", root)
                 .description("Controlled fire opens the way to cooking, heat and chemistry.")
                 .required("primitive_tools")
                 .condition(Items.FLINT)
@@ -133,7 +135,7 @@ public class GprtTests {
                 .timed(3600000)
                 .build());
 
-        definitions.add(research("observation", "Observation", root)
+        definitions.add(debugResearch("observation", "Observation", root)
                 .description("Watching nature carefully reveals patterns, seasons and opportunities.")
                 .required("primitive_tools")
                 .condition(Items.SPYGLASS)
@@ -141,7 +143,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("workbench", "Workbench", root)
+        definitions.add(debugResearch("workbench", "Workbench", root)
                 .description("A dedicated workplace lets you craft more reliable tools and components.")
                 .required("primitive_tools")
                 .condition(Items.CRAFTING_TABLE)
@@ -149,7 +151,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("storage_basics", "Storage Basics", root)
+        definitions.add(debugResearch("storage_basics", "Storage Basics", root)
                 .description("You begin organizing goods instead of keeping everything on hand.")
                 .required("primitive_tools")
                 .condition(Items.CHEST)
@@ -157,7 +159,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("copper_processing", "Copper Processing", metallurgy)
+        definitions.add(debugResearch("copper_processing", "Copper Processing", metallurgy)
                 .description("Soft metals can be smelted and shaped into early machine parts.")
                 .required("stone_working", "fire_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -166,7 +168,7 @@ public class GprtTests {
                 .timed(18_000L)
                 .build());
 
-        definitions.add(research("tin_processing", "Tin Processing", metallurgy)
+        definitions.add(debugResearch("tin_processing", "Tin Processing", metallurgy)
                 .description("Tin is fragile on its own but invaluable in useful alloys.")
                 .required("stone_working", "fire_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -175,7 +177,7 @@ public class GprtTests {
                 .timed(18_000L)
                 .build());
 
-        definitions.add(research("bronze_alloy", "Bronze Alloy", metallurgy)
+        definitions.add(debugResearch("bronze_alloy", "Bronze Alloy", metallurgy)
                 .description("Mixing metals together creates something stronger than each part alone.")
                 .required("copper_processing", "tin_processing")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -184,7 +186,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("charcoal_smelting", "Charcoal Smelting", metallurgy)
+        definitions.add(debugResearch("charcoal_smelting", "Charcoal Smelting", metallurgy)
                 .description("Hotter and cleaner fuel makes primitive furnaces far more reliable.")
                 .required("fire_making")
                 .condition(Items.CHARCOAL)
@@ -192,7 +194,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("bloomery", "Bloomery", metallurgy)
+        definitions.add(debugResearch("bloomery", "Bloomery", metallurgy)
                 .description("A true furnace structure lets you extract better metal blooms.")
                 .required("bronze_alloy", "charcoal_smelting")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -201,7 +203,7 @@ public class GprtTests {
                 .timed(28_000L)
                 .build());
 
-        definitions.add(research("iron_working", "Iron Working", metallurgy)
+        definitions.add(debugResearch("iron_working", "Iron Working", metallurgy)
                 .description("Iron tools and components unlock sturdier industrial progress.")
                 .required("bloomery")
                 .condition(Items.RAW_IRON)
@@ -209,7 +211,7 @@ public class GprtTests {
                 .timed(22_000L)
                 .build());
 
-        definitions.add(research("press", "Mechanical Press", metallurgy)
+        definitions.add(debugResearch("press", "Mechanical Press", metallurgy)
                 .description("Pressure lets you form plates and precise structural components.")
                 .required("bronze_alloy", "workbench")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -218,7 +220,7 @@ public class GprtTests {
                 .timed(30_000L)
                 .build());
 
-        definitions.add(research("soil_preparation", "Soil Preparation", farming)
+        definitions.add(debugResearch("soil_preparation", "Soil Preparation", farming)
                 .description("Prepared ground makes farming predictable instead of hopeful.")
                 .required("workbench")
                 .condition(Items.WOODEN_HOE)
@@ -226,7 +228,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("seed_selection", "Seed Selection", farming)
+        definitions.add(debugResearch("seed_selection", "Seed Selection", farming)
                 .description("Choosing better seed stock steadily improves the harvest.")
                 .required("observation", "soil_preparation")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -235,7 +237,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("irrigation", "Irrigation", farming)
+        definitions.add(debugResearch("irrigation", "Irrigation", farming)
                 .description("Moving water where it is needed stabilizes crop growth.")
                 .required("storage_basics", "soil_preparation")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -244,7 +246,7 @@ public class GprtTests {
                 .timed(16_000L)
                 .build());
 
-        definitions.add(research("composting", "Composting", farming)
+        definitions.add(debugResearch("composting", "Composting", farming)
                 .description("Waste can become fertile material instead of being thrown away.")
                 .required("soil_preparation", "fire_making")
                 .condition(Items.ROTTEN_FLESH)
@@ -252,7 +254,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("greenhouse", "Greenhouse", farming)
+        definitions.add(debugResearch("greenhouse", "Greenhouse", farming)
                 .description("Protected growing space makes production less dependent on weather.")
                 .required("irrigation", "observation")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -261,7 +263,7 @@ public class GprtTests {
                 .timed(26_000L)
                 .build());
 
-        definitions.add(research("animal_husbandry", "Animal Husbandry", farming)
+        definitions.add(debugResearch("animal_husbandry", "Animal Husbandry", farming)
                 .description("Managing livestock gives a steady source of food and materials.")
                 .required("seed_selection", "storage_basics")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -270,7 +272,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("rope_making", "Rope Making", logistics)
+        definitions.add(debugResearch("rope_making", "Rope Making", logistics)
                 .description("Binding materials together makes transport and lifting possible.")
                 .required("workbench")
                 .condition(Items.STRING)
@@ -278,7 +280,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("cart_frames", "Cart Frames", logistics)
+        definitions.add(debugResearch("cart_frames", "Cart Frames", logistics)
                 .description("The first cargo frames improve over carrying everything by hand.")
                 .required("rope_making", "stone_working")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -287,7 +289,7 @@ public class GprtTests {
                 .timed(16_000L)
                 .build());
 
-        definitions.add(research("warehouse", "Warehouse", logistics)
+        definitions.add(debugResearch("warehouse", "Warehouse", logistics)
                 .description("Centralized storage becomes the heart of a growing settlement.")
                 .required("storage_basics", "rope_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -296,7 +298,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("pack_animals", "Pack Animals", logistics)
+        definitions.add(debugResearch("pack_animals", "Pack Animals", logistics)
                 .description("Animals can move heavier loads further than a single worker.")
                 .required("animal_husbandry", "rope_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -305,7 +307,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("logistics_assemblies", "Logistics Assemblies", logistics)
+        definitions.add(debugResearch("logistics_assemblies", "Logistics Assemblies", logistics)
                 .description("Standardized connectors and frames speed up expansion.")
                 .required("cart_frames", "warehouse")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -314,7 +316,7 @@ public class GprtTests {
                 .timed(24_000L)
                 .build());
 
-        definitions.add(research("roads", "Roads", logistics)
+        definitions.add(debugResearch("roads", "Roads", logistics)
                 .description("Reliable roads cut travel time and improve heavy transport.")
                 .required("stone_working", "logistics_assemblies")
                 .condition(Items.GRAVEL)
@@ -322,7 +324,7 @@ public class GprtTests {
                 .timed(22_000L)
                 .build());
 
-        definitions.add(research("shipping_crates", "Shipping Crates", logistics)
+        definitions.add(debugResearch("shipping_crates", "Shipping Crates", logistics)
                 .description("Purpose-built shipping containers make trade much cleaner.")
                 .required("warehouse", "press")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -331,7 +333,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("crusher", "Crusher", energy)
+        definitions.add(debugResearch("crusher", "Crusher", energy)
                 .description("Crushing ore and stone prepares bulk materials for automation.")
                 .required("press", "stone_working")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -340,7 +342,7 @@ public class GprtTests {
                 .timed(28_000L)
                 .build());
 
-        definitions.add(research("waterwheel", "Waterwheel", energy)
+        definitions.add(debugResearch("waterwheel", "Waterwheel", energy)
                 .description("Flowing water becomes the first continuous power source.")
                 .required("irrigation", "logistics_assemblies")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -349,7 +351,7 @@ public class GprtTests {
                 .timed(24_000L)
                 .build());
 
-        definitions.add(research("windmill", "Windmill", energy)
+        definitions.add(debugResearch("windmill", "Windmill", energy)
                 .description("Wind can drive simple machinery when terrain allows it.")
                 .required("rope_making", "observation")
                 .condition(Items.WHITE_WOOL)
@@ -357,7 +359,7 @@ public class GprtTests {
                 .timed(24_000L)
                 .build());
 
-        definitions.add(research("steam_power", "Steam Power", energy)
+        definitions.add(debugResearch("steam_power", "Steam Power", energy)
                 .description("Stored heat becomes a powerful step toward true industry.")
                 .required("iron_working", "waterwheel")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -366,7 +368,7 @@ public class GprtTests {
                 .timed(36_000L)
                 .build());
 
-        definitions.add(research("power_transmission", "Power Transmission", energy)
+        definitions.add(debugResearch("power_transmission", "Power Transmission", energy)
                 .description("Power is most useful once it can be routed to distant machines.")
                 .required("steam_power", "rope_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -375,7 +377,7 @@ public class GprtTests {
                 .timed(20_000L)
                 .build());
 
-        definitions.add(research("powered_machines", "Powered Machines", energy)
+        definitions.add(debugResearch("powered_machines", "Powered Machines", energy)
                 .description("Machine networks replace repetitive manual labor.")
                 .required("power_transmission", "crusher")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -384,7 +386,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("herbal_extracts", "Herbal Extracts", alchemy)
+        definitions.add(debugResearch("herbal_extracts", "Herbal Extracts", alchemy)
                 .description("Plants yield more than food if prepared with care.")
                 .required("seed_selection", "fire_making")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -393,7 +395,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("mineral_powders", "Mineral Powders", alchemy)
+        definitions.add(debugResearch("mineral_powders", "Mineral Powders", alchemy)
                 .description("Ground minerals react differently than raw chunks.")
                 .required("crusher", "observation")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -402,7 +404,7 @@ public class GprtTests {
                 .timed(18_000L)
                 .build());
 
-        definitions.add(research("saltpeter", "Saltpeter", alchemy)
+        definitions.add(debugResearch("saltpeter", "Saltpeter", alchemy)
                 .description("Crystalline deposits reveal a path toward energetic mixtures.")
                 .required("composting", "mineral_powders")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -411,7 +413,7 @@ public class GprtTests {
                 .timed(18_000L)
                 .build());
 
-        definitions.add(research("acidic_solutions", "Acidic Solutions", alchemy)
+        definitions.add(debugResearch("acidic_solutions", "Acidic Solutions", alchemy)
                 .description("Reactive liquids let you separate and clean difficult materials.")
                 .required("herbal_extracts", "copper_processing")
                 .visibility(ResearchVisibilityMode.REQUIRE_ANY_PARENT_STUDIED)
@@ -420,7 +422,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("lamp_oil", "Lamp Oil", alchemy)
+        definitions.add(debugResearch("lamp_oil", "Lamp Oil", alchemy)
                 .description("Slow-burning liquids improve underground and nighttime work.")
                 .required("composting", "storage_basics")
                 .condition(Items.GLOW_BERRIES)
@@ -428,7 +430,7 @@ public class GprtTests {
                 .instant()
                 .build());
 
-        definitions.add(research("explosives", "Explosives", alchemy)
+        definitions.add(debugResearch("explosives", "Explosives", alchemy)
                 .description("Volatile mixtures can break ground or cause catastrophic mistakes.")
                 .required("saltpeter", "mineral_powders")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -437,7 +439,7 @@ public class GprtTests {
                 .table()
                 .build());
 
-        definitions.add(research("alchemical_salts", "Alchemical Salts", alchemy)
+        definitions.add(debugResearch("alchemical_salts", "Alchemical Salts", alchemy)
                 .description("Refined salts become the basis for advanced chemical reactions.")
                 .required("acidic_solutions", "fire_making")
                 .condition(Items.QUARTZ)
@@ -445,7 +447,7 @@ public class GprtTests {
                 .timed(22_000L)
                 .build());
 
-        definitions.add(research("battery_bank", "Battery Bank", alchemy)
+        definitions.add(debugResearch("battery_bank", "Battery Bank", alchemy)
                 .description("Stored charge bridges the gap between chemistry and machinery.")
                 .required("alchemical_salts", "steam_power")
                 .visibility(ResearchVisibilityMode.REQUIRE_ALL_PARENTS_STUDIED)
@@ -458,6 +460,16 @@ public class GprtTests {
                 new ResearchGroupDefinition[] { root, metallurgy, farming, logistics, energy, alchemy },
                 definitions.toArray(ResearchDefinition[]::new)
         );
+    }
+
+    private static ResearchDefinition.Builder debugResearch(String key, String title, ResearchGroupDefinition group) {
+        return research(key, title, group)
+                .revealAnimation(debugRevealAnimation(key));
+    }
+
+    private static ResearchRevealAnimationType debugRevealAnimation(String researchKey) {
+        ResearchRevealAnimationType[] values = ResearchRevealAnimationType.values();
+        return values[Math.floorMod(researchKey.hashCode(), values.length)];
     }
 
     private static ResearchGroupDefinition group(String id, String title, int primaryColor, int secondaryColor) {

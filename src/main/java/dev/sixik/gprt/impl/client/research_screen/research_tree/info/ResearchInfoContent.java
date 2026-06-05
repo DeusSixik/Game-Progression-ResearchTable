@@ -43,6 +43,7 @@ public final class ResearchInfoContent {
     private final String timedProgressText;
     private final float timedProgress01;
     private final int timedProgressFillColor;
+    private final TimedProgressVisualStyle timedProgressVisualStyle;
     private final boolean showResearchButton;
     private final boolean researchButtonEnabled;
     private final String researchButtonText;
@@ -61,6 +62,7 @@ public final class ResearchInfoContent {
         this.timedProgressText = builder.timedProgressText;
         this.timedProgress01 = clamp01(builder.timedProgress01);
         this.timedProgressFillColor = builder.timedProgressFillColor;
+        this.timedProgressVisualStyle = builder.timedProgressVisualStyle;
         this.showResearchButton = builder.showResearchButton;
         this.researchButtonEnabled = builder.researchButtonEnabled;
         this.researchButtonText = builder.researchButtonText;
@@ -81,7 +83,7 @@ public final class ResearchInfoContent {
                 .stateText(stateText)
                 .description(description)
                 .panelColor(panelColor)
-                .copyTimedProgress(showTimedProgress, timedProgressText, timedProgress01, timedProgressFillColor)
+                .copyTimedProgress(showTimedProgress, timedProgressText, timedProgress01, timedProgressFillColor, timedProgressVisualStyle)
                 .researchButton(researchButtonText, showResearchButton, researchButtonEnabled)
                 .addSections(sections);
     }
@@ -132,6 +134,10 @@ public final class ResearchInfoContent {
 
     public int timedProgressFillColor() {
         return timedProgressFillColor;
+    }
+
+    public TimedProgressVisualStyle timedProgressVisualStyle() {
+        return timedProgressVisualStyle;
     }
 
     public boolean showResearchButton() {
@@ -192,6 +198,7 @@ public final class ResearchInfoContent {
         private String timedProgressText = "Progress: -";
         private float timedProgress01;
         private int timedProgressFillColor = 0xFF67B7FF;
+        private TimedProgressVisualStyle timedProgressVisualStyle = TimedProgressVisualStyle.DEFAULT;
         private boolean showResearchButton;
         private boolean researchButtonEnabled = true;
         private String researchButtonText = "Research";
@@ -287,15 +294,27 @@ public final class ResearchInfoContent {
             return this;
         }
 
+        /**
+         * Overrides the visual preset used by the timed-progress block.
+         */
+        public Builder timedProgressStyle(TimedProgressVisualStyle timedProgressVisualStyle) {
+            if (timedProgressVisualStyle != null) {
+                this.timedProgressVisualStyle = timedProgressVisualStyle;
+            }
+            return this;
+        }
+
         private Builder copyTimedProgress(boolean showTimedProgress,
                                           String timedProgressText,
                                           float timedProgress01,
-                                          int timedProgressFillColor
+                                          int timedProgressFillColor,
+                                          TimedProgressVisualStyle timedProgressVisualStyle
         ) {
             this.showTimedProgress = showTimedProgress;
             this.timedProgressText = timedProgressText;
             this.timedProgress01 = timedProgress01;
             this.timedProgressFillColor = timedProgressFillColor;
+            this.timedProgressVisualStyle = timedProgressVisualStyle;
             return this;
         }
 
@@ -306,6 +325,7 @@ public final class ResearchInfoContent {
             this.showTimedProgress = false;
             this.timedProgressText = "Progress: -";
             this.timedProgress01 = 0f;
+            this.timedProgressVisualStyle = TimedProgressVisualStyle.DEFAULT;
             return this;
         }
 

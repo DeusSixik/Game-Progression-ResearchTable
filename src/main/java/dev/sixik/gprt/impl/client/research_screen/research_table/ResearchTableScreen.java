@@ -13,6 +13,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.TimedProgressVisualStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.*;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
@@ -203,7 +204,26 @@ public class ResearchTableScreen extends ResearchTreeScreenMainScreen {
             }
         }
 
+        applyTimedProgressDemoStyle(node, builder);
         return builder.build();
+    }
+
+    private void applyTimedProgressDemoStyle(ResearchNode node, ResearchInfoContent.Builder builder) {
+        if (node == null || builder == null) {
+            return;
+        }
+
+        String researchKey = node.getResearchKey();
+        if (researchKey == null || researchKey.isBlank()) {
+            return;
+        }
+
+        switch (researchKey) {
+            case "primitive_tools" -> builder.timedProgressStyle(TimedProgressVisualStyle.DYNAMIC_TEXT);
+            case "stone_working" -> builder.timedProgressStyle(TimedProgressVisualStyle.DYNAMIC_TEXT_WITH_BACKGROUND);
+            default -> {
+            }
+        }
     }
 
     @Override

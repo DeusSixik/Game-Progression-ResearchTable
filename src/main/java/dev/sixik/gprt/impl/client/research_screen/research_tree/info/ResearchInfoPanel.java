@@ -165,7 +165,20 @@ public final class ResearchInfoPanel extends AdaptiveResearchInfoPanelWidget {
         if (content.showTimedProgress()) {
             timedProgressLabel.setText(ResearchInfoTextResolver.resolveText(content.timedProgressText()));
         }
-        updateTimedProgressFill(content.timedProgress01(), content.timedProgressFillColor());
+        TimedProgressStyleHelper.apply(
+                timedProgressLabel,
+                content.timedProgressVisualStyle(),
+                content.timedProgress01(),
+                content.timedProgressFillColor()
+        );
+        updateTimedProgressFill(
+                content.timedProgress01(),
+                TimedProgressStyleHelper.resolveProgressFillColor(
+                        content.timedProgressVisualStyle(),
+                        content.timedProgress01(),
+                        content.timedProgressFillColor()
+                )
+        );
 
         rebuildSections(content.sections());
 

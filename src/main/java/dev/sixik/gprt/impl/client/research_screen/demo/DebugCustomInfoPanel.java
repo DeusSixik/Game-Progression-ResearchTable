@@ -22,6 +22,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoSection;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoTextResolver;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.TimedProgressStyleHelper;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.network.chat.Component;
@@ -183,7 +184,20 @@ public final class DebugCustomInfoPanel extends AdaptiveResearchInfoPanelWidget 
         timedProgressLabel.setDisplay(content.showTimedProgress());
         timedProgressBar.setDisplay(content.showTimedProgress());
         timedProgressLabel.setText(ResearchInfoTextResolver.resolveText(content.timedProgressText()));
-        updateProgress(content.timedProgress01(), content.timedProgressFillColor());
+        TimedProgressStyleHelper.apply(
+                timedProgressLabel,
+                content.timedProgressVisualStyle(),
+                content.timedProgress01(),
+                content.timedProgressFillColor()
+        );
+        updateProgress(
+                content.timedProgress01(),
+                TimedProgressStyleHelper.resolveProgressFillColor(
+                        content.timedProgressVisualStyle(),
+                        content.timedProgress01(),
+                        content.timedProgressFillColor()
+                )
+        );
 
         rebuildSections(content.sections());
 

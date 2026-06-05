@@ -13,6 +13,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInf
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelContext;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPanelWidget;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.info.ResearchInfoPresentationRules;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.info.TimedProgressVisualStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeGroupThemeResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapperResolver;
@@ -51,9 +52,11 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
 
     private DebugResearchNodeWidgetShowcase.StyleMode currentNodeStyle = DebugResearchNodeWidgetShowcase.StyleMode.BRANCH_SHOWCASE;
     private boolean overlayExpanded = true;
+    private TimedProgressVisualStyle currentTimedProgressStyle = TimedProgressVisualStyle.DEFAULT;
     private UIElement overlayContent;
     private Button overlayToggleButton;
     private Label nodeStyleLabel;
+    private Label timedProgressStyleLabel;
     private Label overlaySectionLabel;
     private Label unlockAnimationStageLabel;
     private Label unlockAnimationNodeLabel;
@@ -212,6 +215,20 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
                 nodeStyleLabel
         );
         styleSection.addChildren(styleButtons);
+
+        UIElement timedProgressStyleButtons = createOverlayButtonRow();
+        timedProgressStyleLabel = new Label();
+        updateTimedProgressStyleLabel();
+        timedProgressStyleButtons.addChildren(
+                new Button().setText("Switch Time Style").setOnClick(event -> {
+                    currentTimedProgressStyle = currentTimedProgressStyle.next();
+                    updateTimedProgressStyleLabel();
+                    refreshNodeWidgetsNow();
+                    reopenSelectedNodeInfo();
+                }),
+                timedProgressStyleLabel
+        );
+        styleSection.addChildren(timedProgressStyleButtons);
 
         researchDataSection = createOverlaySection(
                 "Debug Research Data",
@@ -537,7 +554,9 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
             );
         }
 
-        return builder.build();
+        return builder
+                .timedProgressStyle(currentTimedProgressStyle)
+                .build();
     }
 
     @Override
@@ -704,6 +723,25 @@ public final class ResearchTreeScreenDebug extends ResearchTreeScreenMainScreen 
         if (nodeStyleLabel != null) {
             nodeStyleLabel.setText("Node Style: " + currentNodeStyle.displayName());
         }
+    }
+
+    private void updateTimedProgressStyleLabel() {
+        if (timedProgressStyleLabel != null) {
+            timedProgressStyleLabel.setText("Time Style: " + currentTimedProgressStyle.displayName());
+        }
+    }
+
+    private void reopenSelectedNodeInfo() {
+        ResearchNode selectedNode = selectedNodeId >= 0 ? getNodeById(selectedNodeId) : null;
+        if (selectedNode != null) {
+            openNodeDetailsDemo(selectedNode);
+        }
+    }
+
+    private void openNodeDetailsDemo(ResearchNode node) {
+        centerCameraOn(node.getId());
+        onNodeSelected(node);
+        showDetailsPanelForNode(node.getId());
     }
 
     private void updateOverlayVisibility() {
