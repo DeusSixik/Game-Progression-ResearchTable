@@ -109,7 +109,7 @@ public class GprtTests {
 
         List<ResearchDefinition> definitions = new ObjectArrayList<>(40);
 
-        definitions.add(research("primitive_tools", "Primitive Tools", root)
+        definitions.add(research("primitive_tools", "Primitive Tools Its very big research name because i need test", root)
                 .description("Basic stone-age survival knowledge and the first usable hand tools.")
                 .icon(Items.BEDROCK.asItem())
                 .reward(Items.STONE_PICKAXE)

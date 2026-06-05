@@ -18,10 +18,9 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchStudyType;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+
+import java.util.Locale;
 
 public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory {
 
@@ -49,6 +48,14 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
      */
     public static class NodeWidget extends Button {
         private static final float PROGRESS_BAR_HEIGHT = 5f;
+        private static final float BASE_TITLE_FONT_SIZE = 9f;
+        private static final float MIN_TITLE_SCALE = 0.7f;
+        private static final float MIN_TITLE_FONT_SIZE = BASE_TITLE_FONT_SIZE * MIN_TITLE_SCALE;
+        /**
+         * LDLib {@link TextWrap#ROLL} already starts scrolling only while the label is hovered.
+         * We keep that mode explicitly and use a slightly faster speed so long titles are easier to read.
+         */
+        private static final float TITLE_ROLL_SPEED = 0.32f;
 
         private final Label titleLabel;
         private final Label progressPercentLabel;
@@ -72,8 +79,9 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
 //            );
 
             titleLabel = new Label();
+            titleLabel.setOverflowVisible(false);
             titleLabel.textStyle(style -> style
-                    .fontSize(9f)
+                    .fontSize(BASE_TITLE_FONT_SIZE)
                     .textWrap(TextWrap.WRAP)
                     .adaptiveHeight(true)
                     .textShadow(false)
@@ -108,19 +116,36 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
 
             float width = wrapper.getWidth();
             float height = wrapper.getHeight();
+            float titleWidth = Math.max(16f, width - 38f);
 
             applyButtonFrame(context, visualDefinition);
             applyIcon(wrapper, width, height, visualDefinition);
 
-            titleLabel.setText(node.getTitle());
+            applyTitle(node, titleWidth);
             titleLabel.layout(layout -> layout
                     .positionType(TaffyPosition.ABSOLUTE)
                     .left(34)
                     .top(7)
-                    .width(width - iconFrame.getSizeWidth())
+                    .width(titleWidth)
                     .height(13));
 
             applyProgress(wrapper, context, width, height, visualDefinition);
+        }
+
+        private void applyTitle(ResearchNode node, float titleWidth) {
+            String rawTitle = node.getTitle() == null ? "" : node.getTitle();
+            float fontSize = resolveTitleFontSize(rawTitle, titleWidth);
+            boolean needsRollAtMinScale = estimateTextWidth(rawTitle, fontSize) > titleWidth
+                    && fontSize <= MIN_TITLE_FONT_SIZE + 0.001f;
+
+            titleLabel.setText(rawTitle);
+            titleLabel.textStyle(style -> style
+                    .fontSize(fontSize)
+                    .textWrap(needsRollAtMinScale ? TextWrap.ROLL : TextWrap.WRAP)
+                    .rollSpeed(TITLE_ROLL_SPEED)
+                    .adaptiveHeight(true)
+                    .textShadow(false)
+                    .textColor(0xFFF5F7FB));
         }
 
         private void applyButtonFrame(ResearchNodeRenderContext context,
@@ -193,7 +218,7 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
             float trackWidth = width - 46f;
             float trackLeft = 34f;
 
-            progressPercentLabel.setText(Math.round(progress01 * 100f) + "%");
+            progressPercentLabel.setText(String.format(Locale.ROOT, "%.1f%%", progress01 * 100f));
             progressPercentLabel.layout(layout -> layout
                     .positionType(TaffyPosition.ABSOLUTE)
                     .left(trackLeft)
@@ -215,6 +240,29 @@ public class ResearchTableNodeWidgetFactory implements ResearchNodeWidgetFactory
                     .width(trackWidth * Math.max(0f, Math.min(1f, progress01)))
                     .height(PROGRESS_BAR_HEIGHT));
             progressFill.style(style -> style.backgroundTexture(new ColorRectTexture(visualDefinition.getProgressBarColor())));
+        }
+
+        private static float resolveTitleFontSize(String title, float titleWidth) {
+            if (title.isBlank()) {
+                return BASE_TITLE_FONT_SIZE;
+            }
+
+            float estimatedBaseWidth = estimateTextWidth(title, BASE_TITLE_FONT_SIZE);
+            if (estimatedBaseWidth <= titleWidth) {
+                return BASE_TITLE_FONT_SIZE;
+            }
+
+            float requiredScale = titleWidth / estimatedBaseWidth;
+            float clampedScale = Math.max(MIN_TITLE_SCALE, Math.min(1f, requiredScale));
+            return BASE_TITLE_FONT_SIZE * clampedScale;
+        }
+
+        /**
+         * Rough UI-side estimate that is good enough for adaptive scaling/clipping.
+         * We intentionally slightly overestimate width so text does not spill out of the card.
+         */
+        private static float estimateTextWidth(String text, float fontSize) {
+            return text.length() * fontSize * 0.58f;
         }
     }
 
