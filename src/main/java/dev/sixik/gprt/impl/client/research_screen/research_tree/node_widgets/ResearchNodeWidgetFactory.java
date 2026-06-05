@@ -10,18 +10,23 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
  * </p>
  * <ol>
  *     <li>{@code ResearchNode} supplies logical research data.</li>
- *     <li>{@link ResearchNodeRenderContext} supplies volatile runtime state.</li>
+ *     <li>{@link ResearchNodeRenderContext} supplies volatile runtime state and the effective
+ *     runtime wrapper/bounds.</li>
  *     <li>{@link ResearchNodeVisualDefinition} supplies the resolved visual style.</li>
  *     <li>{@link ResearchNodeWidgetFactory} turns those inputs into actual {@link UIElement}s.</li>
  * </ol>
  *
  * <p>
- * The interface is split into create/update on purpose. The graph owns node lifetime and
- * positioning, while the factory owns only the internal widget composition and visual refreshes.
+ * The interface is split into create/update on purpose. The graph owns node lifetime, while the
+ * factory can now also influence the effective runtime size/placement through the wrapper stored
+ * in {@link ResearchNodeRenderContext}. This makes style-specific cards possible without forcing
+ * those visual bounds back into the logical node model.
  * </p>
  *
  * <p><b>Navigation:</b></p>
  * <ul>
+ *     <li>{@link #prepareNodeWrapper(ResearchNode, ResearchNodeRenderContext)} -
+ *     optional runtime geometry adjustment before visuals are resolved;</li>
  *     <li>{@link #createNodeWidget(ResearchNode, ResearchNodeRenderContext, ResearchNodeVisualDefinition, Runnable)} -
  *     initial widget assembly;</li>
  *     <li>{@link #updateNodeWidget(UIElement, ResearchNode, ResearchNodeRenderContext, ResearchNodeVisualDefinition)} -
@@ -29,6 +34,21 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
  * </ul>
  */
 public interface ResearchNodeWidgetFactory {
+    /**
+     * Allows the factory to adjust the effective runtime bounds before visuals are resolved.
+     * <p>
+     * This is the hook that lets a style say "my card should be wider/taller/shifted a bit"
+     * while keeping {@link ResearchNode} itself unchanged. The wrapper inside the supplied
+     * context is mutable on purpose.
+     * </p>
+     *
+     * <p>
+     * Default implementation does nothing.
+     * </p>
+     */
+    default void prepareNodeWrapper(ResearchNode node, ResearchNodeRenderContext context) {
+    }
+
     /**
      * Creates a brand-new widget for one logical research node.
      * <p>

@@ -130,8 +130,11 @@ public final class DefaultResearchNodeWidgetFactory implements ResearchNodeWidge
                            ResearchNodeRenderContext context,
                            ResearchNodeVisualDefinition visualDefinition
         ) {
+            ResearchNodeWrapper wrapper = context.getNodeWrapper();
             setDisplay(context.isVisible());
             setActive(context.isVisible() && !context.isInteractionLocked());
+
+            layout(layout -> layout.width(wrapper.getWidth()).height(wrapper.getHeight()));
 
             applyFrameStyle(context, visualDefinition);
             applyAccentBar(visualDefinition);

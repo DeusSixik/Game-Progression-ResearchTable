@@ -25,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
  * </p>
  */
 public final class ResearchNodeRenderContext {
+    private final ResearchNodeWrapper nodeWrapper;
     private final ResearchState state;
     private final boolean visible;
     private final boolean highlighted;
@@ -42,6 +43,7 @@ public final class ResearchNodeRenderContext {
     private final ResearchRevealAnimationStyle unlockRevealAnimationStyle;
 
     private ResearchNodeRenderContext(Builder builder) {
+        this.nodeWrapper = builder.nodeWrapper;
         this.state = builder.state;
         this.visible = builder.visible;
         this.highlighted = builder.highlighted;
@@ -61,6 +63,18 @@ public final class ResearchNodeRenderContext {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Returns the effective runtime bounds used by the current visual/widget layer.
+     * <p>
+     * This wrapper starts from the logical {@code ResearchNode} bounds, but widget factories or
+     * screen-level styling code may expand or shift it to fit a custom card style without changing
+     * the graph model itself.
+     * </p>
+     */
+    public ResearchNodeWrapper getNodeWrapper() {
+        return nodeWrapper;
     }
 
     public ResearchState getState() {
@@ -156,6 +170,7 @@ public final class ResearchNodeRenderContext {
      * </ul>
      */
     public static final class Builder {
+        private ResearchNodeWrapper nodeWrapper;
         private ResearchState state = ResearchState.LOCKED;
         private boolean visible = true;
         private boolean highlighted;
@@ -171,6 +186,14 @@ public final class ResearchNodeRenderContext {
         private float unlockCurrentTranslateX;
         private float unlockCurrentTranslateY;
         private ResearchRevealAnimationStyle unlockRevealAnimationStyle = ResearchRevealAnimationStyle.DROP_BOUNCE;
+
+        /**
+         * Supplies the mutable runtime wrapper that carries effective node bounds for rendering.
+         */
+        public Builder nodeWrapper(ResearchNodeWrapper nodeWrapper) {
+            this.nodeWrapper = nodeWrapper;
+            return this;
+        }
 
         /**
          * Sets the logical progression state of the node.
@@ -283,6 +306,9 @@ public final class ResearchNodeRenderContext {
          * Builds the immutable runtime context snapshot.
          */
         public ResearchNodeRenderContext build() {
+            if (nodeWrapper == null) {
+                throw new IllegalStateException("ResearchNodeRenderContext requires a nodeWrapper");
+            }
             return new ResearchNodeRenderContext(this);
         }
     }

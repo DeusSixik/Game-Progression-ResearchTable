@@ -14,6 +14,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.util.DrawerHelper;
 import dev.sixik.gprt.registry.GPTRSounds;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.layout.DependencyTreeAutoLayout;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapper;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchRevealAnimationStyle;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
@@ -22,6 +23,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNo
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.AdvancedGraphView;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeLinkManager;
 import dev.sixik.gprt.impl.client.research_screen.widgets.nodes.managers.NodeManager;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -188,6 +190,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     private final IntArrayList queuedUnlockAnimationNodeIds = new IntArrayList();
     private final IntOpenHashSet queuedUnlockAnimationNodeIdSet = new IntOpenHashSet();
     private @Nullable UnlockAnimation activeUnlockAnimation;
+    protected final Int2ObjectOpenHashMap<ResearchNodeWrapper> nodeWrappersById = new Int2ObjectOpenHashMap<>();
 
     public ResearchTreeScreen() {
         this(new ResearchNodeManager(), new ResearchNodeLinkManager());
@@ -197,6 +200,44 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                               NodeLinkManager<ResearchLink, ObjectArrayList<ResearchLink>> linkManager
     ) {
         super(nodeManager, linkManager);
+    }
+
+    /**
+     * Returns the effective runtime wrapper for a node.
+     * <p>
+     * If no custom wrapper was cached yet, the method falls back to a direct mirror of the
+     * logical node bounds. This keeps the base tree logic safe even before a screen applies
+     * style-specific geometry overrides.
+     * </p>
+     */
+    protected ResearchNodeWrapper getNodeWrapper(ResearchNode node) {
+        ResearchNodeWrapper wrapper = nodeWrappersById.get(node.getId());
+        return wrapper != null ? wrapper : ResearchNodeWrapper.fromNode(node);
+    }
+
+    protected @Nullable ResearchNodeWrapper getNodeWrapper(int nodeId) {
+        ResearchNode node = getNodeById(nodeId);
+        return node == null ? null : getNodeWrapper(node);
+    }
+
+    @Override
+    public void centerCameraOn(int nodeId) {
+        ResearchNodeWrapper wrapper = getNodeWrapper(nodeId);
+        if (wrapper != null) {
+            centerCameraOn(wrapper.centerX(), wrapper.centerY());
+            return;
+        }
+        super.centerCameraOn(nodeId);
+    }
+
+    protected void setNodeWrapper(ResearchNodeWrapper wrapper) {
+        if (wrapper != null) {
+            nodeWrappersById.put(wrapper.getNodeId(), wrapper);
+        }
+    }
+
+    protected void removeNodeWrapper(int nodeId) {
+        nodeWrappersById.remove(nodeId);
     }
 
     /**
@@ -460,6 +501,7 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     public boolean removeNode(ResearchNode node) {
         boolean removed = super.removeNode(node);
         if (removed) {
+            removeNodeWrapper(node.getId());
             requestAutoLayout();
             if (!autoLayoutEnabled && !isAutoLayoutSuspended()) {
                 refreshResearchProgression();
@@ -729,8 +771,9 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             return;
         }
 
-        float targetOffsetX = computeCenteredOffsetX(node.centerX());
-        float targetOffsetY = computeCenteredOffsetY(node.centerY());
+        ResearchNodeWrapper wrapper = getNodeWrapper(node);
+        float targetOffsetX = computeCenteredOffsetX(wrapper.centerX());
+        float targetOffsetY = computeCenteredOffsetY(wrapper.centerY());
         activeUnlockAnimation = new UnlockAnimation(
                 nodeId,
                 System.currentTimeMillis(),
@@ -991,18 +1034,19 @@ public class ResearchTreeScreen extends AdvancedGraphView<
 
     protected void drawUnlockNodeUnderGlow(GUIContext guiContext, ResearchNode node, float progress01) {
         UnlockNodeTransform transform = getUnlockNodeAnimationTransform(node, progress01);
+        ResearchNodeWrapper wrapper = getNodeWrapper(node);
         float intensity = getUnlockNodeGlowIntensity(progress01);
         if (intensity <= 0.001f) {
             return;
         }
 
         float scale = Math.max(0.65f, transform.scale());
-        float centerX = node.centerX() + transform.translateX();
+        float centerX = wrapper.centerX() + transform.translateX();
         // Keep the glow slightly below the card center so it still reads as "light under the node",
         // but let it fill most of the widget footprint instead of collapsing into a thin strip.
-        float centerY = node.centerY() + transform.translateY() + node.getHeight() * scale * 0.04f;
-        float radiusX = getUnlockNodeGlowRadiusX(node, progress01, scale);
-        float radiusY = getUnlockNodeGlowRadiusY(node, progress01, scale);
+        float centerY = wrapper.centerY() + transform.translateY() + wrapper.getHeight() * scale * 0.04f;
+        float radiusX = getUnlockNodeGlowRadiusX(wrapper, progress01, scale);
+        float radiusY = getUnlockNodeGlowRadiusY(wrapper, progress01, scale);
         int glowColor = getUnlockNodeGlowColor(node);
 
         drawEllipseGlow(guiContext, centerX, centerY, radiusX, radiusY, glowColor, intensity);
@@ -1184,10 +1228,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
                 continue;
             }
 
-            float outlineX = node.getX() - GROUP_NODE_HIGHLIGHT_PADDING;
-            float outlineY = node.getY() - GROUP_NODE_HIGHLIGHT_PADDING;
-            float outlineWidth = node.getWidth() + GROUP_NODE_HIGHLIGHT_PADDING * 2f;
-            float outlineHeight = node.getHeight() + GROUP_NODE_HIGHLIGHT_PADDING * 2f;
+            ResearchNodeWrapper wrapper = getNodeWrapper(node);
+            float outlineX = wrapper.getX() - GROUP_NODE_HIGHLIGHT_PADDING;
+            float outlineY = wrapper.getY() - GROUP_NODE_HIGHLIGHT_PADDING;
+            float outlineWidth = wrapper.getWidth() + GROUP_NODE_HIGHLIGHT_PADDING * 2f;
+            float outlineHeight = wrapper.getHeight() + GROUP_NODE_HIGHLIGHT_PADDING * 2f;
 
             // Glow pass рисуется через прямоугольные полосы, поэтому нет щелей на стыках толстых углов.
             DrawerHelper.drawBorder(
@@ -1315,14 +1360,14 @@ public class ResearchTreeScreen extends AdvancedGraphView<
         return mixColors(getNodeGroupPrimaryColor(node), getNodeGroupSecondaryColor(node), 0.46f);
     }
 
-    protected float getUnlockNodeGlowRadiusX(ResearchNode node, float progress01, float currentScale) {
+    protected float getUnlockNodeGlowRadiusX(ResearchNodeWrapper wrapper, float progress01, float currentScale) {
         float radiusProgress = easeOutCubic(clamp01((progress01 - 0.06f) / 0.74f));
-        return node.getWidth() * currentScale * lerp(0.58f, 0.96f, radiusProgress);
+        return wrapper.getWidth() * currentScale * lerp(0.58f, 0.96f, radiusProgress);
     }
 
-    protected float getUnlockNodeGlowRadiusY(ResearchNode node, float progress01, float currentScale) {
+    protected float getUnlockNodeGlowRadiusY(ResearchNodeWrapper wrapper, float progress01, float currentScale) {
         float radiusProgress = easeOutCubic(clamp01((progress01 - 0.06f) / 0.74f));
-        return Math.max(18f, node.getHeight() * currentScale * lerp(0.62f, 1.02f, radiusProgress));
+        return Math.max(18f, wrapper.getHeight() * currentScale * lerp(0.62f, 1.02f, radiusProgress));
     }
 
     protected float getUnlockNodeGlowIntensity(float progress01) {
@@ -1403,9 +1448,11 @@ public class ResearchTreeScreen extends AdvancedGraphView<
      * </p>
      */
     private LinkRoute buildLinkRoute(ResearchLink link, ResearchNode from, ResearchNode to) {
-        float startX = from.getX() + from.getWidth();
-        float startY = from.centerY();
-        float endX = to.getX();
+        ResearchNodeWrapper fromWrapper = getNodeWrapper(from);
+        ResearchNodeWrapper toWrapper = getNodeWrapper(to);
+        float startX = fromWrapper.getX() + fromWrapper.getWidth();
+        float startY = fromWrapper.centerY();
+        float endX = toWrapper.getX();
         float endY = resolveIncomingLinkAttachY(link, from, to);
 
         int startColor = getLinkStartColor(link);
@@ -1462,22 +1509,23 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private float resolveIncomingLinkAttachY(ResearchLink link, ResearchNode from, ResearchNode to) {
+        ResearchNodeWrapper toWrapper = getNodeWrapper(to);
         IncomingGroupLayout layout = getIncomingGroupLayout(to);
         if (layout.groupIds().size() <= 1) {
-            return to.centerY();
+            return toWrapper.centerY();
         }
 
         int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
         if (groupIndex < 0) {
-            return to.centerY();
+            return toWrapper.centerY();
         }
 
-        float topInset = Math.min(12f, Math.max(5f, to.getHeight() * 0.22f));
-        float top = to.getY() + topInset;
-        float bottom = to.getY() + to.getHeight() - topInset;
+        float topInset = Math.min(12f, Math.max(5f, toWrapper.getHeight() * 0.22f));
+        float top = toWrapper.getY() + topInset;
+        float bottom = toWrapper.getY() + toWrapper.getHeight() - topInset;
         if (layout.groupIds().size() == 2) {
-            float offset = Math.min(10f, Math.max(5f, to.getHeight() * 0.18f));
-            return groupIndex == 0 ? to.centerY() - offset : to.centerY() + offset;
+            float offset = Math.min(10f, Math.max(5f, toWrapper.getHeight() * 0.18f));
+            return groupIndex == 0 ? toWrapper.centerY() - offset : toWrapper.centerY() + offset;
         }
 
         float step = (bottom - top) / Math.max(1, layout.groupIds().size() - 1);
@@ -1485,14 +1533,15 @@ public class ResearchTreeScreen extends AdvancedGraphView<
     }
 
     private float resolveIncomingLinkLaneY(ResearchLink link, ResearchNode from, ResearchNode to, IncomingGroupLayout layout) {
+        ResearchNodeWrapper toWrapper = getNodeWrapper(to);
         int groupIndex = layout.groupIds().indexOf(from.getGroup().getId());
         if (groupIndex < 0) {
-            return to.centerY();
+            return toWrapper.centerY();
         }
 
         float laneSpacing = Math.max(18f, getLinkWidth(link) * 6f);
         float centerOffset = groupIndex - (layout.groupIds().size() - 1) * 0.5f;
-        return to.centerY() + centerOffset * laneSpacing;
+        return toWrapper.centerY() + centerOffset * laneSpacing;
     }
 
     private float resolveIncomingLinkStartLaneX(ResearchLink link,
@@ -1679,12 +1728,13 @@ public class ResearchTreeScreen extends AdvancedGraphView<
             }
 
             ResearchGroup group = node.getGroup();
+            ResearchNodeWrapper wrapper = getNodeWrapper(node);
             GroupMarkerBounds bounds = boundsByGroupId.get(group.getId());
             if (bounds == null) {
-                bounds = new GroupMarkerBounds(group, node.getX(), node.getY(), node.getX() + node.getWidth(), node.getY() + node.getHeight());
+                bounds = new GroupMarkerBounds(group, wrapper.getX(), wrapper.getY(), wrapper.getX() + wrapper.getWidth(), wrapper.getY() + wrapper.getHeight());
                 boundsByGroupId.put(group.getId(), bounds);
             } else {
-                bounds.include(node.getX(), node.getY(), node.getX() + node.getWidth(), node.getY() + node.getHeight());
+                bounds.include(wrapper.getX(), wrapper.getY(), wrapper.getX() + wrapper.getWidth(), wrapper.getY() + wrapper.getHeight());
             }
         }
 

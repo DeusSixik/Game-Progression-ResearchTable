@@ -20,6 +20,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualResolver;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapper;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchLink;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.presentation.ResearchUnlockPresentationController;
@@ -239,7 +240,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 buildNodeTheme(node, context),
                 node,
                 context,
-                resolveNodeSizePreset(node)
+                resolveNodeSizePreset(context.getNodeWrapper())
         );
     }
 
@@ -253,6 +254,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
             return node.getRevealAnimationStyle();
         }
         ResearchNodeRenderContext previewContext = ResearchNodeRenderContext.builder()
+                .nodeWrapper(ResearchNodeWrapper.fromNode(node))
                 .state(resolveNodeState(node))
                 .visible(isNodeVisible(node.getId()))
                 .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
@@ -544,10 +546,11 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     @Override
     protected @Nullable UIElement createNodeWidget(ResearchNode node) {
         ResearchNodeRenderContext context = buildNodeRenderContext(node);
+        ResearchNodeVisualDefinition visualDefinition = buildNodeVisualDefinition(node, context);
         UIElement nodeWidget = getNodeWidgetFactory().createNodeWidget(
                 node,
                 context,
-                buildNodeVisualDefinition(node, context),
+                visualDefinition,
                 () -> {
                     if (isUnlockAnimationActive()) {
                         return;
@@ -558,13 +561,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 }
         );
         nodeWidgetsById.put(node.getId(), nodeWidget);
-        nodeWidget.layout(layout -> layout
-                .positionType(TaffyPosition.ABSOLUTE)
-                .left(node.getX())
-                .top(node.getY())
-                .width(node.getWidth())
-                .height(node.getHeight())
-        );
+        applyNodeWidgetLayout(nodeWidget, context.getNodeWrapper());
         return nodeWidget;
     }
 
@@ -1197,6 +1194,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
     }
 
     private ResearchNodeRenderContext buildNodeRenderContext(ResearchNode node, long nowMs) {
+        ResearchNodeWrapper nodeWrapper = buildNodeWrapper(node, nowMs);
         boolean unlockAnimating = isUnlockAnimationNode(node);
         float unlockNodeProgress01 = unlockAnimating ? getUnlockNodeAnimationProgress01(node, nowMs) : 0f;
         float unlockLinkProgress01 = unlockAnimating ? getUnlockLinkAnimationProgress01(node, nowMs) : 0f;
@@ -1205,6 +1203,7 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
                 : new UnlockNodeTransform(1f, 0f, 0f);
         ResearchRevealAnimationStyle revealAnimationStyle = resolveUnlockRevealAnimationStyle(node);
         return ResearchNodeRenderContext.builder()
+                .nodeWrapper(nodeWrapper)
                 .state(resolveNodeState(node))
                 .visible(isNodeVisible(node.getId()))
                 .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
@@ -1257,14 +1256,52 @@ public abstract class ResearchTreeScreenMainScreen extends ResearchTreeScreen {
         }
 
         ResearchNodeRenderContext context = buildNodeRenderContext(node, nowMs);
-        getNodeWidgetFactory().updateNodeWidget(widget, node, context, buildNodeVisualDefinition(node, context));
+        ResearchNodeVisualDefinition visualDefinition = buildNodeVisualDefinition(node, context);
+        getNodeWidgetFactory().updateNodeWidget(widget, node, context, visualDefinition);
+        applyNodeWidgetLayout(widget, context.getNodeWrapper());
     }
 
-    private ResearchNodeVisualDefinition.SizePreset resolveNodeSizePreset(ResearchNode node) {
-        if (node.getHeight() >= 50f || node.getWidth() >= 170f) {
+    /**
+     * Builds the runtime wrapper used by widget styling, camera focus and reveal visuals.
+     * <p>
+     * Default behavior mirrors the logical node bounds 1:1. Subclasses may override this to
+     * define style-specific card geometry without mutating the graph model itself.
+     * </p>
+     */
+    protected ResearchNodeWrapper buildNodeWrapper(ResearchNode node, long nowMs) {
+        ResearchNodeWrapper wrapper = ResearchNodeWrapper.fromNode(node);
+        ResearchNodeRenderContext preparationContext = ResearchNodeRenderContext.builder()
+                .nodeWrapper(wrapper)
+                .state(resolveNodeState(node))
+                .visible(isNodeVisible(node.getId()))
+                .highlighted(getHighlightedGroupId() != null && getHighlightedGroupId().equals(node.getGroup().getId()))
+                .interactionLocked(isUnlockAnimationActive())
+                .selected(selectedNodeId == node.getId() && detailsPanelTargetProgress > 0f)
+                .hasNewUnlockMarker(false)
+                .nowMs(nowMs)
+                .progress(researchProgressController.getProgress(node))
+                .unlockRevealAnimationStyle(resolveUnlockRevealAnimationStyle(node))
+                .build();
+        getNodeWidgetFactory().prepareNodeWrapper(node, preparationContext);
+        setNodeWrapper(wrapper);
+        return wrapper;
+    }
+
+    private void applyNodeWidgetLayout(UIElement nodeWidget, ResearchNodeWrapper wrapper) {
+        nodeWidget.layout(layout -> layout
+                .positionType(TaffyPosition.ABSOLUTE)
+                .left(wrapper.getX())
+                .top(wrapper.getY())
+                .width(wrapper.getWidth())
+                .height(wrapper.getHeight())
+        );
+    }
+
+    private ResearchNodeVisualDefinition.SizePreset resolveNodeSizePreset(ResearchNodeWrapper wrapper) {
+        if (wrapper.getHeight() >= 50f || wrapper.getWidth() >= 170f) {
             return ResearchNodeVisualDefinition.SizePreset.LARGE;
         }
-        if (node.getHeight() <= 30f || node.getWidth() <= 116f) {
+        if (wrapper.getHeight() <= 30f || wrapper.getWidth() <= 116f) {
             return ResearchNodeVisualDefinition.SizePreset.SMALL;
         }
         return ResearchNodeVisualDefinition.SizePreset.MEDIUM;

@@ -19,6 +19,7 @@ import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.Res
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeThemes;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeVisualDefinition;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWidgetFactory;
+import dev.sixik.gprt.impl.client.research_screen.research_tree.node_widgets.ResearchNodeWrapper;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.nodes.ResearchNode;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ClientResearchProgress;
 import dev.sixik.gprt.impl.client.research_screen.research_tree.progress.ResearchState;
@@ -225,6 +226,32 @@ public final class DebugResearchNodeWidgetShowcase {
         }
 
         @Override
+        public void prepareNodeWrapper(ResearchNode node, ResearchNodeRenderContext context) {
+            ResearchNodeWrapper wrapper = context.getNodeWrapper();
+            StyleMode styleMode = styleModeSupplier.get();
+            if (styleMode == StyleMode.TECH_CARDS) {
+                float extraWidth = Math.max(22f, node.getWidth() * 0.18f);
+                float extraHeight = Math.max(10f, node.getHeight() * 0.12f);
+                wrapper.setBounds(
+                        node.getX() - extraWidth * 0.5f,
+                        node.getY() - extraHeight * 0.5f,
+                        node.getWidth() + extraWidth,
+                        node.getHeight() + extraHeight
+                );
+                return;
+            }
+
+            String groupId = node.getGroup() != null ? node.getGroup().getId() : "";
+            switch (groupId) {
+                case "metallurgy" -> wrapper.setBounds(node.getX() - 8f, node.getY() - 2f, node.getWidth() + 18f, node.getHeight() + 4f);
+                case "farming" -> wrapper.setBounds(node.getX() - 4f, node.getY() - 4f, node.getWidth() + 14f, node.getHeight() + 12f);
+                case "logistics" -> wrapper.setBounds(node.getX() - 6f, node.getY() - 2f, node.getWidth() + 20f, node.getHeight() + 6f);
+                default -> {
+                }
+            }
+        }
+
+        @Override
         public UIElement createNodeWidget(ResearchNode node,
                                           ResearchNodeRenderContext context,
                                           ResearchNodeVisualDefinition visualDefinition,
@@ -356,11 +383,12 @@ public final class DebugResearchNodeWidgetShowcase {
                            ResearchNodeRenderContext context,
                            ResearchNodeVisualDefinition visualDefinition
         ) {
+            ResearchNodeWrapper wrapper = context.getNodeWrapper();
             setDisplay(context.isVisible());
             setActive(context.isVisible() && !context.isInteractionLocked());
 
-            float width = node.getWidth();
-            float height = node.getHeight();
+            float width = wrapper.getWidth();
+            float height = wrapper.getHeight();
             StyleMode styleMode = styleModeSupplier.get();
             LayoutVariant variant = resolveVariant(node, styleMode);
 
